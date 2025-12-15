@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import Finance from './pages/Finance';
 
@@ -14,14 +15,15 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/clients" element={<Clients />} />
-          <Route path="/clients/:id" element={<ClientProfile />} />
-          <Route path="/workouts" element={<Workouts />} />
-          <Route path="/agenda" element={<Agenda />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/reports" element={<Reports />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/dashboard" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="clients/:id" element={<ClientProfile />} />
+          <Route path="workouts" element={<Workouts />} />
+          <Route path="agenda" element={<Agenda />} />
+          <Route path="finance" element={<Finance />} />
+          <Route path="reports" element={<Reports />} />
         </Route>
       </Routes>
     </BrowserRouter>

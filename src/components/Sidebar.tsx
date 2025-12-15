@@ -4,12 +4,12 @@ import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
 
 const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Users, label: 'Clientes', path: '/clients' },
-    { icon: Dumbbell, label: 'Entrenamientos', path: '/workouts' },
-    { icon: Calendar, label: 'Agenda', path: '/agenda' },
-    { icon: DollarSign, label: 'Finanzas', path: '/finance' },
-    { icon: BarChart3, label: 'Reportes', path: '/reports' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+    { icon: Users, label: 'Clientes', path: '/dashboard/clients' },
+    { icon: Dumbbell, label: 'Entrenamientos', path: '/dashboard/workouts' },
+    { icon: Calendar, label: 'Agenda', path: '/dashboard/agenda' },
+    { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance' },
+    { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports' },
 ];
 
 const Sidebar = () => {

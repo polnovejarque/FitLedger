@@ -1,5 +1,5 @@
-import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, LogOut } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { NavLink, Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
 
@@ -10,17 +10,19 @@ const navItems = [
     { icon: Calendar, label: 'Agenda', path: '/dashboard/agenda' },
     { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance' },
     { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports' },
+    { icon: SettingsIcon, label: 'Configuración', path: '/dashboard/settings' },
 ];
 
 const Sidebar = () => {
     return (
-        <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-card">
+        <aside className="h-screen w-64 bg-background border-r border-border">
             <div className="flex h-full flex-col px-3 py-4">
-                <div className="mb-10 flex items-center px-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                        <span className="text-xl font-bold">FL</span>
-                    </div>
-                    <span className="ml-3 text-xl font-bold tracking-tight">FitLedger</span>
+                {/* --- LOGO ACTUALIZADO --- */}
+                <div className="mb-8 flex items-center px-2">
+                    <Link to="/dashboard" className="flex items-center gap-3">
+                        <img src="/logo.png" alt="FitLeader" className="h-8 w-8 object-contain" />
+                        <span className="text-xl font-bold tracking-tight text-foreground">FitLeader</span>
+                    </Link>
                 </div>
 
                 <nav className="flex-1 space-y-1">

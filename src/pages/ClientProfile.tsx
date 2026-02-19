@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-// ✅ CORREGIDO: He quitado Calendar, Ruler, ChevronDown y ChevronUp
+import ClientHistoryModal from '../components/ClientHistoryModal';
+
 import { 
-    ArrowLeft, Mail, MapPin, TrendingUp, AlertCircle, 
+    ArrowLeft, Mail, MapPin, AlertCircle, 
     Lock, Copy, Check, Loader2, CreditCard, 
-    Scale, Camera, ImageIcon
+    Scale, Camera, ImageIcon, Trophy, User
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
@@ -17,89 +18,105 @@ import type { ToastProps } from '../components/ui/Toast';
 
 const ClientProfile = () => {
     const navigate = useNavigate();
-    const { id } = useParams(); // ID del cliente
+    const { id } = useParams();
     
-    // --- ESTADOS PRINCIPALES ---
+    // --- ESTADOS ---
     const [client, setClient] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     
-    // --- ESTADOS DE PROGRESO ---
+    // Stats y Progreso
     const [progressHistory, setProgressHistory] = useState<any[]>([]);
     const [stats, setStats] = useState({
-        startWeight: 0,
-        currentWeight: 0,
-        weightDiff: 0,
-        startWaist: 0,
-        currentWaist: 0,
-        waistDiff: 0
+        startWeight: 0, currentWeight: 0, weightDiff: 0,
+        startWaist: 0, currentWaist: 0, waistDiff: 0
     });
     const [photos, setPhotos] = useState<any[]>([]); 
     
-    // --- UI STATES ---
+    // UI
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [toasts, setToasts] = useState<ToastProps[]>([]);
     const [copied, setCopied] = useState(false); 
     const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
+    
+    // NUEVO ESTADO PARA EL TOOLTIP PREMIUM
+    const [showPremiumTooltip, setShowPremiumTooltip] = useState(false);
 
-    // --- CARGAR DATOS ---
+    // --- CARGA DE DATOS ---
     useEffect(() => {
         const fetchRealData = async () => {
             if (!id) return;
             setLoading(true);
 
-            // 1. Datos del Cliente
-            const { data: clientData, error } = await supabase
-                .from('clients')
-                .select('*')
-                .eq('id', id)
-                .single();
+            try {
+                // 1. Cliente
+                const { data: clientData, error } = await supabase
+                    .from('clients')
+                    .select('*')
+                    .eq('id', id)
+                    .maybeSingle();
 
-            if (error) {
-                console.error("Error al cargar cliente:", error);
-                navigate('/dashboard/clients'); 
-                return;
-            }
+                if (error || !clientData) {
+                    navigate('/dashboard/clients'); 
+                    return;
+                }
 
-            setClient({
-                ...clientData,
-                goals: clientData.goals || [], 
-                limitations: clientData.limitations || []
-            });
+                // Normalización de datos
+                const safeGoals = Array.isArray(clientData.goals) 
+                    ? clientData.goals 
+                    : (clientData.goals ? [clientData.goals] : (clientData.objective ? [clientData.objective] : []));
 
-            // 2. Datos de Progreso
-            const { data: progressData } = await supabase
-                .from('client_progress')
-                .select('*')
-                .eq('client_id', id)
-                .order('date', { ascending: false });
+                const safeLimitations = Array.isArray(clientData.limitations) 
+                    ? clientData.limitations 
+                    : (clientData.limitations ? [clientData.limitations] : []);
 
-            if (progressData && progressData.length > 0) {
-                setProgressHistory(progressData);
-
-                const latest = progressData[0];
-                const first = progressData[progressData.length - 1];
-
-                setStats({
-                    startWeight: first.weight || 0,
-                    currentWeight: latest.weight || 0,
-                    weightDiff: (latest.weight || 0) - (first.weight || 0),
-                    startWaist: first.waist || 0,
-                    currentWaist: latest.waist || 0,
-                    waistDiff: (latest.waist || 0) - (first.waist || 0)
+                setClient({
+                    ...clientData,
+                    goals: safeGoals,
+                    limitations: safeLimitations
                 });
 
-                const extractedPhotos: any[] = [];
-                progressData.forEach((entry: any) => {
-                    if (entry.front_photo) extractedPhotos.push({ url: entry.front_photo, date: entry.date, type: 'Frontal' });
-                    if (entry.back_photo) extractedPhotos.push({ url: entry.back_photo, date: entry.date, type: 'Espalda' });
-                    if (entry.side_photo) extractedPhotos.push({ url: entry.side_photo, date: entry.date, type: 'Perfil' });
-                });
-                setPhotos(extractedPhotos);
-            }
+                // 2. Progreso
+                const { data: progressData } = await supabase
+                    .from('client_progress')
+                    .select('*')
+                    .eq('client_id', id)
+                    .order('date', { ascending: false });
 
-            setLoading(false);
+                if (progressData && progressData.length > 0) {
+                    setProgressHistory(progressData);
+                    const latest = progressData[0]; 
+                    const first = progressData[progressData.length - 1]; 
+
+                    setStats({
+                        startWeight: first.weight || 0,
+                        currentWeight: latest.weight || 0,
+                        weightDiff: (latest.weight && first.weight) ? (latest.weight - first.weight) : 0,
+                        startWaist: first.waist || 0,
+                        currentWaist: latest.waist || 0,
+                        waistDiff: (latest.waist && first.waist) ? (latest.waist - first.waist) : 0
+                    });
+
+                    // Procesar fotos para la galería
+                    const extractedPhotos: any[] = [];
+                    progressData.forEach((entry: any) => {
+                        if (entry.front_photo) extractedPhotos.push({ url: entry.front_photo, date: entry.date, type: 'Frontal' });
+                        if (entry.back_photo) extractedPhotos.push({ url: entry.back_photo, date: entry.date, type: 'Espalda' });
+                        if (entry.side_photo) extractedPhotos.push({ url: entry.side_photo, date: entry.date, type: 'Perfil' });
+                    });
+                    setPhotos(extractedPhotos);
+                } else {
+                    setProgressHistory([]);
+                    setPhotos([]);
+                }
+
+            } catch (err) {
+                console.error("Excepción:", err);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchRealData();
     }, [id, navigate]);
@@ -107,7 +124,7 @@ const ClientProfile = () => {
     // --- FUNCIONES AUXILIARES ---
     const addToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
         const idToast = `toast-${Date.now()}`;
-        setToasts((prev) => [...prev, { id: idToast, message, type, onClose: (id) => setToasts(p => p.filter(t => t.id !== id)) }]);
+        setToasts((prev) => [...prev, { id: idToast, message, type, onClose: (id: string) => setToasts(p => p.filter(t => t.id !== id)) }]);
     };
 
     const handleUpdateClient = async (updatedData: any) => {
@@ -122,6 +139,7 @@ const ClientProfile = () => {
     };
 
     const copyCredentials = () => {
+        if (!client) return;
         const text = `Usuario: ${client.email}\nCódigo: ${client.access_code || '1234'}`;
         navigator.clipboard.writeText(text);
         setCopied(true);
@@ -129,112 +147,177 @@ const ClientProfile = () => {
         addToast('Credenciales copiadas', 'success');
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center bg-black text-white"><Loader2 className="h-10 w-10 animate-spin text-emerald-500"/></div>;
-    if (!client) return <div className="p-8 text-white">Cliente no encontrado</div>;
-
-    const clientStats = {
-        location: client.location || 'Ubicación no definida',
-        joinDate: new Date(client.created_at).toLocaleDateString(),
+    const handlePremiumClick = () => {
+        setShowPremiumTooltip(true);
+        setTimeout(() => setShowPremiumTooltip(false), 3000); // Se oculta a los 3 segundos
     };
+
+    const formatDateSafe = (dateString: string | null) => {
+        if (!dateString) return 'N/A';
+        try { return new Date(dateString).toLocaleDateString(); } catch { return 'N/A'; }
+    };
+
+    if (loading) return <div className="flex h-screen items-center justify-center bg-black text-white"><Loader2 className="h-10 w-10 animate-spin text-emerald-500"/></div>;
+    if (!client) return null;
+
+    const displayImage = client.image_url; 
 
     return (
         <div className="space-y-6 pb-20 animate-in fade-in duration-500">
-            {/* --- HEADER --- */}
-            <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard/clients')}>
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white">{client.name}</h1>
-                        <div className="flex items-center gap-2 text-zinc-400 text-sm">
-                            <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {client.email}</span>
-                            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {clientStats.location}</span>
+            
+            {/* --- HEADER: DISEÑO "HERO CARD" UNIFICADO --- */}
+            <div className="space-y-4">
+                <button onClick={() => navigate('/dashboard/clients')} className="flex items-center gap-2 text-zinc-500 hover:text-white text-sm transition-colors mb-2">
+                    <ArrowLeft className="w-4 h-4" /> Volver a la lista
+                </button>
+
+                <div className="bg-[#111] border border-zinc-800 rounded-3xl p-8 relative overflow-hidden shadow-2xl">
+                    <div className="absolute top-0 right-0 p-40 bg-emerald-500/5 blur-[100px] rounded-full pointer-events-none" />
+
+                    <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6">
+                        
+                        <div className="flex flex-col md:flex-row gap-6 w-full">
+                            {/* FOTO DE PERFIL */}
+                            <div className="relative flex-shrink-0 mx-auto md:mx-0">
+                                <div className="w-24 h-24 rounded-full border-4 border-zinc-900 shadow-xl overflow-hidden bg-zinc-800 flex items-center justify-center">
+                                    {displayImage ? (
+                                        <img src={displayImage} alt={client.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <User className="w-10 h-10 text-zinc-500" />
+                                    )}
+                                </div>
+                                <div className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-4 border-[#111] rounded-full" title="Activo"></div>
+                            </div>
+
+                            {/* DATOS DEL CLIENTE */}
+                            <div className="text-center md:text-left space-y-2 flex-1">
+                                <h1 className="text-3xl font-bold text-white">{client.name}</h1>
+                                
+                                <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 text-sm text-zinc-400">
+                                    <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {client.location || 'Remoto'}</span>
+                                    <span className="flex items-center gap-1.5"><Mail className="w-4 h-4" /> {client.email}</span>
+                                    <span className="text-zinc-600">•</span>
+                                    <span>Miembro desde {formatDateSafe(client.created_at)}</span>
+                                </div>
+
+                                <div className="pt-2 flex justify-center md:justify-start">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-900/80 border border-zinc-800 rounded-lg text-sm">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                        <span className="text-zinc-400 font-medium">Objetivo:</span>
+                                        <span className="text-white font-bold">{client.goals?.[0] || client.objective || "Sin definir"}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Derecha: Botones de Acción */}
+                        <div className="flex flex-wrap gap-2 justify-center md:justify-end w-full md:w-auto flex-shrink-0">
+                            
+                            {/* --- BOTÓN CHAT BLOQUEADO --- */}
+                            <div className="relative">
+                                <Button 
+                                    variant="outline" 
+                                    className="h-9 border-zinc-700 bg-zinc-800/50 text-zinc-500 gap-2 cursor-not-allowed hover:bg-zinc-800 transition-colors" 
+                                    onClick={handlePremiumClick}
+                                >
+                                    <Lock className="w-4 h-4" /> Chat
+                                </Button>
+                                
+                                {showPremiumTooltip && (
+                                    <div className="absolute top-full right-0 mt-2 w-max px-3 py-2 bg-black border border-zinc-700 rounded-lg shadow-xl z-50 animate-in fade-in slide-in-from-top-1">
+                                        <p className="text-xs font-bold text-white flex items-center gap-1">
+                                            💎 Disponible con el plan Premium
+                                        </p>
+                                        <div className="absolute -top-1 right-6 w-2 h-2 bg-black border-t border-l border-zinc-700 rotate-45"></div>
+                                    </div>
+                                )}
+                            </div>
+                            {/* --------------------------- */}
+
+                            <Button className="h-9 bg-emerald-500 text-black hover:bg-emerald-400 font-bold gap-2" onClick={() => setEditModalOpen(true)}>
+                                Editar Perfil
+                            </Button>
                         </div>
                     </div>
-                </div>
-                <div className="flex gap-2 mt-4 md:mt-0">
-                    <Button variant="outline" onClick={() => setEditModalOpen(true)}>Editar Perfil</Button>
-                    <Button variant="outline" className="gap-2" onClick={() => setPaymentModalOpen(true)}>
-                        <CreditCard className="w-4 h-4" /> Link de Pago
-                    </Button>
-                </div>
-            </div>
 
-            {/* --- TABS --- */}
-            <div className="border-b border-zinc-800">
-                <div className="flex gap-6 overflow-x-auto">
-                    {['overview', 'workouts', 'progress', 'finance'].map((tab) => (
-                        <button key={tab} onClick={() => setActiveTab(tab)} className={cn("pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap capitalize", activeTab === tab ? "border-emerald-500 text-emerald-500" : "border-transparent text-zinc-400 hover:text-white")}>
-                            {tab === 'overview' ? 'Vista General' : tab === 'workouts' ? 'Rutinas' : tab === 'finance' ? 'Finanzas' : 'Progreso'}
-                        </button>
-                    ))}
+                    {/* TABS */}
+                    <div className="mt-10 pt-1 border-t border-zinc-800/50 flex flex-wrap gap-2 justify-center md:justify-start">
+                        {['overview', 'workouts', 'progress', 'finance'].map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={cn(
+                                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                                    activeTab === tab 
+                                        ? "bg-zinc-800 text-white shadow-sm" 
+                                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50"
+                                )}
+                            >
+                                {tab === 'overview' ? 'Resumen' : tab === 'workouts' ? 'Rutinas' : tab === 'finance' ? 'Finanzas' : 'Fotos y Métricas'}
+                            </button>
+                        ))}
+                        
+                        <div className="ml-auto flex gap-2 hidden md:flex">
+                            <button onClick={() => setHistoryModalOpen(true)} className="px-3 py-2 text-xs font-medium text-emerald-500 hover:text-emerald-400 flex items-center gap-1.5 transition-colors">
+                                <Trophy className="w-3.5 h-3.5" /> Ver Historial
+                            </button>
+                            <button onClick={() => setPaymentModalOpen(true)} className="px-3 py-2 text-xs font-medium text-zinc-400 hover:text-white flex items-center gap-1.5 transition-colors">
+                                <CreditCard className="w-3.5 h-3.5" /> Link Pago
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* --- CONTENIDO --- */}
             <div className="mt-6">
-                
-                {/* --- VISTA GENERAL --- */}
                 {activeTab === 'overview' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-6">
                             {/* Credenciales */}
-                            <Card className="border-blue-500/30 bg-blue-500/5 relative overflow-hidden">
+                            <Card className="border-blue-500/20 bg-blue-500/5 relative overflow-hidden">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-base flex items-center gap-2 text-blue-400">
                                         <Lock className="w-4 h-4" /> Acceso App Atleta
                                     </CardTitle>
-                                    <CardDescription className="text-blue-200/50">Credenciales para entrar en la App móvil.</CardDescription>
+                                    <CardDescription className="text-blue-200/40">Credenciales para entrar en la App móvil.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4 relative z-10">
-                                    <div className="bg-[#000]/40 border border-blue-500/20 p-3 rounded-lg space-y-2">
+                                    <div className="bg-[#050505] border border-blue-500/20 p-3 rounded-lg space-y-2">
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-zinc-400">Usuario:</span>
+                                            <span className="text-zinc-500">Usuario:</span>
                                             <span className="font-mono font-medium text-white select-all">{client.email}</span>
                                         </div>
                                         <div className="h-[1px] bg-blue-500/10" />
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-zinc-400">Código Acceso:</span>
+                                            <span className="text-zinc-500">Código:</span>
                                             <span className="font-mono font-bold text-lg tracking-widest text-blue-400 select-all">{client.access_code || '1234'}</span>
                                         </div>
                                     </div>
-                                    <Button onClick={copyCredentials} variant="ghost" className="w-full gap-2 border border-blue-500/30 hover:bg-blue-500/10 text-blue-400 hover:text-blue-300">
-                                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                    <Button onClick={copyCredentials} variant="ghost" className="w-full gap-2 border border-blue-500/20 hover:bg-blue-500/10 text-blue-400 hover:text-blue-300 h-9 text-xs">
+                                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                                         {copied ? "¡Copiado!" : "Copiar Credenciales"}
                                     </Button>
-                                </CardContent>
-                            </Card>
-
-                            {/* Info Cliente */}
-                            <Card className="bg-[#111] border-zinc-800">
-                                <CardHeader><CardTitle className="text-white">Información Cliente</CardTitle></CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div><p className="text-zinc-500">Teléfono</p><p className="font-medium text-white">{client.phone || '-'}</p></div>
-                                        <div><p className="text-zinc-500">Miembro desde</p><p className="font-medium text-white">{new Date(client.created_at).toLocaleDateString()}</p></div>
-                                        <div><p className="text-zinc-500">Plan Actual</p><p className="font-medium text-white">{client.plan || 'Básico'}</p></div>
-                                        <div><p className="text-zinc-500">Estado</p><span className="text-emerald-500 font-medium">Activo</span></div>
-                                    </div>
                                 </CardContent>
                             </Card>
                         </div>
                         
                         <div className="space-y-6">
                             <Card className="bg-[#111] border-zinc-800">
-                                <CardHeader><CardTitle className="text-white">Objetivos y Limitaciones</CardTitle></CardHeader>
+                                <CardHeader><CardTitle className="text-white text-base">Detalles del Plan</CardTitle></CardHeader>
                                 <CardContent className="space-y-6">
                                     <div>
-                                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-zinc-300"><TrendingUp className="w-4 h-4 text-emerald-500" /> Objetivos</h4>
-                                        {client.goals && client.goals.length > 0 ? (
-                                            <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">{client.goals.map((g:string, i:number) => <li key={i}>{g}</li>)}</ul>
-                                        ) : <p className="text-sm text-zinc-600 italic">Sin objetivos definidos.</p>}
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-zinc-300"><AlertCircle className="w-4 h-4 text-red-500" /> Limitaciones</h4>
-                                        {client.limitations && client.limitations.length > 0 ? (
-                                            <ul className="list-disc list-inside text-sm text-zinc-400 space-y-1">{client.limitations.map((l:string, i:number) => <li key={i}>{l}</li>)}</ul>
-                                        ) : <p className="text-sm text-zinc-600 italic">Sin limitaciones registradas.</p>}
+                                        <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Limitaciones / Lesiones</h4>
+                                        {client.limitations && client.limitations.length > 0 && client.limitations[0] !== "Ninguna" ? (
+                                            <div className="flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                                <ul className="text-sm text-red-200 space-y-1">
+                                                    {client.limitations.map((l: string, i: number) => <li key={i}>{l}</li>)}
+                                                </ul>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-zinc-600 italic flex items-center gap-2"><Check className="w-4 h-4" /> Sin limitaciones registradas.</p>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -242,22 +325,20 @@ const ClientProfile = () => {
                     </div>
                 )}
 
-                {/* --- PROGRESO (Dashboard Coach) --- */}
                 {activeTab === 'progress' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                        
                         {/* Resumen Stats */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <Card className="bg-[#111] border-zinc-800">
                                 <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                                     <p className="text-zinc-500 text-xs uppercase font-bold mb-1">Peso Inicio</p>
-                                    <p className="text-2xl font-bold text-white">{stats.startWeight} kg</p>
+                                    <p className="text-2xl font-bold text-white">{stats.startWeight > 0 ? `${stats.startWeight} kg` : '-'}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-[#111] border-zinc-800">
                                 <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                                     <p className="text-zinc-500 text-xs uppercase font-bold mb-1">Peso Actual</p>
-                                    <p className="text-2xl font-bold text-white">{stats.currentWeight} kg</p>
+                                    <p className="text-2xl font-bold text-white">{stats.currentWeight > 0 ? `${stats.currentWeight} kg` : '-'}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-[#111] border-zinc-800">
@@ -272,7 +353,7 @@ const ClientProfile = () => {
                                 <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                                     <p className="text-zinc-500 text-xs uppercase font-bold mb-1">Cintura</p>
                                     <div className="flex items-center gap-2">
-                                        <p className="text-xl font-bold text-white">{stats.currentWaist} cm</p>
+                                        <p className="text-xl font-bold text-white">{stats.currentWaist > 0 ? `${stats.currentWaist} cm` : '-'}</p>
                                         <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded", stats.waistDiff < 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-zinc-800 text-zinc-400")}>
                                             {stats.waistDiff > 0 ? '+' : ''}{stats.waistDiff}
                                         </span>
@@ -297,7 +378,7 @@ const ClientProfile = () => {
                                                 <img src={photo.url} alt="Progreso" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
                                                     <p className="text-white text-xs font-bold">{photo.type}</p>
-                                                    <p className="text-zinc-400 text-[10px]">{new Date(photo.date).toLocaleDateString()}</p>
+                                                    <p className="text-zinc-400 text-[10px]">{formatDateSafe(photo.date)}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -334,7 +415,7 @@ const ClientProfile = () => {
                                                 {progressHistory.map((entry) => (
                                                     <tr key={entry.id} className="hover:bg-zinc-900/30 transition-colors">
                                                         <td className="px-4 py-3 font-medium text-white">
-                                                            {new Date(entry.date).toLocaleDateString()}
+                                                            {formatDateSafe(entry.date)}
                                                         </td>
                                                         <td className="px-4 py-3 text-zinc-300">
                                                             {entry.weight ? `${entry.weight} kg` : '-'}
@@ -363,7 +444,6 @@ const ClientProfile = () => {
                     </div>
                 )}
 
-                {/* --- OTROS TABS --- */}
                 {activeTab !== 'overview' && activeTab !== 'progress' && (
                     <div className="text-center py-20 text-zinc-500 border border-dashed border-zinc-800 rounded-xl">
                         <p>Gestión de {activeTab} disponible próximamente.</p>
@@ -383,6 +463,14 @@ const ClientProfile = () => {
             )}
 
             {/* MODALES */}
+            {historyModalOpen && (
+                <ClientHistoryModal 
+                    clientId={id || ''} 
+                    clientName={client.name} 
+                    onClose={() => setHistoryModalOpen(false)} 
+                />
+            )}
+
             <PaymentLinkModal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} clientName={client.name} defaultAmount={150} />
             <EditClientModal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} client={client} onUpdate={handleUpdateClient} />
             <ToastContainer toasts={toasts} onClose={() => {}} />

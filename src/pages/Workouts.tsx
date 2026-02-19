@@ -38,7 +38,11 @@ const Workouts = () => {
         setIsLoading(false);
     };
 
-    const filteredRoutines = routines.filter(r => r.title.toLowerCase().includes(searchTerm.toLowerCase()));
+    // CORREGIDO: Usamos 'name' en lugar de 'title'
+    // Añadimos '?' y '|| ""' para evitar el crash si el nombre viene vacío
+    const filteredRoutines = routines.filter(r => 
+        (r.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <div className="p-8 w-full max-w-7xl mx-auto min-h-screen text-white font-sans relative">
@@ -77,7 +81,8 @@ const Workouts = () => {
                                 <div className="absolute top-3 right-3 z-20 pointer-events-none"><span className="text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-md border border-white/10 bg-white/10 text-white">{routine.level || 'N/A'}</span></div>
                             </div>
                             <div className="p-5 flex-1 flex flex-col">
-                                <h3 className="text-lg font-bold text-white mb-1 group-hover:text-emerald-400 transition-colors">{routine.title}</h3>
+                                {/* CORREGIDO: routine.name en lugar de routine.title */}
+                                <h3 className="text-lg font-bold text-white mb-1 group-hover:text-emerald-400 transition-colors">{routine.name}</h3>
                                 <p className="text-xs text-zinc-500 line-clamp-2 mb-4">{routine.description || 'Sin descripción'}</p>
                                 <div className="grid grid-cols-2 gap-2 text-xs text-zinc-400 mb-4">
                                     <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-emerald-500" /> {routine.days_per_week || '?'} Días/sem</div>

@@ -73,7 +73,7 @@ const Landing = () => {
                                 onClick={() => navigate('/client-app')} 
                                 className="h-14 px-8 text-lg border-zinc-700 text-white hover:bg-white/5 transition-all"
                             >
-                                Acceso Atletas
+                                App Cliente
                             </Button>
                         </div>
                         <p className="mt-4 text-xs text-zinc-500 flex items-center gap-2">

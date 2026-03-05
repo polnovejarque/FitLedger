@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
-import { Mail, Lock, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 const Auth = () => {
     const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(true);
+    const [isResetting, setIsResetting] = useState(false); // ✅ Nuevo estado para recuperar contraseña
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [message, setMessage] = useState<string | null>(null); // ✅ Nuevo estado para el mensaje de éxito
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -17,16 +19,24 @@ const Auth = () => {
         e.preventDefault();
         setLoading(true);
         setError(null);
+        setMessage(null);
 
         try {
-            if (isLogin) {
+            if (isResetting) {
+                // ✅ Lógica de recuperación de contraseña
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/update-password`,
+                });
+                if (error) throw error;
+                setMessage("Te hemos enviado un enlace para recuperar tu contraseña. Revisa tu bandeja de entrada.");
+            } else if (isLogin) {
                 const { error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
                 navigate('/dashboard'); 
             } else {
                 const { error } = await supabase.auth.signUp({ email, password });
                 if (error) throw error;
-                alert("¡Cuenta creada! Ya puedes iniciar sesión.");
+                setMessage("¡Cuenta creada! Ya puedes iniciar sesión.");
                 setIsLogin(true);
             }
         } catch (err: any) {
@@ -48,10 +58,10 @@ const Auth = () => {
                         <img src="/logo.png" alt="FitLeader" className="w-10 h-10 object-contain" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
-                        {isLogin ? 'Bienvenido de nuevo' : 'Crea tu cuenta'}
+                        {isResetting ? 'Recupera tu acceso' : (isLogin ? 'Bienvenido de nuevo' : 'Crea tu cuenta')}
                     </h1>
                     <p className="text-zinc-400">
-                        {isLogin ? 'Gestiona tu negocio fitness.' : 'Prueba FitLeader gratis 14 días.'}
+                        {isResetting ? 'Te enviaremos un enlace seguro.' : (isLogin ? 'Gestiona tu negocio fitness.' : 'Prueba FitLeader gratis 14 días.')}
                     </p>
                 </div>
 
@@ -61,6 +71,13 @@ const Auth = () => {
                             <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 text-red-400 text-sm animate-in zoom-in-95">
                                 <AlertCircle className="w-5 h-5 shrink-0" />
                                 <span className="font-medium">{error}</span>
+                            </div>
+                        )}
+
+                        {message && (
+                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3 text-emerald-400 text-sm animate-in zoom-in-95">
+                                <CheckCircle2 className="w-5 h-5 shrink-0" />
+                                <span className="font-medium">{message}</span>
                             </div>
                         )}
 
@@ -79,35 +96,59 @@ const Auth = () => {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">Contraseña</label>
-                            <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500 group-focus-within:text-emerald-500 transition-colors" />
-                                <input 
-                                    type="password" 
-                                    required
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-black/50 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white focus:border-emerald-500 focus:bg-zinc-900/50 outline-none transition-all placeholder:text-zinc-700"
-                                    placeholder="••••••••••••"
-                                />
+                        {!isResetting && (
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center ml-1">
+                                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Contraseña</label>
+                                    {isLogin && (
+                                        <button 
+                                            type="button"
+                                            onClick={() => { setIsResetting(true); setError(null); setMessage(null); }}
+                                            className="text-xs font-bold text-emerald-500 hover:text-emerald-400 transition-colors"
+                                        >
+                                            ¿Has olvidado tu contraseña?
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="relative group">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500 group-focus-within:text-emerald-500 transition-colors" />
+                                    <input 
+                                        type="password" 
+                                        required={!isResetting}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full bg-black/50 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white focus:border-emerald-500 focus:bg-zinc-900/50 outline-none transition-all placeholder:text-zinc-700"
+                                        placeholder="••••••••••••"
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <Button className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-lg rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)]" disabled={loading}>
-                            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isLogin ? 'Entrar' : 'Crear Cuenta')}
+                            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isResetting ? 'Enviar enlace' : (isLogin ? 'Entrar' : 'Crear Cuenta'))}
                         </Button>
                     </form>
 
                     <div className="mt-8 text-center border-t border-white/5 pt-6">
                         <p className="text-zinc-500 text-sm">
-                            {isLogin ? "¿Aún no tienes cuenta? " : "¿Ya eres miembro? "}
-                            <button 
-                                onClick={() => { setIsLogin(!isLogin); setError(null); }} 
-                                className="text-emerald-500 font-bold hover:text-emerald-400 transition-colors ml-1"
-                            >
-                                {isLogin ? 'Regístrate aquí' : 'Inicia sesión'}
-                            </button>
+                            {isResetting ? (
+                                <button 
+                                    onClick={() => { setIsResetting(false); setError(null); setMessage(null); }} 
+                                    className="text-emerald-500 font-bold hover:text-emerald-400 transition-colors ml-1"
+                                >
+                                    Volver a iniciar sesión
+                                </button>
+                            ) : (
+                                <>
+                                    {isLogin ? "¿Aún no tienes cuenta? " : "¿Ya eres miembro? "}
+                                    <button 
+                                        onClick={() => { setIsLogin(!isLogin); setError(null); setMessage(null); }} 
+                                        className="text-emerald-500 font-bold hover:text-emerald-400 transition-colors ml-1"
+                                    >
+                                        {isLogin ? 'Regístrate aquí' : 'Inicia sesión'}
+                                    </button>
+                                </>
+                            )}
                         </p>
                     </div>
                 </div>

@@ -3,6 +3,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage'; 
 import Auth from './pages/Auth'; 
+// ✅ NUEVA IMPORTACIÓN: La página de recuperar contraseña
+import UpdatePassword from './pages/UpdatePassword'; 
+
 import ClientLogin from './pages/client/ClientLogin'; 
 import ClientWorkout from './pages/ClientWorkout'; 
 import Dashboard from './pages/Dashboard';
@@ -33,6 +36,7 @@ function App() {
           {/* Rutas Públicas */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/update-password" element={<UpdatePassword />} /> {/* ✅ NUEVA RUTA AQUÍ */}
           
           {/* Rutas de la App del Cliente (Móvil) */}
           <Route path="/client-app" element={<ClientLogin />} />

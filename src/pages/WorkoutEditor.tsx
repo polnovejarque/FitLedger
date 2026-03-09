@@ -59,7 +59,8 @@ const WorkoutEditor = () => {
             if (id) {
                 const { data: routine } = await supabase.from('routines').select('*').eq('id', id).single();
                 if (routine) {
-                    setTitle(routine.title);
+                    // ✅ CORRECCIÓN: Leemos 'name' en lugar de 'title' de la base de datos
+                    setTitle(routine.name);
                     setDescription(routine.description || "");
                     setLevel(routine.level || "Intermedio");
                     setDaysPerWeek(routine.days_per_week || 3);
@@ -98,10 +99,15 @@ const WorkoutEditor = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // ✅ CORRECCIÓN: Enviamos 'name' a Supabase en lugar de 'title'
         const routineData = {
             coach_id: user.id,
-            title, description, level, days_per_week: daysPerWeek,
-            estimated_duration: duration, image_url: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80" 
+            name: title, 
+            description, 
+            level, 
+            days_per_week: daysPerWeek,
+            estimated_duration: duration, 
+            image_url: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80" 
         };
 
         let routineId = id;
@@ -223,7 +229,6 @@ const WorkoutEditor = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs text-zinc-500 mb-1 block">Días / Semana</label>
-                                    {/* ICONO CALENDAR RESTAURADO */}
                                     <div className="relative">
                                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
                                         <input type="number" value={daysPerWeek} onChange={(e) => setDaysPerWeek(Number(e.target.value))} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-3 py-3 text-white focus:border-emerald-500 outline-none" />
@@ -231,7 +236,6 @@ const WorkoutEditor = () => {
                                 </div>
                                 <div>
                                     <label className="text-xs text-zinc-500 mb-1 block">Duración</label>
-                                    {/* ICONO CLOCK RESTAURADO */}
                                     <div className="relative">
                                         <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
                                         <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-3 py-3 text-white focus:border-emerald-500 outline-none" />
@@ -270,7 +274,6 @@ const WorkoutEditor = () => {
                                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                             <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-white/5"><span className="text-[9px] text-zinc-500 font-bold">SETS</span><input type="number" value={ex.sets} onChange={(e) => updateExercise(ex.localId, 'sets', Number(e.target.value))} className="w-6 bg-transparent text-white text-xs text-center font-bold outline-none" /></div>
                                             <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-white/5"><span className="text-[9px] text-zinc-500 font-bold">REPS</span><input type="text" value={ex.reps} onChange={(e) => updateExercise(ex.localId, 'reps', e.target.value)} className="w-10 bg-transparent text-white text-xs text-center font-bold outline-none" /></div>
-                                            {/* ICONO SIGNAL RESTAURADO EN RIR */}
                                             <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-emerald-500/30">
                                                 <Signal className="w-3 h-3 text-emerald-500" />
                                                 <span className="text-[9px] text-zinc-500 font-bold">RIR</span>

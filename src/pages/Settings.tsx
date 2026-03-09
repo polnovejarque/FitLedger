@@ -28,6 +28,7 @@ const Settings = () => {
     const [activeTab, setActiveTab] = useState<TabType>('profile');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false); // Estado para la subida de imágenes
 
     // Profile state
     const [firstName, setFirstName] = useState('');
@@ -65,9 +66,8 @@ const Settings = () => {
             const { data: { user } } = await supabase.auth.getUser();
             
             if (user) {
-                setEmail(user.email || ''); // El email viene de Auth
+                setEmail(user.email || ''); 
                 
-                // Cargar datos de la tabla profiles
                 const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
                 if (data) {
                     setFirstName(data.first_name || '');
@@ -75,6 +75,7 @@ const Settings = () => {
                     setAvatarUrl(data.avatar_url || '');
                     setBusinessName(data.business_name || '');
                     setCurrency(data.currency || 'EUR');
+                    setLogoUrl(data.logo_url || ''); // AHORA SÍ LEEMOS EL LOGO
                 }
             }
             setIsLoading(false);
@@ -96,7 +97,8 @@ const Settings = () => {
                 last_name: lastName,
                 business_name: businessName,
                 currency: currency,
-                avatar_url: avatarUrl, // Nota: Guarda la URL si la hubiera
+                avatar_url: avatarUrl, 
+                logo_url: logoUrl, // AHORA SÍ ENVIAMOS EL LOGO
                 updated_at: new Date(),
             };
 
@@ -104,10 +106,52 @@ const Settings = () => {
             if (error) {
                 alert("Error al guardar: " + error.message);
             } else {
-                // Feedback visual sutil (el spinner se detendrá)
+                alert("¡Configuración guardada con éxito! ✅"); // AÑADIDO EL FEEDBACK
             }
         }
-        setTimeout(() => setIsSaving(false), 500);
+        setIsSaving(false);
+    };
+
+    // Subida real a Supabase Storage
+    const uploadImageToStorage = async (file: File, prefix: string) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${prefix}_${Date.now()}.${fileExt}`;
+
+        const { error } = await supabase.storage.from('avatars').upload(fileName, file);
+        if (error) throw error;
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        return data.publicUrl;
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setIsUploading(true);
+        try {
+            const url = await uploadImageToStorage(file, 'avatar');
+            setAvatarUrl(url);
+            alert("Foto subida ✅ ¡Recuerda darle a Guardar Configuración!");
+        } catch (error: any) {
+            alert("Error al subir imagen: " + error.message);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setIsUploading(true);
+        try {
+            const url = await uploadImageToStorage(file, 'logo');
+            setLogoUrl(url);
+            alert("Logo subido ✅ ¡Recuerda darle a Guardar Configuración!");
+        } catch (error: any) {
+            alert("Error al subir logo: " + error.message);
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     // Cambiar Contraseña Real
@@ -135,7 +179,7 @@ const Settings = () => {
         window.location.href = '/';
     };
 
-    // --- SIMULACIONES DE UI (Stripe, Billing, Uploads locales) ---
+    // --- SIMULACIONES DE UI (Stripe, Billing) ---
     const handleConnectStripe = () => {
         setIsSaving(true);
         setConnectionStatus('idle');
@@ -163,22 +207,6 @@ const Settings = () => {
     const handleManageBilling = () => {
         setBillingMessage('De momento solo está disponible el Plan Profesional. ¡Pronto novedades!');
         setTimeout(() => setBillingMessage(''), 3000);
-    };
-
-    const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const url = URL.createObjectURL(file);
-            setAvatarUrl(url); 
-        }
-    };
-
-    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const url = URL.createObjectURL(file);
-            setLogoUrl(url);
-        }
     };
 
     if (isLoading) return <div className="min-h-screen flex items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin"/></div>;
@@ -237,7 +265,7 @@ const Settings = () => {
                             <div className="flex items-center gap-6 pb-6 border-b border-zinc-800">
                                 <div className="relative group">
                                     <div className="w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-zinc-700 group-hover:border-emerald-500 transition-colors">
-                                        {avatarUrl ? (
+                                        {isUploading ? <Loader2 className="w-6 h-6 animate-spin text-zinc-500"/> : avatarUrl ? (
                                             <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                                         ) : (
                                             <User className="w-10 h-10 text-zinc-500" />
@@ -245,7 +273,7 @@ const Settings = () => {
                                     </div>
                                     <label className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center cursor-pointer hover:bg-emerald-400 transition-colors shadow-lg border-2 border-[#111]">
                                         <Camera className="w-4 h-4 text-black" />
-                                        <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                                        <input type="file" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} className="hidden" />
                                     </label>
                                 </div>
                                 <div>
@@ -270,7 +298,7 @@ const Settings = () => {
                             </div>
 
                             <div className="flex justify-end pt-4">
-                                <Button onClick={handleSaveGeneral} disabled={isSaving} className="bg-emerald-500 text-black font-bold hover:bg-emerald-600 min-w-[120px]">
+                                <Button onClick={handleSaveGeneral} disabled={isSaving || isUploading} className="bg-emerald-500 text-black font-bold hover:bg-emerald-600 min-w-[120px]">
                                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Guardar Cambios'}
                                 </Button>
                             </div>
@@ -317,12 +345,12 @@ const Settings = () => {
                                 <div className="space-y-3">
                                     <label className="text-xs font-medium text-zinc-400">Logo del Negocio</label>
                                     <div className="border-2 border-dashed border-zinc-800 rounded-xl p-8 flex flex-col items-center justify-center gap-4 hover:bg-zinc-900/50 transition-colors bg-zinc-900/20">
-                                        {logoUrl ? (
+                                        {isUploading ? <Loader2 className="w-8 h-8 animate-spin text-zinc-500"/> : logoUrl ? (
                                             <div className="flex flex-col items-center gap-4">
                                                 <img src={logoUrl} alt="Logo" className="h-16 object-contain" />
                                                 <label className="cursor-pointer text-xs text-blue-400 hover:text-blue-300">
                                                     Cambiar logo
-                                                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                                                    <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={isUploading} className="hidden" />
                                                 </label>
                                             </div>
                                         ) : (
@@ -332,7 +360,7 @@ const Settings = () => {
                                                     <p className="text-sm font-medium text-zinc-300">Sube tu logo</p>
                                                     <p className="text-xs text-zinc-500">PNG o SVG (Fondo transparente)</p>
                                                 </div>
-                                                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                                                <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={isUploading} className="hidden" />
                                             </label>
                                         )}
                                     </div>
@@ -340,7 +368,7 @@ const Settings = () => {
                             </div>
 
                             <div className="flex justify-end pt-4 border-t border-zinc-800">
-                                <Button onClick={handleSaveGeneral} disabled={isSaving} className="bg-blue-500 text-white font-bold hover:bg-blue-600 min-w-[120px]">
+                                <Button onClick={handleSaveGeneral} disabled={isSaving || isUploading} className="bg-blue-500 text-white font-bold hover:bg-blue-600 min-w-[120px]">
                                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Guardar Configuración'}
                                 </Button>
                             </div>

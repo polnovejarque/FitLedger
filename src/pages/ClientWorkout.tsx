@@ -21,6 +21,10 @@ const ClientWorkout = () => {
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
     
+    // --- ESTADOS DE MARCA BLANCA (NUEVO) ---
+    const [coachLogo, setCoachLogo] = useState<string>('/logo.png');
+    const [coachBusinessName, setCoachBusinessName] = useState<string>('FitLeader');
+
     // Guardamos el ID de la asignación para poder marcarla como completada
     const [currentAssignmentId, setCurrentAssignmentId] = useState<string | null>(null);
     
@@ -143,6 +147,21 @@ const ClientWorkout = () => {
                     setEmail(clientData.email);
                     setClientPhoto(clientData.image_url);
                     setPaymentLink(clientData.stripe_link);
+
+                    // --- INICIO MARCA BLANCA ---
+                    if (clientData.coach_id) {
+                        const { data: coachProfile } = await supabase
+                            .from('profiles')
+                            .select('logo_url, business_name')
+                            .eq('id', clientData.coach_id)
+                            .single();
+
+                        if (coachProfile) {
+                            if (coachProfile.logo_url) setCoachLogo(coachProfile.logo_url);
+                            if (coachProfile.business_name) setCoachBusinessName(coachProfile.business_name);
+                        }
+                    }
+                    // --- FIN MARCA BLANCA ---
 
                     // Traemos la última asignación
                     const { data: assignment } = await supabase
@@ -668,10 +687,12 @@ const ClientWorkout = () => {
         <div className="min-h-screen bg-black text-white font-sans pb-safe selection:bg-emerald-500 selection:text-black">
             {!viewingExercises && (
                 <div className="fixed top-0 w-full max-w-md left-0 right-0 mx-auto bg-black/90 backdrop-blur-md border-b border-white/10 z-50 px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {/* AQUI ESTA TU LOGO NUEVO: logo.png desde la carpeta public */}
-                        <img src="/logo.png" alt="FitLeader Logo" className="h-10 w-auto object-contain" />
-                        <span className="font-bold text-lg text-white tracking-tight italic">FitLeader</span>
+                    <div className="flex items-center gap-3 w-full">
+                        {/* --- MARCA BLANCA DINÁMICA APLICADA AQUÍ --- */}
+                        <img src={coachLogo} alt={coachBusinessName} className="h-10 w-auto object-contain rounded bg-transparent" />
+                        <span className="font-bold text-lg text-white tracking-tight italic truncate">
+                            {coachBusinessName}
+                        </span>
                     </div>
                 </div>
             )}

@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { Home, ClipboardList, TrendingUp, User, Bell } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 
 const bottomNavItems = [
     { icon: Home, label: 'Inicio', path: '/client' },
@@ -10,16 +12,52 @@ const bottomNavItems = [
 ];
 
 const ClientLayout = () => {
+    // Estado para guardar el logo del entrenador
+    const [coachLogo, setCoachLogo] = useState<string>('/fitleader-logo.png');
+
+    // El "Radar" para buscar el logo del entrenador
+    useEffect(() => {
+        const fetchCoachLogo = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // 1. Encontrar el coach_id del cliente logueado
+            const { data: clientData } = await supabase
+                .from('clients')
+                .select('coach_id')
+                .eq('id', user.id) // Asumiendo que el user.id coincide con el id de la tabla clients
+                .single();
+
+            if (clientData && clientData.coach_id) {
+                // 2. Buscar el logo en el perfil del entrenador
+                const { data: coachProfile } = await supabase
+                    .from('profiles')
+                    .select('logo_url')
+                    .eq('id', clientData.coach_id)
+                    .single();
+
+                // 3. Si el entrenador tiene logo, lo usamos. Si no, se queda el de FitLeader.
+                if (coachProfile && coachProfile.logo_url) {
+                    setCoachLogo(coachProfile.logo_url);
+                }
+            }
+        };
+
+        fetchCoachLogo();
+    }, []);
+
     return (
         <div className="min-h-screen bg-background">
             {/* Mobile Container */}
             <div className="max-w-md mx-auto min-h-screen bg-background relative pb-20">
+                
                 {/* Top Bar - Sticky */}
                 <header className="sticky top-0 z-40 bg-card border-b border-border">
                     <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex-1"></div>
                         <div className="flex items-center justify-center">
-                            <img src="/fitleader-logo.png" alt="FitLeader" className="h-12 object-contain" />
+                            {/* --- LOGO DINÁMICO DEL ENTRENADOR --- */}
+                            <img src={coachLogo} alt="Logo" className="h-10 object-contain" />
                         </div>
                         <div className="flex-1 flex justify-end">
                             <button className="p-2 hover:bg-secondary rounded-full transition-colors relative">

@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { 
     CheckCircle2, ArrowRight, BarChart3, 
-    Calendar, Users, Check, X, LayoutDashboard, Dumbbell, UserPlus,
-    Star, HelpCircle
+    Calendar, Users, LayoutDashboard, Dumbbell, UserPlus,
+    Star, HelpCircle, Smartphone, DollarSign, Check, X
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -10,7 +10,7 @@ const Landing = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500 selection:text-black">
+        <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500 selection:text-black overflow-x-hidden">
             
             {/* --- NAVBAR --- */}
             <nav className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10">
@@ -21,7 +21,7 @@ const Landing = () => {
                     </div>
                     
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
-                        <a href="#features" className="hover:text-white transition-colors">Características</a>
+                        <a href="#product" className="hover:text-white transition-colors">Plataforma</a>
                         <a href="#comparison" className="hover:text-white transition-colors">Método</a>
                         <a href="#pricing" className="hover:text-white transition-colors">Precios</a>
                         <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
@@ -81,12 +81,11 @@ const Landing = () => {
                         </p>
                     </div>
 
-                    {/* --- DASHBOARD VISUAL (MOCKUP) --- */}
+                    {/* --- DASHBOARD VISUAL (MOCKUP HERO) --- */}
                     <div className="relative animate-in fade-in slide-in-from-right-8 duration-1000 delay-200 mt-10 lg:mt-0 select-none pointer-events-none">
                         <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-2xl blur opacity-20 animate-pulse"></div>
                         
                         <div className="relative bg-[#09090b] rounded-2xl border border-zinc-800 shadow-2xl overflow-hidden aspect-video flex">
-                            
                             {/* Sidebar Mockup */}
                             <div className="w-1/4 border-r border-zinc-800 bg-[#0c0c0e] p-4 flex flex-col gap-6 hidden sm:flex">
                                 <div className="flex items-center gap-2 font-bold">
@@ -97,15 +96,9 @@ const Landing = () => {
                                     <div className="flex items-center gap-3 px-3 py-2 bg-zinc-800/80 rounded-lg text-xs font-medium text-white border-l-2 border-emerald-500">
                                         <LayoutDashboard className="w-4 h-4" /> Dashboard
                                     </div>
-                                    <div className="flex items-center gap-3 px-3 py-2 text-zinc-500 text-xs font-medium">
-                                        <Users className="w-4 h-4" /> Clientes
-                                    </div>
-                                    <div className="flex items-center gap-3 px-3 py-2 text-zinc-500 text-xs font-medium">
-                                        <Dumbbell className="w-4 h-4" /> Entrenamientos
-                                    </div>
-                                    <div className="flex items-center gap-3 px-3 py-2 text-zinc-500 text-xs font-medium">
-                                        <Calendar className="w-4 h-4" /> Agenda
-                                    </div>
+                                    <div className="flex items-center gap-3 px-3 py-2 text-zinc-500 text-xs font-medium"><Users className="w-4 h-4" /> Clientes</div>
+                                    <div className="flex items-center gap-3 px-3 py-2 text-zinc-500 text-xs font-medium"><Dumbbell className="w-4 h-4" /> Entrenamientos</div>
+                                    <div className="flex items-center gap-3 px-3 py-2 text-zinc-500 text-xs font-medium"><Calendar className="w-4 h-4" /> Agenda</div>
                                 </div>
                             </div>
 
@@ -150,7 +143,6 @@ const Landing = () => {
                                         <p className="text-xs font-bold text-white">Flujo de Caja</p>
                                         <p className="text-[10px] text-zinc-500">Últimos 6 meses</p>
                                     </div>
-                                    {/* Fake Graph Line */}
                                     <div className="w-full h-16 flex items-end gap-1">
                                         <div className="flex-1 bg-gradient-to-t from-zinc-800/50 to-transparent h-[40%] rounded-t-sm"></div>
                                         <div className="flex-1 bg-gradient-to-t from-zinc-800/50 to-transparent h-[60%] rounded-t-sm"></div>
@@ -166,51 +158,147 @@ const Landing = () => {
                 </div>
             </section>
 
-            {/* --- FEATURES GRID --- */}
-            <section id="features" className="py-24 bg-zinc-950/50 border-y border-white/5">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold mb-4">Tu Software Fitness Pro.</h2>
-                        <p className="text-zinc-400 max-w-2xl mx-auto">Herramientas potentes diseñadas específicamente para entrenadores personales y estudios boutique.</p>
+            {/* --- NUEVA SECCIÓN ZIG-ZAG (PRODUCT-LED) --- */}
+            <section id="product" className="py-24 bg-black border-y border-white/5 relative">
+                {/* Luces de fondo decorativas */}
+                <div className="absolute top-[20%] left-0 w-96 h-96 bg-emerald-900/10 blur-[120px] rounded-full pointer-events-none" />
+                <div className="absolute bottom-[20%] right-0 w-96 h-96 bg-cyan-900/10 blur-[120px] rounded-full pointer-events-none" />
+
+                <div className="max-w-7xl mx-auto px-6 space-y-32">
+                    
+                    {/* ZIG-ZAG 1: Cartera de Clientes (IMG DERECHA) */}
+                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                        <div className="order-2 lg:order-1">
+                            <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 border border-zinc-800">
+                                <Users className="w-6 h-6 text-emerald-500" />
+                            </div>
+                            <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Control total sobre<br/>tus atletas.</h2>
+                            <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
+                                Deja de buscar mensajes antiguos en WhatsApp. Tienes toda la información de tus clientes en una sola tabla: objetivos, métricas de progreso, planes activos y estado de los pagos.
+                            </p>
+                            <ul className="space-y-4 mb-8">
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Historial de progreso visual</li>
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Gestión de medidas y peso</li>
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Galería de fotos del "Antes y Después"</li>
+                            </ul>
+                        </div>
+                        <div className="order-1 lg:order-2 relative group">
+                            <div className="absolute -inset-2 bg-gradient-to-tr from-emerald-500/20 to-transparent rounded-2xl blur-lg group-hover:blur-xl transition-all duration-500"></div>
+                            {/* AQUÍ VA LA CAPTURA: Guarda tu captura como "captura-clientes.png" en la carpeta public */}
+                            <img 
+                                src="/captura-clientes.png" 
+                                alt="Panel de Clientes FitLeader" 
+                                className="relative rounded-2xl border border-zinc-800 shadow-2xl w-full object-cover bg-zinc-900 aspect-video fallback-bg"
+                                onError={(e) => {
+                                    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450' viewBox='0 0 800 450'%3E%3Crect fill='%23111' width='800' height='450'/%3E%3Ctext x='400' y='225' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23333' text-anchor='middle' alignment-baseline='middle'%3EInserta aquí captura-clientes.png%3C/text%3E%3C/svg%3E";
+                                }}
+                            />
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {/* 1. Control Financiero */}
-                        <div className="p-8 bg-zinc-900/30 border border-zinc-800 rounded-2xl hover:border-emerald-500/30 hover:bg-zinc-900/50 transition-all group">
-                            <div className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-zinc-700">
-                                <BarChart3 className="w-6 h-6 text-white" />
-                            </div>
-                            <h3 className="text-xl font-bold mb-3 text-white">Control Financiero Total</h3>
-                            <p className="text-zinc-400 text-sm leading-relaxed">Registra ingresos, gastos y suscripciones. Visualiza tu flujo de caja en tiempo real y nunca pierdas de vista tus márgenes.</p>
+                    {/* ZIG-ZAG 2: Creador de Rutinas (IMG IZQUIERDA) */}
+                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                        <div className="order-1 relative group">
+                            <div className="absolute -inset-2 bg-gradient-to-br from-cyan-500/20 to-transparent rounded-2xl blur-lg group-hover:blur-xl transition-all duration-500"></div>
+                            {/* AQUÍ VA LA CAPTURA: Guarda tu captura como "captura-rutinas.png" en la carpeta public */}
+                            <img 
+                                src="/captura-rutinas.png" 
+                                alt="Creador de Rutinas FitLeader" 
+                                className="relative rounded-2xl border border-zinc-800 shadow-2xl w-full object-cover bg-zinc-900 aspect-video fallback-bg"
+                                onError={(e) => {
+                                    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450' viewBox='0 0 800 450'%3E%3Crect fill='%23111' width='800' height='450'/%3E%3Ctext x='400' y='225' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23333' text-anchor='middle' alignment-baseline='middle'%3EInserta aquí captura-rutinas.png%3C/text%3E%3C/svg%3E";
+                                }}
+                            />
                         </div>
-
-                        {/* 2. Gestión de Clientes */}
-                        <div className="p-8 bg-zinc-900/30 border border-zinc-800 rounded-2xl hover:border-emerald-500/30 hover:bg-zinc-900/50 transition-all group">
-                            <div className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-zinc-700">
-                                <Users className="w-6 h-6 text-white" />
+                        <div className="order-2">
+                            <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 border border-zinc-800">
+                                <Dumbbell className="w-6 h-6 text-cyan-500" />
                             </div>
-                            <h3 className="text-xl font-bold mb-3 text-white">Gestión de Clientes</h3>
-                            <p className="text-zinc-400 text-sm leading-relaxed">
-                                Perfiles de atletas, fotos de progreso e historial de entrenos. El seguimiento más completo en un solo software pro.
+                            <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Crea rutinas de nivel <br/>en minutos.</h2>
+                            <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
+                                Programa entrenamientos como un profesional. Asigna días, series, repeticiones y añade vídeos demostrativos para que tu cliente ejecute la técnica perfecta desde su móvil.
                             </p>
-                        </div>
-
-                        {/* 3. Agenda Inteligente */}
-                        <div className="p-8 bg-zinc-900/30 border border-zinc-800 rounded-2xl hover:border-emerald-500/30 hover:bg-zinc-900/50 transition-all group">
-                            <div className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-zinc-700">
-                                <Calendar className="w-6 h-6 text-white" />
-                            </div>
-                            <h3 className="text-xl font-bold mb-3 text-white">Agenda Inteligente</h3>
-                            <p className="text-zinc-400 text-sm leading-relaxed">
-                                Gestiona tus sesiones y clases grupales. Evita solapamientos con nuestro sistema de reservas y agenda inteligente.
-                            </p>
+                            <ul className="space-y-4">
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-cyan-500" /> Constructor de rutinas Drag & Drop</li>
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-cyan-500" /> Enlaces a YouTube para demostraciones</li>
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-cyan-500" /> Actualización en tiempo real en la app del cliente</li>
+                            </ul>
                         </div>
                     </div>
+
+                    {/* ZIG-ZAG 3: App Cliente Marca Blanca (IMG DERECHA) */}
+                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                        <div className="order-2 lg:order-1">
+                            <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 border border-zinc-800">
+                                <Smartphone className="w-6 h-6 text-emerald-500" />
+                            </div>
+                            <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Tu propia App. <br/>Tu propia Marca.</h2>
+                            <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
+                                Eleva tu estatus. Tus clientes no verán una herramienta genérica, descargarán una WebApp (PWA) coronada por tu propio logotipo y el nombre de tu negocio.
+                            </p>
+                            <ul className="space-y-4">
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Logotipo de tu negocio en la cabecera</li>
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Modo oscuro inmersivo para el entreno</li>
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Cronómetro de descansos integrado</li>
+                            </ul>
+                        </div>
+                        <div className="order-1 lg:order-2 relative flex justify-center">
+                            {/* Efecto de resplandor para el móvil */}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-[500px] bg-emerald-500/20 blur-2xl rounded-full"></div>
+                            
+                            {/* Mockup de Móvil */}
+                            <div className="relative w-[280px] h-[580px] bg-black rounded-[40px] border-[6px] border-zinc-800 shadow-2xl overflow-hidden z-10 flex flex-col">
+                                {/* Muesca / Notch */}
+                                <div className="absolute top-0 inset-x-0 h-6 bg-zinc-800 rounded-b-xl w-32 mx-auto z-20"></div>
+                                
+                                {/* AQUÍ VA LA CAPTURA DEL MÓVIL: Guarda tu captura como "captura-app.png" (ideal en formato vertical) */}
+                                <img 
+                                    src="/captura-app.png" 
+                                    alt="App Cliente FitLeader" 
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='580' viewBox='0 0 280 580'%3E%3Crect fill='%23111' width='280' height='580'/%3E%3Ctext x='140' y='290' font-family='sans-serif' font-size='14' font-weight='bold' fill='%23555' text-anchor='middle' alignment-baseline='middle'%3Ecaptura-app.png (Vertical)%3C/text%3E%3C/svg%3E";
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ZIG-ZAG 4: Finanzas (IMG IZQUIERDA) */}
+                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                        <div className="order-1 relative group">
+                            <div className="absolute -inset-2 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-2xl blur-lg group-hover:blur-xl transition-all duration-500"></div>
+                            {/* AQUÍ VA LA CAPTURA: Guarda tu captura como "captura-finanzas.png" */}
+                            <img 
+                                src="/captura-finanzas.png" 
+                                alt="Panel de Finanzas FitLeader" 
+                                className="relative rounded-2xl border border-zinc-800 shadow-2xl w-full object-cover bg-zinc-900 aspect-video fallback-bg"
+                                onError={(e) => {
+                                    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450' viewBox='0 0 800 450'%3E%3Crect fill='%23111' width='800' height='450'/%3E%3Ctext x='400' y='225' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23333' text-anchor='middle' alignment-baseline='middle'%3EInserta aquí captura-finanzas.png%3C/text%3E%3C/svg%3E";
+                                }}
+                            />
+                        </div>
+                        <div className="order-2">
+                            <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 border border-zinc-800">
+                                <DollarSign className="w-6 h-6 text-emerald-500" />
+                            </div>
+                            <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Cobra a tiempo,<br/>sin perseguir a nadie.</h2>
+                            <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
+                                Mantén el control de tus ingresos. Anota los pagos en efectivo, transferencias o vincula los enlaces de pago automático de Stripe directamente en el perfil del cliente.
+                            </p>
+                            <ul className="space-y-4">
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Registro de ingresos y gastos visual</li>
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Indicadores visuales de deudores</li>
+                                <li className="flex items-center gap-3 text-zinc-300"><CheckCircle2 className="w-5 h-5 text-emerald-500" /> Botón "Gestionar Pago" directo en la App del cliente</li>
+                            </ul>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 
             {/* --- COMPARACIÓN --- */}
-            <section id="comparison" className="py-24 bg-black relative">
+            <section id="comparison" className="py-24 bg-black relative border-y border-white/5">
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1/3 h-full bg-emerald-900/10 blur-[100px] rounded-full -z-10" />
                 
                 <div className="max-w-5xl mx-auto px-6">
@@ -258,7 +346,7 @@ const Landing = () => {
             </section>
 
             {/* --- TESTIMONIOS --- */}
-            <section className="py-24 bg-zinc-950 border-t border-white/5">
+            <section className="py-24 bg-zinc-950">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4">Lo que dicen los entrenadores</h2>
@@ -320,7 +408,6 @@ const Landing = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                        
                         {/* PROFESIONAL */}
                         <div className="p-8 rounded-3xl border border-emerald-500 bg-zinc-900/50 flex flex-col relative transform md:-translate-y-4 shadow-2xl shadow-emerald-500/10">
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-500 text-black text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wide">Más Popular</div>
@@ -360,7 +447,6 @@ const Landing = () => {
                                 <li className="flex items-center gap-3 text-sm text-zinc-500"><CheckCircle2 className="w-4 h-4 text-zinc-700" /> API Access</li>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </section>
@@ -412,7 +498,6 @@ const Landing = () => {
             <footer className="py-12 border-t border-white/10 bg-black text-zinc-500 text-sm">
                 <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="flex items-center gap-2">
-                        {/* LOGO FOOTER */}
                         <img src="/logo.png" alt="FitLeader Logo" className="w-6 h-6 object-contain" />
                         <span className="font-bold text-white">FitLeader</span>
                     </div>

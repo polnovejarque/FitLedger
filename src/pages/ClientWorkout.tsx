@@ -25,27 +25,18 @@ const ClientWorkout = () => {
     const [coachLogo, setCoachLogo] = useState<string>('/logo.png');
     const [coachBusinessName, setCoachBusinessName] = useState<string>('FitLeader');
 
-    // Guardamos el ID de la asignación para poder marcarla como completada
     const [currentAssignmentId, setCurrentAssignmentId] = useState<string | null>(null);
-    
     const [loading, setLoading] = useState(true);
 
     // --- ESTADOS PARA LOS EJERCICIOS ---
     const [exercises, setExercises] = useState<any[]>([]);
-    
-    // AQUÍ ESTÁ EL CAMBIO: Ahora el día es dinámico y puede actualizarse
     const [currentDayFilter, setCurrentDayFilter] = useState("Día 1"); 
-    
     const [viewingExercises, setViewingExercises] = useState(false);
-    
-    // Estado para guardar los inputs de cada serie
     const [workoutLogs, setWorkoutLogs] = useState<any>({}); 
 
-    // --- ESTADOS DEL TEMPORIZADOR DE DESCANSO ⏱️ ---
+    // --- ESTADOS DEL TEMPORIZADOR ---
     const [timerActive, setTimerActive] = useState(false);
     const [timerTime, setTimerTime] = useState(90); 
-    
-    // --- ESTADO PARA REPRODUCTOR DE VÍDEO 🎥 ---
     const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
     // Estado del Progreso
@@ -55,11 +46,11 @@ const ClientWorkout = () => {
     const [currentLeg, setCurrentLeg] = useState<string>("--"); 
     const [progressHistory, setProgressHistory] = useState<any[]>([]);
     
-    // Stats (Contadores y Metas)
+    // Stats
     const [statsDiff, setStatsDiff] = useState({ weight: 0, waist: 0, arm: 0, leg: 0 });
     const [monthlyWorkouts, setMonthlyWorkouts] = useState(0);
     const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
-    const [weeklyGoal, setWeeklyGoal] = useState(4); // Meta por defecto
+    const [weeklyGoal, setWeeklyGoal] = useState(4); 
 
     // Fotos
     const [viewAngle, setViewAngle] = useState<'front' | 'back' | 'side'>('front');
@@ -97,23 +88,21 @@ const ClientWorkout = () => {
     useEffect(() => { localStorage.setItem('fit_client_notifs', JSON.stringify(notifSettings)); }, [notifSettings]);
     useEffect(() => { localStorage.setItem('fit_client_config', JSON.stringify(config)); }, [config]);
 
-    // Formulario Check-in
+    // Check-in
     const [formWeight, setFormWeight] = useState("");
     const [formWaist, setFormWaist] = useState("");
     const [formArm, setFormArm] = useState("");
     const [formLeg, setFormLeg] = useState(""); 
     const [saving, setSaving] = useState(false);
 
-    // Upload Foto Progreso
+    // Fotos
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [fileToUpload, setFileToUpload] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
     const profileInputRef = useRef<HTMLInputElement>(null);
     const [uploadingProfile, setUploadingProfile] = useState(false);
 
-    // --- LOGICA DEL TEMPORIZADOR ---
     useEffect(() => {
         let interval: any;
         if (timerActive && timerTime > 0) {
@@ -165,7 +154,6 @@ const ClientWorkout = () => {
                     }
                     // --- FIN MARCA BLANCA ---
 
-                    // Traemos la última asignación
                     const { data: assignment } = await supabase
                         .from('routine_assignments')
                         .select(`*, routine:routines!fk_routine (id, name, description, days_per_week)`) 
@@ -177,7 +165,7 @@ const ClientWorkout = () => {
                     if (assignment && assignment.routine) {
                         setTodayWorkout({
                             ...assignment.routine,
-                            is_completed_today: false // <-- DESBLOQUEADO: Siempre listo para el siguiente día
+                            is_completed_today: false // SIEMPRE LISTO
                         });
                         setCurrentAssignmentId(assignment.id);
                         
@@ -193,7 +181,6 @@ const ClientWorkout = () => {
                         
                         setExercises(exerciseData || []);
 
-                        // --- RECUPERAR EL DÍA ACTUAL DEL CLIENTE ---
                         const uniqueDays = Array.from(new Set((exerciseData || []).map((ex: any) => ex.day_name))).filter(Boolean);
                         const savedDay = localStorage.getItem(`fit_client_day_${assignment.id}`);
                         
@@ -203,13 +190,14 @@ const ClientWorkout = () => {
                             setCurrentDayFilter(uniqueDays[0] as string);
                         }
 
+                        // Calcular estadísticas de racha
+                        fetchWorkoutStats(assignment.id);
+
                     } else {
                         setTodayWorkout(null);
                     }
 
                     fetchProgress(clientData.id);
-                    fetchMonthlyWorkouts(clientData.id);
-                    fetchWeeklyWorkouts(clientData.id);
                 }
             }
             setLoading(false);
@@ -217,36 +205,85 @@ const ClientWorkout = () => {
         fetchClientData();
     }, []);
 
+    // --- NUEVO MOTOR DE RACHA Y ESTADÍSTICAS ---
+    const getWeekRange = () => {
+        const now = new Date();
+        const currentDay = now.getDay(); 
+        const diffToMonday = currentDay === 0 ? 6 : currentDay - 1; 
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - diffToMonday);
+        monday.setHours(0, 0, 0, 0); 
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999); 
+        return { start: monday.toISOString(), end: sunday.toISOString() };
+    };
+
+    const fetchWorkoutStats = async (assignmentId: string) => {
+        try {
+            const now = new Date();
+            const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+            const { start: startWeek, end: endWeek } = getWeekRange();
+
+            // Buscamos todos los ejercicios guardados para saber qué días entrenó realmente
+            const { data: results } = await supabase
+                .from('workout_results')
+                .select('created_at')
+                .eq('assignment_id', assignmentId)
+                .gte('created_at', firstDayMonth)
+                .lte('created_at', lastDayMonth);
+
+            if (results && results.length > 0) {
+                const weeklyResults = results.filter((r: any) => r.created_at >= startWeek && r.created_at <= endWeek);
+                
+                // Extraemos las fechas únicas (YYYY-MM-DD) para contar los días
+                const uniqueMonthlyDays = new Set(results.map((r: any) => r.created_at.split('T')[0]));
+                setMonthlyWorkouts(uniqueMonthlyDays.size);
+
+                const uniqueWeeklyDays = new Set(weeklyResults.map((r: any) => r.created_at.split('T')[0]));
+                setWeeklyWorkouts(uniqueWeeklyDays.size);
+            } else {
+                setMonthlyWorkouts(0);
+                setWeeklyWorkouts(0);
+            }
+        } catch (error) {
+            console.error("Error cargando estadísticas:", error);
+        }
+    };
+
+    const fetchProgress = async (id: string) => {
+        const { data: history } = await supabase.from('client_progress').select('*').eq('client_id', id).order('date', { ascending: true }); 
+        if (history && history.length > 0) {
+            setProgressHistory([...history].reverse());
+            const latest = history[history.length - 1];
+            setCurrentWeight(latest.weight || "--"); setCurrentWaist(latest.waist || "--"); setCurrentArm(latest.arm || "--"); setCurrentLeg(latest.leg || "--");
+            const first = history[0];
+            setStatsDiff({ 
+                weight: latest.weight && first.weight ? (latest.weight - first.weight) : 0, 
+                waist: latest.waist && first.waist ? (latest.waist - first.waist) : 0, 
+                arm: latest.arm && first.arm ? (latest.arm - first.arm) : 0,
+                leg: latest.leg && first.leg ? (latest.leg - first.leg) : 0 
+            });
+            const findPhotos = (angleKey: any) => { const valid = history.filter(h => h[angleKey]); if (!valid.length) return { before: null, now: null, beforeId: null }; return { before: valid[0][angleKey], beforeId: valid[0].id, now: valid.length > 1 ? valid[valid.length - 1][angleKey] : null }; };
+            setPhotos({ front: findPhotos('front_photo'), back: findPhotos('back_photo'), side: findPhotos('side_photo') });
+        }
+    };
+
     const handleProfileFileSelect = async (e: any) => {
         if (!e.target.files || e.target.files.length === 0 || !clientId) return;
-        
         const file = e.target.files[0];
         setUploadingProfile(true);
-
         try {
             const fileExt = file.name.split('.').pop();
             const fileName = `avatars/${clientId}_${Date.now()}.${fileExt}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('progress') 
-                .upload(fileName, file);
-
+            const { error: uploadError } = await supabase.storage.from('progress').upload(fileName, file);
             if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('progress')
-                .getPublicUrl(fileName);
-
-            const { error: dbError } = await supabase
-                .from('clients')
-                .update({ image_url: publicUrl })
-                .eq('id', clientId);
-
+            const { data: { publicUrl } } = supabase.storage.from('progress').getPublicUrl(fileName);
+            const { error: dbError } = await supabase.from('clients').update({ image_url: publicUrl }).eq('id', clientId);
             if (dbError) throw dbError;
-
             setClientPhoto(publicUrl);
             alert("¡Foto de perfil actualizada!");
-
         } catch (error: any) {
             console.error("Error subiendo perfil:", error);
             alert("Error al subir la foto. Inténtalo de nuevo.");
@@ -260,11 +297,7 @@ const ClientWorkout = () => {
         if (confirm("¿Quieres eliminar tu foto de perfil actual?")) {
             setUploadingProfile(true);
             try {
-                const { error } = await supabase
-                    .from('clients')
-                    .update({ image_url: null })
-                    .eq('id', clientId);
-                
+                const { error } = await supabase.from('clients').update({ image_url: null }).eq('id', clientId);
                 if (error) throw error;
                 setClientPhoto(null);
             } catch (err) {
@@ -275,7 +308,6 @@ const ClientWorkout = () => {
         }
     };
 
-    // --- MANEJO DE LOGS ---
     const handleLogChange = (exerciseId: number, setIndex: number, field: 'weight' | 'reps', value: string) => {
         setWorkoutLogs((prev: any) => ({
             ...prev,
@@ -291,12 +323,10 @@ const ClientWorkout = () => {
             const currentExercise = prev[exerciseId] || {};
             const currentSet = currentExercise[setIndex] || {};
             const isNowDone = !currentSet.done;
-
             if (isNowDone) {
                 setTimerTime(90); 
                 setTimerActive(true);
             }
-
             return {
                 ...prev,
                 [exerciseId]: {
@@ -310,6 +340,12 @@ const ClientWorkout = () => {
     // --- COMPLETAR ENTRENAMIENTO ---
     const handleFinishWorkout = async () => {
         if (!currentAssignmentId || !clientId) return;
+
+        // Comprobamos si ha rellenado algo para evitar que pase de día sin hacer nada
+        const hasLogs = Object.keys(workoutLogs).length > 0;
+        if (!hasLogs && !confirm("No has marcado ninguna serie como completada. ¿Seguro que quieres finalizar y pasar al siguiente día?")) {
+            return;
+        }
 
         if (confirm("¿Finalizar entrenamiento? Esto guardará tus marcas y actualizará tu progreso.")) {
             setLoading(true);
@@ -334,17 +370,12 @@ const ClientWorkout = () => {
                     await supabase.from('workout_results').insert(resultsToSave);
                 }
 
-                const { error } = await supabase
-                    .from('routine_assignments')
-                    .update({ 
-                        completed: true,
-                        scheduled_date: new Date().toISOString() 
-                    })
-                    .eq('id', currentAssignmentId);
+                await supabase.from('routine_assignments').update({ 
+                    completed: true,
+                    scheduled_date: new Date().toISOString() 
+                }).eq('id', currentAssignmentId);
 
-                if (error) throw error;
-
-                // --- NUEVA LÓGICA: AVANZAR AL SIGUIENTE DÍA DE FORMA AUTOMÁTICA ---
+                // AVANZAR AL SIGUIENTE DÍA
                 const uniqueDays = Array.from(new Set(exercises.map(ex => ex.day_name))).filter(Boolean);
                 let nextDay = currentDayFilter;
                 if (uniqueDays.length > 0) {
@@ -352,19 +383,16 @@ const ClientWorkout = () => {
                     nextDay = uniqueDays[(currentIndex + 1) % uniqueDays.length] as string;
                 }
                 
-                // Guardamos el nuevo día para la próxima vez que entre
                 localStorage.setItem(`fit_client_day_${currentAssignmentId}`, nextDay);
                 setCurrentDayFilter(nextDay);
-                
-                // Limpiamos los logs (los checks verdes) para que el nuevo día esté limpio
                 setWorkoutLogs({});
 
                 if (todayWorkout) {
                     setTodayWorkout({ ...todayWorkout, is_completed_today: false });
                 }
 
-                await fetchMonthlyWorkouts(clientId);
-                await fetchWeeklyWorkouts(clientId);
+                // Recalcular racha con el nuevo motor
+                await fetchWorkoutStats(currentAssignmentId);
 
                 alert(`¡Día completado! 🎉 Preparando el ${nextDay} para tu próxima sesión.`);
                 setActiveTab('inicio');
@@ -377,52 +405,6 @@ const ClientWorkout = () => {
             } finally {
                 setLoading(false);
             }
-        }
-    };
-
-    // --- FUNCIONES AUXILIARES ---
-    const getWeekRange = () => {
-        const now = new Date();
-        const currentDay = now.getDay(); 
-        const diffToMonday = currentDay === 0 ? 6 : currentDay - 1; 
-        const monday = new Date(now);
-        monday.setDate(now.getDate() - diffToMonday);
-        monday.setHours(0, 0, 0, 0); 
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-        sunday.setHours(23, 59, 59, 999); 
-        return { start: monday.toISOString(), end: sunday.toISOString() };
-    };
-
-    const fetchMonthlyWorkouts = async (id: string) => {
-        const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-        const { count } = await supabase.from('routine_assignments').select('*', { count: 'exact', head: true }).eq('client_id', id).eq('completed', true).gte('scheduled_date', firstDay).lte('scheduled_date', lastDay);
-        setMonthlyWorkouts(count || 0);
-    };
-
-    const fetchWeeklyWorkouts = async (id: string) => {
-        const { start, end } = getWeekRange();
-        const { count } = await supabase.from('routine_assignments').select('*', { count: 'exact', head: true }).eq('client_id', id).eq('completed', true).gte('scheduled_date', start).lte('scheduled_date', end);
-        setWeeklyWorkouts(count || 0);
-    };
-
-    const fetchProgress = async (id: string) => {
-        const { data: history } = await supabase.from('client_progress').select('*').eq('client_id', id).order('date', { ascending: true }); 
-        if (history && history.length > 0) {
-            setProgressHistory([...history].reverse());
-            const latest = history[history.length - 1];
-            setCurrentWeight(latest.weight || "--"); setCurrentWaist(latest.waist || "--"); setCurrentArm(latest.arm || "--"); setCurrentLeg(latest.leg || "--");
-            const first = history[0];
-            setStatsDiff({ 
-                weight: latest.weight && first.weight ? (latest.weight - first.weight) : 0, 
-                waist: latest.waist && first.waist ? (latest.waist - first.waist) : 0, 
-                arm: latest.arm && first.arm ? (latest.arm - first.arm) : 0,
-                leg: latest.leg && first.leg ? (latest.leg - first.leg) : 0 
-            });
-            const findPhotos = (angleKey: any) => { const valid = history.filter(h => h[angleKey]); if (!valid.length) return { before: null, now: null, beforeId: null }; return { before: valid[0][angleKey], beforeId: valid[0].id, now: valid.length > 1 ? valid[valid.length - 1][angleKey] : null }; };
-            setPhotos({ front: findPhotos('front_photo'), back: findPhotos('back_photo'), side: findPhotos('side_photo') });
         }
     };
 
@@ -442,7 +424,6 @@ const ClientWorkout = () => {
     const handleUploadPhoto = async () => { if (!fileToUpload || !clientId) return; setUploading(true); try { const fileExt = fileToUpload.name.split('.').pop(); const fileName = `${clientId}/${Date.now()}_${viewAngle}.${fileExt}`; await supabase.storage.from('progress').upload(fileName, fileToUpload); const { data: { publicUrl } } = supabase.storage.from('progress').getPublicUrl(fileName); const today = new Date().toISOString().split('T')[0]; const { data: existing } = await supabase.from('client_progress').select('id').eq('client_id', clientId).eq('date', today).maybeSingle(); const updateData = { [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: publicUrl }; if (existing) await supabase.from('client_progress').update(updateData).eq('id', existing.id); else await supabase.from('client_progress').insert({ client_id: clientId, date: today, ...updateData }); alert("¡Foto guardada!"); setShowPhotoModal(false); setFileToUpload(null); setPreviewUrl(null); fetchProgress(clientId); } catch (e: any) { alert("Error: " + e.message); } finally { setUploading(false); } };
     const handleDeleteBefore = async () => { const current = photos[viewAngle]; if (current.beforeId && confirm("¿Borrar?")) { await supabase.from('client_progress').update({ [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: null }).eq('id', current.beforeId); fetchProgress(clientId!); } };
     
-    // --- ACCIONES DE CUENTA ---
     const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/client-login"; } };
     
     const handlePasswordReset = async () => {
@@ -471,7 +452,6 @@ const ClientWorkout = () => {
 
     if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500"><Activity className="w-10 h-10 animate-spin" /></div>;
 
-    // --- RENDERIZADO ---
     const renderWorkoutView = () => {
         if (!todayWorkout) { setViewingExercises(false); setActiveTab('inicio'); return null; }
         const dailyExercises = exercises.filter(ex => ex.day_name === currentDayFilter);
@@ -582,7 +562,6 @@ const ClientWorkout = () => {
     const renderRacha = () => (
         <div className="p-6 h-full flex flex-col items-center justify-center text-center pb-24 pt-20 animate-in fade-in">
             <div className="relative mb-6">
-                {/* Llama con efecto */}
                 <div className="absolute inset-0 bg-orange-500/20 blur-3xl rounded-full animate-pulse"></div>
                 <Flame 
                     className={`w-32 h-32 transition-all duration-500 ${

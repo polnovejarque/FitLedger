@@ -149,11 +149,11 @@ const ClientWorkout = () => {
                     setPaymentLink(clientData.stripe_link);
 
                     // --- INICIO MARCA BLANCA ---
-                    if (clientData.coach_id) {
+                    if (clientData.user_id) {
                         const { data: coachProfile } = await supabase
                             .from('profiles')
                             .select('logo_url, business_name')
-                            .eq('id', clientData.coach_id)
+                            .eq('id', clientData.user_id)
                             .single();
 
                         if (coachProfile) {

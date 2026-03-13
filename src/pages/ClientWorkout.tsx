@@ -21,7 +21,7 @@ const ClientWorkout = () => {
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
     
-    // --- ESTADOS DE MARCA BLANCA (NUEVO) ---
+    // --- ESTADOS DE MARCA BLANCA ---
     const [coachLogo, setCoachLogo] = useState<string>('/logo.png');
     const [coachBusinessName, setCoachBusinessName] = useState<string>('FitLeader');
 
@@ -32,7 +32,10 @@ const ClientWorkout = () => {
 
     // --- ESTADOS PARA LOS EJERCICIOS ---
     const [exercises, setExercises] = useState<any[]>([]);
-    const [currentDayFilter] = useState("Día 1"); 
+    
+    // AQUÍ ESTÁ EL CAMBIO: Ahora el día es dinámico y puede actualizarse
+    const [currentDayFilter, setCurrentDayFilter] = useState("Día 1"); 
+    
     const [viewingExercises, setViewingExercises] = useState(false);
     
     // Estado para guardar los inputs de cada serie
@@ -107,7 +110,6 @@ const ClientWorkout = () => {
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // --- NUEVO: ESTADOS PARA FOTO DE PERFIL ---
     const profileInputRef = useRef<HTMLInputElement>(null);
     const [uploadingProfile, setUploadingProfile] = useState(false);
 
@@ -149,11 +151,11 @@ const ClientWorkout = () => {
                     setPaymentLink(clientData.stripe_link);
 
                     // --- INICIO MARCA BLANCA ---
-                    if (clientData.user_id) {
+                    if (clientData.user_id) { 
                         const { data: coachProfile } = await supabase
                             .from('profiles')
                             .select('logo_url, business_name')
-                            .eq('id', clientData.user_id)
+                            .eq('id', clientData.user_id) 
                             .single();
 
                         if (coachProfile) {
@@ -175,7 +177,7 @@ const ClientWorkout = () => {
                     if (assignment && assignment.routine) {
                         setTodayWorkout({
                             ...assignment.routine,
-                            is_completed_today: assignment.completed 
+                            is_completed_today: false // <-- DESBLOQUEADO: Siempre listo para el siguiente día
                         });
                         setCurrentAssignmentId(assignment.id);
                         
@@ -190,6 +192,17 @@ const ClientWorkout = () => {
                             .order('id', { ascending: true });
                         
                         setExercises(exerciseData || []);
+
+                        // --- RECUPERAR EL DÍA ACTUAL DEL CLIENTE ---
+                        const uniqueDays = Array.from(new Set((exerciseData || []).map((ex: any) => ex.day_name))).filter(Boolean);
+                        const savedDay = localStorage.getItem(`fit_client_day_${assignment.id}`);
+                        
+                        if (savedDay && uniqueDays.includes(savedDay)) {
+                            setCurrentDayFilter(savedDay);
+                        } else if (uniqueDays.length > 0) {
+                            setCurrentDayFilter(uniqueDays[0] as string);
+                        }
+
                     } else {
                         setTodayWorkout(null);
                     }
@@ -204,7 +217,6 @@ const ClientWorkout = () => {
         fetchClientData();
     }, []);
 
-    // --- NUEVO: GESTIÓN DE FOTO DE PERFIL ---
     const handleProfileFileSelect = async (e: any) => {
         if (!e.target.files || e.target.files.length === 0 || !clientId) return;
         
@@ -332,14 +344,29 @@ const ClientWorkout = () => {
 
                 if (error) throw error;
 
+                // --- NUEVA LÓGICA: AVANZAR AL SIGUIENTE DÍA DE FORMA AUTOMÁTICA ---
+                const uniqueDays = Array.from(new Set(exercises.map(ex => ex.day_name))).filter(Boolean);
+                let nextDay = currentDayFilter;
+                if (uniqueDays.length > 0) {
+                    const currentIndex = uniqueDays.indexOf(currentDayFilter);
+                    nextDay = uniqueDays[(currentIndex + 1) % uniqueDays.length] as string;
+                }
+                
+                // Guardamos el nuevo día para la próxima vez que entre
+                localStorage.setItem(`fit_client_day_${currentAssignmentId}`, nextDay);
+                setCurrentDayFilter(nextDay);
+                
+                // Limpiamos los logs (los checks verdes) para que el nuevo día esté limpio
+                setWorkoutLogs({});
+
                 if (todayWorkout) {
-                    setTodayWorkout({ ...todayWorkout, is_completed_today: true });
+                    setTodayWorkout({ ...todayWorkout, is_completed_today: false });
                 }
 
                 await fetchMonthlyWorkouts(clientId);
                 await fetchWeeklyWorkouts(clientId);
 
-                alert("¡Entrenamiento completado! 🎉 Has sumado +1 a tu racha.");
+                alert(`¡Día completado! 🎉 Preparando el ${nextDay} para tu próxima sesión.`);
                 setActiveTab('inicio');
                 setViewingExercises(false);
                 setTimerActive(false);
@@ -547,7 +574,7 @@ const ClientWorkout = () => {
                 <div className="flex justify-between items-center mb-2"><div><h1 className="text-3xl font-bold text-white">Hola, {clientName} 👋</h1><p className="text-zinc-400 text-xs mt-1">Vamos a por el objetivo de hoy.</p></div><button onClick={() => setActiveTab('racha')} className="flex items-center gap-2 bg-[#111] border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-800 transition-colors"><Flame className="w-4 h-4 text-orange-500" /><span className="text-white font-bold text-sm">{monthlyWorkouts}</span></button></div>
                 <div className="bg-[#051F1A] border border-emerald-900/50 rounded-2xl p-5 relative overflow-hidden"><div className="flex justify-between items-start mb-4 relative z-10"><div><h3 className="text-emerald-400 font-bold text-sm mb-1">Objetivo Semanal</h3><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-white">{weeklyWorkouts}</span><span className="text-zinc-400 text-sm">/ {weeklyGoal} sesiones</span></div></div><Trophy className="w-6 h-6 text-emerald-600" /></div><div className="h-2 w-full bg-emerald-900/30 rounded-full mb-2 relative z-10"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} /></div><p className="text-right text-xs text-emerald-500 font-medium relative z-10">{weeklyWorkouts >= weeklyGoal ? "¡Objetivo cumplido! 🔥" : "¡Casi lo tienes!"}</p><div className="absolute top-0 right-0 p-20 bg-emerald-500/5 blur-[50px] rounded-full pointer-events-none"/></div>
                 <div className="bg-[#111] border border-zinc-800 rounded-2xl p-4 flex gap-4 items-start"><div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center flex-shrink-0"><Lightbulb className="w-5 h-5 text-yellow-500" /></div><div><h3 className="text-white font-bold text-sm mb-1">Tip del Día</h3><p className="text-zinc-400 text-xs leading-relaxed">La hidratación es clave para el rendimiento. Intenta beber 500ml de agua 30 minutos antes de tu sesión hoy. 💧</p></div></div>
-                <div><h3 className="text-white font-bold text-lg mb-3">Próxima sesión:</h3>{todayWorkout ? (<div onClick={() => { setViewingExercises(true); setActiveTab('rutina'); }} className={`bg-[#111] border ${todayWorkout.is_completed_today ? 'border-emerald-500/50 bg-emerald-900/10' : 'border-zinc-800'} rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-emerald-500/30 transition-all group`}><div className="flex items-center gap-4"><div className={`w-12 h-12 ${todayWorkout.is_completed_today ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-emerald-500'} rounded-xl flex items-center justify-center group-hover:bg-emerald-500/10 transition-colors`}>{todayWorkout.is_completed_today ? <Check className="w-6 h-6 stroke-[3]" /> : <ClipboardList className="w-6 h-6" />}</div><div><h3 className="text-white font-bold text-base group-hover:text-emerald-400 transition-colors">{todayWorkout.name}</h3><p className={`text-xs flex items-center gap-1 ${todayWorkout.is_completed_today ? 'text-emerald-500 font-bold' : 'text-zinc-500'}`}>{todayWorkout.is_completed_today ? "¡Completado hoy! ✅" : <><Clock className="w-3 h-3"/> Hoy, cuando tú quieras</>}</p></div></div><div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black transition-all"><ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-black" /></div></div>) : (<div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 text-center"><div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-2"><CalendarIcon className="w-6 h-6 text-zinc-500" /></div><p className="text-zinc-400 text-sm">No tienes sesiones pendientes.</p></div>)}</div>
+                <div><h3 className="text-white font-bold text-lg mb-3">Próxima sesión:</h3>{todayWorkout ? (<div onClick={() => { setViewingExercises(true); setActiveTab('rutina'); }} className={`bg-[#111] border border-zinc-800 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-emerald-500/30 transition-all group`}><div className="flex items-center gap-4"><div className={`w-12 h-12 bg-zinc-800 text-emerald-500 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/10 transition-colors`}><ClipboardList className="w-6 h-6" /></div><div><h3 className="text-white font-bold text-base group-hover:text-emerald-400 transition-colors">{todayWorkout.name} <span className="text-emerald-500 text-sm">({currentDayFilter})</span></h3><p className={`text-xs flex items-center gap-1 text-zinc-500`}><Clock className="w-3 h-3"/> Hoy, cuando tú quieras</p></div></div><div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black transition-all"><ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-black" /></div></div>) : (<div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 text-center"><div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-2"><CalendarIcon className="w-6 h-6 text-zinc-500" /></div><p className="text-zinc-400 text-sm">No tienes sesiones pendientes.</p></div>)}</div>
             </div>
         );
     };
@@ -603,17 +630,13 @@ const ClientWorkout = () => {
         </div>
     );
 
-    // --- NUEVO: RENDER PERFIL CON FOTO ACTUALIZABLE ---
     const renderPerfil = () => (
         <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
              <div className="flex flex-col items-center justify-center mb-6">
-                 
-                 {/* FOTO DE PERFIL (INTERACTIVA) */}
                  <div 
                     className="w-24 h-24 rounded-full bg-zinc-800 border-2 border-emerald-500 p-1 mb-3 relative group overflow-hidden cursor-pointer"
                     onClick={() => { if(!uploadingProfile) profileInputRef.current?.click(); }}
                  >
-                     {/* INPUT OCULTO PARA SUBIR FOTO */}
                      <input 
                         type="file" 
                         ref={profileInputRef} 
@@ -627,7 +650,6 @@ const ClientWorkout = () => {
                      ) : clientPhoto ? (
                          <>
                             <img src={clientPhoto} alt="Profile" className="w-full h-full object-cover rounded-full" />
-                            {/* Overlay de editar al pasar el ratón o tocar */}
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                 <Camera className="w-6 h-6 text-white" />
                             </div>
@@ -642,7 +664,6 @@ const ClientWorkout = () => {
                      )}
                  </div>
 
-                 {/* Botón de borrar foto (solo si hay foto) */}
                  {clientPhoto && (
                      <button onClick={handleDeleteProfilePic} className="text-xs text-red-500 hover:text-red-400 mb-2 flex items-center gap-1">
                          <Trash2 className="w-3 h-3" /> Borrar foto
@@ -657,7 +678,6 @@ const ClientWorkout = () => {
                  </div>
              </div>
 
-             {/* SECCIÓN PAGO (Solo si hay link) */}
              {paymentLink && (
                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl mb-6">
                      <div className="flex items-center justify-between mb-3">
@@ -688,7 +708,6 @@ const ClientWorkout = () => {
             {!viewingExercises && (
                 <div className="fixed top-0 w-full max-w-md left-0 right-0 mx-auto bg-black/90 backdrop-blur-md border-b border-white/10 z-50 px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3 w-full">
-                        {/* --- MARCA BLANCA DINÁMICA APLICADA AQUÍ --- */}
                         <img src={coachLogo} alt={coachBusinessName} className="h-10 w-auto object-contain rounded bg-transparent" />
                         <span className="font-bold text-lg text-white tracking-tight italic truncate">
                             {coachBusinessName}

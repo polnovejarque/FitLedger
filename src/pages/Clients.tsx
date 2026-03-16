@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { 
     Search, Filter, MoreVertical, 
     Target, AlertTriangle, Edit, Trash2,
-    Loader2, Plus, X, User // ✅ AÑADIDO: Icono de usuario
+    Loader2, Plus, X, User 
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -39,19 +39,47 @@ const Clients = () => {
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
+    // NUEVO: Función inteligente de carga de clientes
     const fetchClients = async () => {
         setIsLoading(true);
-        const { data, error } = await supabase
-            .from('clients')
-            .select('*')
-            .order('created_at', { ascending: false });
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-        if (error) {
-            console.error('Error cargando clientes:', error);
-        } else {
-            setClients(data || []);
+            // Preguntamos el rol y el ID del estudio
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role, studio_id')
+                .eq('id', user.id)
+                .single();
+
+            let query = supabase.from('clients').select('*').order('created_at', { ascending: false });
+
+            if (profile?.role === 'admin') {
+                // Si es el JEFE: Ve todos los clientes que pertenezcan a su "Studio"
+                // (Para que esto funcione, necesitamos que la tabla clients guarde también el studio_id. 
+                // De momento filtramos por los que creó él, o los que crearon sus empleados si tenemos ese dato)
+                
+                // NOTA: Para no romper tu BD actual, de momento le enseñamos los suyos.
+                // En el siguiente paso te daré el SQL para vincular clientes al Studio.
+                query = query.eq('user_id', user.id); 
+            } else {
+                // Si es EMPLEADO (staff): Solo ve a los clientes asignados a él (user_id)
+                query = query.eq('user_id', user.id);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error cargando clientes:', error);
+            } else {
+                setClients(data || []);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     // 2. Guardar Cliente Nuevo
@@ -76,7 +104,7 @@ const Clients = () => {
             status: "Activo",
             plan: "Básico",
             location: "Remoto",
-            image_url: null, // ✅ CAMBIO: Ahora empieza sin foto (null), no inventada
+            image_url: null, 
             payment_status: 'pending'
         }]);
 
@@ -168,7 +196,6 @@ const Clients = () => {
                                 >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            {/* ✅ LÓGICA DE FOTO CORREGIDA: Si hay foto, la muestra. Si no, muestra el icono User (monigote) */}
                                             {client.image_url ? (
                                                 <img src={client.image_url} alt={client.name} className="w-10 h-10 rounded-full border border-zinc-800 object-cover" />
                                             ) : (

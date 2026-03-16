@@ -20,6 +20,8 @@ import Settings from './pages/Settings';
 import Workouts from './pages/Workouts';
 import WorkoutEditor from './pages/WorkoutEditor';
 import Reports from './pages/Reports';
+// ✅ NUEVO: Importamos la página de Mi Equipo
+import Team from './pages/Team';
 
 const RequireAuth = () => {
   const { session, loading } = useAuth();
@@ -59,6 +61,10 @@ function App() {
               <Route path="agenda" element={<Agenda />} />
               <Route path="finance" element={<Finance />} />
               <Route path="reports" element={<Reports />} />
+              
+              {/* ✅ NUEVO: Ruta para Mi Equipo */}
+              <Route path="team" element={<Team />} />
+              
               <Route path="settings" element={<Settings />} />
             </Route>
           </Route>

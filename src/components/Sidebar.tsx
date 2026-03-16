@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut, Shield } from 'lucide-react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
@@ -13,6 +13,7 @@ const navItems = [
     { icon: Calendar, label: 'Agenda', path: '/dashboard/agenda' },
     { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance', restricted: true },
     { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports', restricted: true },
+    { icon: Shield, label: 'Mi Equipo', path: '/dashboard/team', restricted: true },
     { icon: SettingsIcon, label: 'Configuración', path: '/dashboard/settings', restricted: true },
 ];
 

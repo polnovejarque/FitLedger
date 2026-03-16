@@ -421,7 +421,45 @@ const ClientWorkout = () => {
     };
 
     const handleFileSelect = (e: any) => { if (e.target.files?.[0]) { setFileToUpload(e.target.files[0]); setPreviewUrl(URL.createObjectURL(e.target.files[0])); } };
-    const handleUploadPhoto = async () => { if (!fileToUpload || !clientId) return; setUploading(true); try { const fileExt = fileToUpload.name.split('.').pop(); const fileName = `${clientId}/${Date.now()}_${viewAngle}.${fileExt}`; await supabase.storage.from('progress').upload(fileName, fileToUpload); const { data: { publicUrl } } = supabase.storage.from('progress').getPublicUrl(fileName); const today = new Date().toISOString().split('T')[0]; const { data: existing } = await supabase.from('client_progress').select('id').eq('client_id', clientId).eq('date', today).maybeSingle(); const updateData = { [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: publicUrl }; if (existing) await supabase.from('client_progress').update(updateData).eq('id', existing.id); else await supabase.from('client_progress').insert({ client_id: clientId, date: today, ...updateData }); alert("¡Foto guardada!"); setShowPhotoModal(false); setFileToUpload(null); setPreviewUrl(null); fetchProgress(clientId); } catch (e: any) { alert("Error: " + e.message); } finally { setUploading(false); } };
+    
+    // --- NUEVO: Función de subida con control de errores mejorado ---
+    const handleUploadPhoto = async () => {
+        if (!fileToUpload || !clientId) return;
+        setUploading(true);
+
+        try {
+            const fileExt = fileToUpload.name.split('.').pop();
+            const fileName = `${clientId}/${Date.now()}_${viewAngle}.${fileExt}`;
+
+            // Subimos a Supabase y guardamos el error si el portero nos bloquea
+            const { error: uploadError } = await supabase.storage.from('progress').upload(fileName, fileToUpload);
+            if (uploadError) throw uploadError; 
+
+            const { data: { publicUrl } } = supabase.storage.from('progress').getPublicUrl(fileName);
+            const today = new Date().toISOString().split('T')[0];
+            const { data: existing } = await supabase.from('client_progress').select('id').eq('client_id', clientId).eq('date', today).maybeSingle();
+            const updateData = { [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: publicUrl };
+
+            if (existing) {
+                await supabase.from('client_progress').update(updateData).eq('id', existing.id);
+            } else {
+                await supabase.from('client_progress').insert({ client_id: clientId, date: today, ...updateData });
+            }
+
+            alert("¡Foto guardada con éxito!");
+            setShowPhotoModal(false);
+            setFileToUpload(null);
+            setPreviewUrl(null);
+            fetchProgress(clientId);
+
+        } catch (e: any) {
+            console.error("Error al subir:", e);
+            alert("Error al subir la foto: " + e.message);
+        } finally {
+            setUploading(false);
+        }
+    };
+    
     const handleDeleteBefore = async () => { const current = photos[viewAngle]; if (current.beforeId && confirm("¿Borrar?")) { await supabase.from('client_progress').update({ [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: null }).eq('id', current.beforeId); fetchProgress(clientId!); } };
     
     const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/client-login"; } };

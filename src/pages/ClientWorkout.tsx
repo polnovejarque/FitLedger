@@ -190,7 +190,6 @@ const ClientWorkout = () => {
                             setCurrentDayFilter(uniqueDays[0] as string);
                         }
 
-                        // Calcular estadísticas de racha
                         fetchWorkoutStats(assignment.id);
 
                     } else {
@@ -205,7 +204,6 @@ const ClientWorkout = () => {
         fetchClientData();
     }, []);
 
-    // --- NUEVO MOTOR DE RACHA Y ESTADÍSTICAS ---
     const getWeekRange = () => {
         const now = new Date();
         const currentDay = now.getDay(); 
@@ -226,7 +224,6 @@ const ClientWorkout = () => {
             const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
             const { start: startWeek, end: endWeek } = getWeekRange();
 
-            // Buscamos todos los ejercicios guardados para saber qué días entrenó realmente
             const { data: results } = await supabase
                 .from('workout_results')
                 .select('created_at')
@@ -237,7 +234,6 @@ const ClientWorkout = () => {
             if (results && results.length > 0) {
                 const weeklyResults = results.filter((r: any) => r.created_at >= startWeek && r.created_at <= endWeek);
                 
-                // Extraemos las fechas únicas (YYYY-MM-DD) para contar los días
                 const uniqueMonthlyDays = new Set(results.map((r: any) => r.created_at.split('T')[0]));
                 setMonthlyWorkouts(uniqueMonthlyDays.size);
 
@@ -279,14 +275,16 @@ const ClientWorkout = () => {
             const fileName = `avatars/${clientId}_${Date.now()}.${fileExt}`;
             const { error: uploadError } = await supabase.storage.from('progress').upload(fileName, file);
             if (uploadError) throw uploadError;
+            
             const { data: { publicUrl } } = supabase.storage.from('progress').getPublicUrl(fileName);
             const { error: dbError } = await supabase.from('clients').update({ image_url: publicUrl }).eq('id', clientId);
             if (dbError) throw dbError;
+            
             setClientPhoto(publicUrl);
             alert("¡Foto de perfil actualizada!");
         } catch (error: any) {
             console.error("Error subiendo perfil:", error);
-            alert("Error al subir la foto. Inténtalo de nuevo.");
+            alert("Error al subir la foto de perfil: " + error.message);
         } finally {
             setUploadingProfile(false);
         }
@@ -300,8 +298,8 @@ const ClientWorkout = () => {
                 const { error } = await supabase.from('clients').update({ image_url: null }).eq('id', clientId);
                 if (error) throw error;
                 setClientPhoto(null);
-            } catch (err) {
-                alert("Error al eliminar.");
+            } catch (err: any) {
+                alert("Error al eliminar: " + err.message);
             } finally {
                 setUploadingProfile(false);
             }
@@ -337,11 +335,9 @@ const ClientWorkout = () => {
         });
     };
 
-    // --- COMPLETAR ENTRENAMIENTO ---
     const handleFinishWorkout = async () => {
         if (!currentAssignmentId || !clientId) return;
 
-        // Comprobamos si ha rellenado algo para evitar que pase de día sin hacer nada
         const hasLogs = Object.keys(workoutLogs).length > 0;
         if (!hasLogs && !confirm("No has marcado ninguna serie como completada. ¿Seguro que quieres finalizar y pasar al siguiente día?")) {
             return;
@@ -367,15 +363,17 @@ const ClientWorkout = () => {
                 });
 
                 if (resultsToSave.length > 0) {
-                    await supabase.from('workout_results').insert(resultsToSave);
+                    const { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
+                    if (resultsErr) throw resultsErr;
                 }
 
-                await supabase.from('routine_assignments').update({ 
+                const { error: assignmentErr } = await supabase.from('routine_assignments').update({ 
                     completed: true,
                     scheduled_date: new Date().toISOString() 
                 }).eq('id', currentAssignmentId);
+                
+                if (assignmentErr) throw assignmentErr;
 
-                // AVANZAR AL SIGUIENTE DÍA
                 const uniqueDays = Array.from(new Set(exercises.map(ex => ex.day_name))).filter(Boolean);
                 let nextDay = currentDayFilter;
                 if (uniqueDays.length > 0) {
@@ -391,7 +389,6 @@ const ClientWorkout = () => {
                     setTodayWorkout({ ...todayWorkout, is_completed_today: false });
                 }
 
-                // Recalcular racha con el nuevo motor
                 await fetchWorkoutStats(currentAssignmentId);
 
                 alert(`¡Día completado! 🎉 Preparando el ${nextDay} para tu próxima sesión.`);
@@ -413,54 +410,82 @@ const ClientWorkout = () => {
         try {
             const today = new Date().toISOString().split('T')[0];
             const payload: any = { client_id: clientId, date: today };
-            if (formWeight) payload.weight = parseFloat(formWeight); if (formWaist) payload.waist = parseFloat(formWaist); if (formArm) payload.arm = parseFloat(formArm); if (formLeg) payload.leg = parseFloat(formLeg);
+            if (formWeight) payload.weight = parseFloat(formWeight); 
+            if (formWaist) payload.waist = parseFloat(formWaist); 
+            if (formArm) payload.arm = parseFloat(formArm); 
+            if (formLeg) payload.leg = parseFloat(formLeg);
+            
             const { data: existing } = await supabase.from('client_progress').select('id').eq('client_id', clientId).eq('date', today).maybeSingle();
-            if (existing) await supabase.from('client_progress').update(payload).eq('id', existing.id); else await supabase.from('client_progress').insert(payload);
-            alert("✅ Guardado"); setShowCheckinModal(false); setFormWeight(""); setFormWaist(""); setFormArm(""); setFormLeg(""); fetchProgress(clientId);
-        } catch (e: any) { alert("Error: " + e.message); } finally { setSaving(false); }
+            
+            if (existing) {
+                const { error: updateErr } = await supabase.from('client_progress').update(payload).eq('id', existing.id);
+                if (updateErr) throw updateErr;
+            } else {
+                const { error: insertErr } = await supabase.from('client_progress').insert(payload);
+                if (insertErr) throw insertErr;
+            }
+            
+            alert("✅ Guardado"); 
+            setShowCheckinModal(false); 
+            setFormWeight(""); setFormWaist(""); setFormArm(""); setFormLeg(""); 
+            fetchProgress(clientId);
+            
+        } catch (e: any) { 
+            console.error(e);
+            alert("Error al guardar: " + e.message); 
+        } finally { 
+            setSaving(false); 
+        }
     };
 
     const handleFileSelect = (e: any) => { if (e.target.files?.[0]) { setFileToUpload(e.target.files[0]); setPreviewUrl(URL.createObjectURL(e.target.files[0])); } };
     
-    // --- NUEVO: Función de subida con control de errores mejorado ---
-    const handleUploadPhoto = async () => {
-        if (!fileToUpload || !clientId) return;
-        setUploading(true);
-
-        try {
-            const fileExt = fileToUpload.name.split('.').pop();
-            const fileName = `${clientId}/${Date.now()}_${viewAngle}.${fileExt}`;
-
-            // Subimos a Supabase y guardamos el error si el portero nos bloquea
-            const { error: uploadError } = await supabase.storage.from('progress').upload(fileName, fileToUpload);
+    const handleUploadPhoto = async () => { 
+        if (!fileToUpload || !clientId) return; 
+        setUploading(true); 
+        try { 
+            const fileExt = fileToUpload.name.split('.').pop(); 
+            const fileName = `${clientId}/${Date.now()}_${viewAngle}.${fileExt}`; 
+            
+            const { error: uploadError } = await supabase.storage.from('progress').upload(fileName, fileToUpload); 
             if (uploadError) throw uploadError; 
-
-            const { data: { publicUrl } } = supabase.storage.from('progress').getPublicUrl(fileName);
-            const today = new Date().toISOString().split('T')[0];
-            const { data: existing } = await supabase.from('client_progress').select('id').eq('client_id', clientId).eq('date', today).maybeSingle();
-            const updateData = { [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: publicUrl };
-
+            
+            const { data: { publicUrl } } = supabase.storage.from('progress').getPublicUrl(fileName); 
+            const today = new Date().toISOString().split('T')[0]; 
+            
+            const { data: existing } = await supabase.from('client_progress').select('id').eq('client_id', clientId).eq('date', today).maybeSingle(); 
+            const updateData = { [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: publicUrl }; 
+            
             if (existing) {
-                await supabase.from('client_progress').update(updateData).eq('id', existing.id);
+                const { error: updateErr } = await supabase.from('client_progress').update(updateData).eq('id', existing.id);
+                if (updateErr) throw updateErr;
             } else {
-                await supabase.from('client_progress').insert({ client_id: clientId, date: today, ...updateData });
+                const { error: insertErr } = await supabase.from('client_progress').insert({ client_id: clientId, date: today, ...updateData });
+                if (insertErr) throw insertErr;
             }
-
-            alert("¡Foto guardada con éxito!");
-            setShowPhotoModal(false);
-            setFileToUpload(null);
-            setPreviewUrl(null);
-            fetchProgress(clientId);
-
-        } catch (e: any) {
-            console.error("Error al subir:", e);
-            alert("Error al subir la foto: " + e.message);
-        } finally {
-            setUploading(false);
-        }
+            
+            alert("¡Foto guardada!"); 
+            setShowPhotoModal(false); 
+            setFileToUpload(null); 
+            setPreviewUrl(null); 
+            fetchProgress(clientId); 
+            
+        } catch (e: any) { 
+            console.error(e);
+            alert("Error al guardar la foto: " + e.message); 
+        } finally { 
+            setUploading(false); 
+        } 
     };
-    
-    const handleDeleteBefore = async () => { const current = photos[viewAngle]; if (current.beforeId && confirm("¿Borrar?")) { await supabase.from('client_progress').update({ [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: null }).eq('id', current.beforeId); fetchProgress(clientId!); } };
+
+    const handleDeleteBefore = async () => { 
+        const current = photos[viewAngle]; 
+        if (current.beforeId && confirm("¿Borrar?")) { 
+            const { error } = await supabase.from('client_progress').update({ [viewAngle === 'front' ? 'front_photo' : viewAngle === 'back' ? 'back_photo' : 'side_photo']: null }).eq('id', current.beforeId); 
+            if (error) alert("Error al borrar: " + error.message);
+            fetchProgress(clientId!); 
+        } 
+    };
     
     const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/client-login"; } };
     

@@ -22,6 +22,8 @@ import WorkoutEditor from './pages/WorkoutEditor';
 import Reports from './pages/Reports';
 // ✅ NUEVO: Importamos la página de Mi Equipo
 import Team from './pages/Team';
+// ✅ NUEVO: Importamos la página de registro de empleados
+import StaffRegister from './pages/StaffRegister';
 
 const RequireAuth = () => {
   const { session, loading } = useAuth();
@@ -39,6 +41,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/update-password" element={<UpdatePassword />} /> {/* ✅ NUEVA RUTA AQUÍ */}
+          <Route path="/register" element={<StaffRegister />} /> {/* ✅ NUEVA RUTA DE REGISTRO STAFF AQUÍ */}
           
           {/* Rutas de la App del Cliente (Móvil) */}
           <Route path="/client-app" element={<ClientLogin />} />

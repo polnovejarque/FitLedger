@@ -11,6 +11,9 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     
+    // NUEVO: Estado para guardar el rol
+    const [userRole, setUserRole] = useState('admin');
+    
     // Estados de Datos Reales
     const [kpi, setKpi] = useState({
         monthlyRevenue: 0,
@@ -27,40 +30,54 @@ const Dashboard = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            // Conseguir el rol del usuario
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+            
+            if (profile?.role) {
+                setUserRole(profile.role);
+            }
+
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
             const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
             
-            // 1. KPI: INGRESOS MES ACTUAL
-            const { data: payments } = await supabase
-                .from('payments')
-                .select('amount, date')
-                .eq('coach_id', user.id);
+            // 1. KPI: INGRESOS MES ACTUAL (Solo lo calculamos si no es staff para no gastar recursos)
+            let currentMonthRevenue = 0;
+            if (profile?.role !== 'staff') {
+                const { data: payments } = await supabase
+                    .from('payments')
+                    .select('amount, date')
+                    .eq('coach_id', user.id);
 
-            const currentMonthRevenue = payments
-                ?.filter(p => p.date >= startOfMonth && p.date <= endOfMonth && p.amount > 0)
-                .reduce((acc, curr) => acc + curr.amount, 0) || 0;
+                currentMonthRevenue = payments
+                    ?.filter(p => p.date >= startOfMonth && p.date <= endOfMonth && p.amount > 0)
+                    .reduce((acc, curr) => acc + curr.amount, 0) || 0;
 
-            // 2. DATOS GRÁFICA (Ingresos por mes)
-            const monthsMap: any = {};
-            for (let i = 5; i >= 0; i--) {
-                const d = new Date();
-                d.setMonth(d.getMonth() - i);
-                const key = d.toLocaleString('es-ES', { month: 'short' });
-                monthsMap[key] = { month: key, value: 0, sort: d.getTime() };
-            }
-
-            payments?.forEach(p => {
-                if (p.amount > 0) {
-                    const d = new Date(p.date);
+                // 2. DATOS GRÁFICA (Ingresos por mes)
+                const monthsMap: any = {};
+                for (let i = 5; i >= 0; i--) {
+                    const d = new Date();
+                    d.setMonth(d.getMonth() - i);
                     const key = d.toLocaleString('es-ES', { month: 'short' });
-                    if (monthsMap[key]) {
-                        monthsMap[key].value += p.amount;
-                    }
+                    monthsMap[key] = { month: key, value: 0, sort: d.getTime() };
                 }
-            });
-            const graphData = Object.values(monthsMap).sort((a: any, b: any) => a.sort - b.sort);
-            setCashFlowData(graphData);
+
+                payments?.forEach(p => {
+                    if (p.amount > 0) {
+                        const d = new Date(p.date);
+                        const key = d.toLocaleString('es-ES', { month: 'short' });
+                        if (monthsMap[key]) {
+                            monthsMap[key].value += p.amount;
+                        }
+                    }
+                });
+                const graphData = Object.values(monthsMap).sort((a: any, b: any) => a.sort - b.sort);
+                setCashFlowData(graphData);
+            }
 
             // 3. KPI: CLIENTES
             const { data: clients } = await supabase.from('clients').select('id');
@@ -97,14 +114,17 @@ const Dashboard = () => {
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Tarjetas Superiores */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Ingresos */}
-                <div onClick={() => navigate('/dashboard/finance')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-emerald-500/30 transition-colors cursor-pointer">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500"><DollarSign className="w-5 h-5" /></div>
+                
+                {/* Ingresos (SOLO ADMIN) */}
+                {userRole !== 'staff' && (
+                    <div onClick={() => navigate('/dashboard/finance')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-emerald-500/30 transition-colors cursor-pointer">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500"><DollarSign className="w-5 h-5" /></div>
+                        </div>
+                        <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Ingresos Este Mes</p>
+                        <h3 className="text-3xl font-bold text-white mt-1">{kpi.monthlyRevenue} €</h3>
                     </div>
-                    <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Ingresos Este Mes</p>
-                    <h3 className="text-3xl font-bold text-white mt-1">{kpi.monthlyRevenue} €</h3>
-                </div>
+                )}
                 
                 {/* Clientes Activos */}
                 <div onClick={() => navigate('/dashboard/clients')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-blue-500/50 cursor-pointer transition-all">
@@ -137,42 +157,44 @@ const Dashboard = () => {
             </div>
 
             {/* Gráfica y Agenda */}
-            <div className="grid lg:grid-cols-3 gap-6">
+            <div className={`grid ${userRole !== 'staff' ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
                 
-                {/* Gráfica Flujo de Caja */}
-                <div className="lg:col-span-2 bg-[#111] p-6 rounded-2xl border border-zinc-800">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-bold text-white">Evolución de Ingresos</h3>
+                {/* Gráfica Flujo de Caja (SOLO ADMIN) */}
+                {userRole !== 'staff' && (
+                    <div className="lg:col-span-2 bg-[#111] p-6 rounded-2xl border border-zinc-800">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-white">Evolución de Ingresos</h3>
+                        </div>
+                        
+                        <div className="h-[300px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={cashFlowData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="gradientGraph" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
+                                            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis dataKey="month" hide />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '8px' }} 
+                                        itemStyle={{ color: '#10b981' }}
+                                        formatter={(value: number) => [`${value} €`, 'Ingresos']}
+                                    />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="value" 
+                                        stroke="#10b981" 
+                                        strokeWidth={3}
+                                        fill="url(#gradientGraph)" 
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                    
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={cashFlowData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="gradientGraph" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
-                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="month" hide />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '8px' }} 
-                                    itemStyle={{ color: '#10b981' }}
-                                    formatter={(value: number) => [`${value} €`, 'Ingresos']}
-                                />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="value" 
-                                    stroke="#10b981" 
-                                    strokeWidth={3}
-                                    fill="url(#gradientGraph)" 
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
+                )}
 
-                {/* Agenda Lateral */}
+                {/* Agenda Lateral (Para todos) */}
                 <div className="space-y-6">
                     <div className="bg-[#111] p-6 rounded-2xl border border-zinc-800 h-full flex flex-col">
                         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">

@@ -5,37 +5,42 @@ import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
 import { supabase } from '../lib/supabase';
 
+// Añadimos una propiedad "restricted: true" a los botones sensibles
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Clientes', path: '/dashboard/clients' },
     { icon: Dumbbell, label: 'Entrenamientos', path: '/dashboard/workouts' },
     { icon: Calendar, label: 'Agenda', path: '/dashboard/agenda' },
-    { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance' },
-    { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports' },
-    { icon: SettingsIcon, label: 'Configuración', path: '/dashboard/settings' },
+    { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance', restricted: true },
+    { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports', restricted: true },
+    { icon: SettingsIcon, label: 'Configuración', path: '/dashboard/settings', restricted: true },
 ];
 
 const Sidebar = () => {
     const navigate = useNavigate();
     
-    // Estados para la marca blanca (por defecto muestra FitLeader)
+    // Estados para la marca blanca
     const [businessName, setBusinessName] = useState('FitLeader');
     const [logoUrl, setLogoUrl] = useState('/logo.png');
 
-    // Cargar los datos del negocio al iniciar
+    // NUEVO: Estado para guardar el rol (jefe o empleado)
+    const [userRole, setUserRole] = useState('admin');
+
+    // Cargar los datos del negocio y el ROL al iniciar
     useEffect(() => {
         const loadBusinessData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data } = await supabase
                     .from('profiles')
-                    .select('business_name, logo_url')
+                    .select('business_name, logo_url, role') // <- Pedimos el rol a la base de datos
                     .eq('id', user.id)
                     .single();
                 
                 if (data) {
                     if (data.business_name) setBusinessName(data.business_name);
                     if (data.logo_url) setLogoUrl(data.logo_url);
+                    if (data.role) setUserRole(data.role); // <- Guardamos el rol en la memoria
                 }
             }
         };
@@ -44,8 +49,16 @@ const Sidebar = () => {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        navigate('/'); // Te devuelve a la página principal al salir
+        navigate('/'); 
     };
+
+    // EL PORTERO: Filtramos el menú. Si es 'staff', le ocultamos los restringidos
+    const visibleNavItems = navItems.filter(item => {
+        if (userRole === 'staff' && item.restricted) {
+            return false;
+        }
+        return true;
+    });
 
     return (
         <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
@@ -69,7 +82,8 @@ const Sidebar = () => {
                 </div>
 
                 <nav className="flex-1 space-y-1">
-                    {navItems.map((item) => (
+                    {/* Imprimimos la lista filtrada, no la original */}
+                    {visibleNavItems.map((item) => (
                         <NavLink
                             key={item.path}
                             to={item.path}

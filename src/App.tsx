@@ -24,6 +24,8 @@ import Reports from './pages/Reports';
 import Team from './pages/Team';
 // ✅ NUEVO: Importamos la página de registro de empleados
 import StaffRegister from './pages/StaffRegister';
+// ✅ NUEVO: Importamos la página de Inventario
+import Inventory from './pages/Inventory';
 
 const RequireAuth = () => {
   const { session, loading } = useAuth();
@@ -67,6 +69,9 @@ function App() {
               
               {/* ✅ NUEVO: Ruta para Mi Equipo */}
               <Route path="team" element={<Team />} />
+
+              {/* ✅ NUEVO: Ruta para Inventario */}
+              <Route path="inventory" element={<Inventory />} />
               
               <Route path="settings" element={<Settings />} />
             </Route>

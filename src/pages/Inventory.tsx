@@ -77,7 +77,7 @@ const Inventory = () => {
                         Recursos Físicos
                     </h1>
                     <p className="text-zinc-400 mt-1">
-                        Gestiona el material disponible de tu centro (hamacas, bicis, etc.) para limitar los aforos de forma inteligente.
+                        Gestiona el material disponible de tu centro (esterillas, bicis, etc.) para limitar los aforos de forma inteligente.
                     </p>
                 </div>
             </div>
@@ -96,7 +96,7 @@ const Inventory = () => {
                                     value={newItemName}
                                     onChange={(e) => setNewItemName(e.target.value)}
                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-emerald-500 outline-none transition-colors" 
-                                    placeholder="Ej: Hamaca Antigravity" 
+                                    placeholder="Ej: Bicicleta Spinning" 
                                 />
                             </div>
                             <div>

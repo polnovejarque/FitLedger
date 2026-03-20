@@ -58,16 +58,19 @@ const StaffRegister = () => {
             if (authError) throw authError;
 
             if (authData.user) {
-                // 2. ACTUALIZAMOS SU PERFIL: Le ponemos rol de empleado y lo atamos a su jefe
+                // ⏳ Esperamos 1 segundo para que Supabase termine de crear el perfil por defecto
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // 2. ACTUALIZAMOS SU PERFIL A LA FUERZA: Le quitamos el 'admin' y le ponemos 'staff'
                 const { error: profileError } = await supabase
                     .from('profiles')
-                    .update({ 
+                    .upsert({ 
+                        id: authData.user.id, // <- CRÍTICO: Pasamos su ID exacto
                         business_name: formData.name, 
                         role: 'staff',
                         studio_id: studioId,
                         subscription_plan: 'studio'
-                    })
-                    .eq('id', authData.user.id);
+                    });
 
                 if (profileError) throw profileError;
 

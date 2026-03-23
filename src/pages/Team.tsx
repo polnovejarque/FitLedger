@@ -23,13 +23,16 @@ const Team = () => {
 
         setStudioId(user.id); // El ID del admin es el ID del Studio
 
-        // Buscamos a los perfiles que pertenezcan a este estudio y sean empleados
+        // ⚠️ ARREGLO CRÍTICO: Quitamos el order('created_at') porque la tabla profiles no suele tener esa columna
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('studio_id', user.id)
-            .eq('role', 'staff')
-            .order('created_at', { ascending: false });
+            .eq('role', 'staff');
+
+        if (error) {
+            console.error("Error buscando al equipo:", error);
+        }
 
         if (!error && data) {
             setStaff(data);
@@ -39,7 +42,6 @@ const Team = () => {
 
     const handleCopyInviteLink = () => {
         if (!studioId) return;
-        // Este enlace llevará al registro especial para empleados (lo crearemos más adelante)
         const inviteLink = `${window.location.origin}/register?studio=${studioId}`;
         navigator.clipboard.writeText(inviteLink);
         setCopied(true);
@@ -112,7 +114,7 @@ const Team = () => {
                                 {member.logo_url ? <img src={member.logo_url} className="w-full h-full object-cover" alt="staff"/> : <User className="w-6 h-6 text-zinc-500" />}
                             </div>
                             <h3 className="text-xl font-bold text-white">{member.business_name || 'Entrenador'}</h3>
-                            <p className="text-sm text-zinc-500 mt-1 truncate">{member.email}</p>
+                            <p className="text-sm text-zinc-500 mt-1 truncate">{member.email || 'Empleado del Centro'}</p>
                             
                             <div className="mt-6 flex items-center justify-between">
                                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-bold border border-zinc-700">

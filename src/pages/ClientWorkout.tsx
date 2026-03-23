@@ -6,7 +6,7 @@ import {
     Bell, Settings, ChevronRight, Plus, Scale, X, Camera, Ruler, Trash2, Upload, RefreshCw,
     ArrowLeft, Check, Clock, Play, Lightbulb, SkipForward,
     CreditCard, Mail, Globe, Shield, FileText, Moon, Lock,
-    ArrowDownRight, ArrowUpRight, Minus
+    ArrowDownRight, ArrowUpRight, Minus, Users
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -21,9 +21,11 @@ const ClientWorkout = () => {
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
     
-    // --- ESTADOS DE MARCA BLANCA ---
+    // --- ESTADOS DE MARCA BLANCA Y RESERVAS ---
     const [coachLogo, setCoachLogo] = useState<string>('/logo.png');
     const [coachBusinessName, setCoachBusinessName] = useState<string>('FitLeader');
+    const [studioId, setStudioId] = useState<string | null>(null);
+    const [groupClasses, setGroupClasses] = useState<any[]>([]);
 
     const [currentAssignmentId, setCurrentAssignmentId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -64,8 +66,8 @@ const ClientWorkout = () => {
         side: { before: null, now: null, beforeId: null }
     });
 
-    // UI State
-    const [activeTab, setActiveTab] = useState<'inicio' | 'rutina' | 'racha' | 'progreso' | 'perfil'>('inicio');
+    // UI State (Reemplazamos racha por reservas)
+    const [activeTab, setActiveTab] = useState<'inicio' | 'reservas' | 'rutina' | 'progreso' | 'perfil'>('inicio');
     const [activeProfileModal, setActiveProfileModal] = useState<'notifications' | 'settings' | null>(null);
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -139,8 +141,9 @@ const ClientWorkout = () => {
                     setClientPhoto(clientData.image_url);
                     setPaymentLink(clientData.stripe_link);
 
-                    // --- INICIO MARCA BLANCA ---
+                    // --- INICIO MARCA BLANCA Y STUDIO ID ---
                     if (clientData.user_id) { 
+                        setStudioId(clientData.user_id);
                         const { data: coachProfile } = await supabase
                             .from('profiles')
                             .select('logo_url, business_name')
@@ -151,6 +154,9 @@ const ClientWorkout = () => {
                             if (coachProfile.logo_url) setCoachLogo(coachProfile.logo_url);
                             if (coachProfile.business_name) setCoachBusinessName(coachProfile.business_name);
                         }
+                        
+                        // Cargamos las clases del estudio
+                        fetchClasses(clientData.user_id, clientData.id);
                     }
                     // --- FIN MARCA BLANCA ---
 
@@ -165,7 +171,7 @@ const ClientWorkout = () => {
                     if (assignment && assignment.routine) {
                         setTodayWorkout({
                             ...assignment.routine,
-                            is_completed_today: false // SIEMPRE LISTO
+                            is_completed_today: false
                         });
                         setCurrentAssignmentId(assignment.id);
                         
@@ -203,6 +209,92 @@ const ClientWorkout = () => {
         };
         fetchClientData();
     }, []);
+
+    const fetchClasses = async (studioId: string, clientId: string) => {
+        const today = new Date().toISOString();
+        
+        // 1. Traer los eventos futuros del centro
+        const { data: events } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .eq('studio_id', studioId)
+            .eq('type', 'group')
+            .gte('date', today)
+            .order('date', { ascending: true });
+
+        if (events && events.length > 0) {
+            // 2. Traer los nombres de los entrenadores para no liar a Supabase con Foreign Keys
+            const staffIds = Array.from(new Set(events.map(e => e.assigned_staff_id).filter(Boolean)));
+            const { data: staffProfiles } = await supabase.from('profiles').select('id, business_name').in('id', staffIds);
+            
+            // 3. Traer las reservas de esas clases para calcular aforos
+            const eventIds = events.map(e => e.id);
+            const { data: bookings } = await supabase
+                .from('class_bookings')
+                .select('*')
+                .in('event_id', eventIds);
+
+            // 4. Mapear todo junto
+            const classesWithBookingData = events.map(ev => {
+                const coach = staffProfiles?.find(p => p.id === ev.assigned_staff_id);
+                const evBookings = bookings?.filter(b => b.event_id === ev.id) || [];
+                
+                const isBooked = evBookings.some(b => b.client_id === clientId && b.status === 'booked');
+                const isWaitlisted = evBookings.some(b => b.client_id === clientId && b.status === 'waitlist');
+                const bookedCount = evBookings.filter(b => b.status === 'booked').length;
+                
+                return {
+                    ...ev,
+                    coach_name: coach?.business_name || 'Staff del Centro',
+                    bookedCount,
+                    spotsLeft: (ev.max_capacity || 1) - bookedCount,
+                    isBooked,
+                    isWaitlisted
+                };
+            });
+            setGroupClasses(classesWithBookingData);
+        } else {
+            setGroupClasses([]);
+        }
+    };
+
+    const handleBookClass = async (eventId: number, status: 'booked' | 'waitlist') => {
+        if (!clientId || !studioId) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('class_bookings').insert({
+                event_id: eventId,
+                client_id: clientId,
+                status: status
+            });
+            if (error) throw error;
+            alert(status === 'booked' ? "¡Plaza reservada con éxito! 🎉" : "Añadido a la lista de espera.");
+            fetchClasses(studioId, clientId);
+        } catch (err: any) {
+            alert("Error al reservar: " + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancelBooking = async (eventId: number) => {
+        if (!clientId || !studioId) return;
+        if (!confirm("¿Seguro que quieres cancelar tu reserva?")) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('class_bookings')
+                .delete()
+                .eq('event_id', eventId)
+                .eq('client_id', clientId);
+            if (error) throw error;
+            alert("Reserva cancelada correctamente.");
+            fetchClasses(studioId, clientId);
+        } catch (err: any) {
+            alert("Error al cancelar: " + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const getWeekRange = () => {
         const now = new Date();
@@ -487,7 +579,7 @@ const ClientWorkout = () => {
         } 
     };
     
-    const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/client-login"; } };
+    const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/client-app"; } };
     
     const handlePasswordReset = async () => {
         if (!email) return;
@@ -513,7 +605,7 @@ const ClientWorkout = () => {
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500"><Activity className="w-10 h-10 animate-spin" /></div>;
+    if (loading && !clientId) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500"><Activity className="w-10 h-10 animate-spin" /></div>;
 
     const renderWorkoutView = () => {
         if (!todayWorkout) { setViewingExercises(false); setActiveTab('inicio'); return null; }
@@ -614,32 +706,81 @@ const ClientWorkout = () => {
         const progressPercent = Math.min((weeklyWorkouts / weeklyGoal) * 100, 100);
         return (
             <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
-                <div className="flex justify-between items-center mb-2"><div><h1 className="text-3xl font-bold text-white">Hola, {clientName} 👋</h1><p className="text-zinc-400 text-xs mt-1">Vamos a por el objetivo de hoy.</p></div><button onClick={() => setActiveTab('racha')} className="flex items-center gap-2 bg-[#111] border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-800 transition-colors"><Flame className="w-4 h-4 text-orange-500" /><span className="text-white font-bold text-sm">{monthlyWorkouts}</span></button></div>
+                <div className="flex justify-between items-center mb-2"><div><h1 className="text-3xl font-bold text-white">Hola, {clientName} 👋</h1><p className="text-zinc-400 text-xs mt-1">Vamos a por el objetivo de hoy.</p></div><button className="flex items-center gap-2 bg-[#111] border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-800 transition-colors"><Flame className="w-4 h-4 text-orange-500" /><span className="text-white font-bold text-sm">{monthlyWorkouts}</span></button></div>
                 <div className="bg-[#051F1A] border border-emerald-900/50 rounded-2xl p-5 relative overflow-hidden"><div className="flex justify-between items-start mb-4 relative z-10"><div><h3 className="text-emerald-400 font-bold text-sm mb-1">Objetivo Semanal</h3><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-white">{weeklyWorkouts}</span><span className="text-zinc-400 text-sm">/ {weeklyGoal} sesiones</span></div></div><Trophy className="w-6 h-6 text-emerald-600" /></div><div className="h-2 w-full bg-emerald-900/30 rounded-full mb-2 relative z-10"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} /></div><p className="text-right text-xs text-emerald-500 font-medium relative z-10">{weeklyWorkouts >= weeklyGoal ? "¡Objetivo cumplido! 🔥" : "¡Casi lo tienes!"}</p><div className="absolute top-0 right-0 p-20 bg-emerald-500/5 blur-[50px] rounded-full pointer-events-none"/></div>
                 <div className="bg-[#111] border border-zinc-800 rounded-2xl p-4 flex gap-4 items-start"><div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center flex-shrink-0"><Lightbulb className="w-5 h-5 text-yellow-500" /></div><div><h3 className="text-white font-bold text-sm mb-1">Tip del Día</h3><p className="text-zinc-400 text-xs leading-relaxed">La hidratación es clave para el rendimiento. Intenta beber 500ml de agua 30 minutos antes de tu sesión hoy. 💧</p></div></div>
-                <div><h3 className="text-white font-bold text-lg mb-3">Próxima sesión:</h3>{todayWorkout ? (<div onClick={() => { setViewingExercises(true); setActiveTab('rutina'); }} className={`bg-[#111] border border-zinc-800 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-emerald-500/30 transition-all group`}><div className="flex items-center gap-4"><div className={`w-12 h-12 bg-zinc-800 text-emerald-500 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/10 transition-colors`}><ClipboardList className="w-6 h-6" /></div><div><h3 className="text-white font-bold text-base group-hover:text-emerald-400 transition-colors">{todayWorkout.name} <span className="text-emerald-500 text-sm">({currentDayFilter})</span></h3><p className={`text-xs flex items-center gap-1 text-zinc-500`}><Clock className="w-3 h-3"/> Hoy, cuando tú quieras</p></div></div><div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black transition-all"><ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-black" /></div></div>) : (<div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 text-center"><div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-2"><CalendarIcon className="w-6 h-6 text-zinc-500" /></div><p className="text-zinc-400 text-sm">No tienes sesiones pendientes.</p></div>)}</div>
+                <div><h3 className="text-white font-bold text-lg mb-3">Tu próxima rutina:</h3>{todayWorkout ? (<div onClick={() => { setViewingExercises(true); setActiveTab('rutina'); }} className={`bg-[#111] border border-zinc-800 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-emerald-500/30 transition-all group`}><div className="flex items-center gap-4"><div className={`w-12 h-12 bg-zinc-800 text-emerald-500 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/10 transition-colors`}><ClipboardList className="w-6 h-6" /></div><div><h3 className="text-white font-bold text-base group-hover:text-emerald-400 transition-colors">{todayWorkout.name} <span className="text-emerald-500 text-sm">({currentDayFilter})</span></h3><p className={`text-xs flex items-center gap-1 text-zinc-500`}><Clock className="w-3 h-3"/> Hoy, cuando tú quieras</p></div></div><div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black transition-all"><ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-black" /></div></div>) : (<div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 text-center"><div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-2"><ClipboardList className="w-6 h-6 text-zinc-500" /></div><p className="text-zinc-400 text-sm">No tienes rutinas asignadas.</p></div>)}</div>
             </div>
         );
     };
 
-    const renderRacha = () => (
-        <div className="p-6 h-full flex flex-col items-center justify-center text-center pb-24 pt-20 animate-in fade-in">
-            <div className="relative mb-6">
-                <div className="absolute inset-0 bg-orange-500/20 blur-3xl rounded-full animate-pulse"></div>
-                <Flame 
-                    className={`w-32 h-32 transition-all duration-500 ${
-                        monthlyWorkouts > 0 
-                            ? "text-orange-500 fill-orange-500/10 animate-pulse drop-shadow-[0_0_15px_rgba(249,115,22,0.5)]" 
-                            : "text-zinc-800"
-                    }`} 
-                />
-                <div className="absolute -bottom-2 -right-2 bg-zinc-800 w-12 h-12 rounded-full flex items-center justify-center border-4 border-black">
-                    <span className="text-white font-bold text-lg">{monthlyWorkouts}</span>
+    const renderReservas = () => (
+        <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
+            <div className="flex justify-between items-center mb-2">
+                <div>
+                    <h2 className="text-2xl font-bold text-white">Clases Disponibles</h2>
+                    <p className="text-zinc-400 text-xs mt-1">Reserva tu plaza en el estudio.</p>
                 </div>
             </div>
-            <h2 className="text-3xl font-black italic text-white mb-2">ESTE MES</h2>
-            <p className="text-zinc-400 text-sm max-w-xs mx-auto mb-8">Has completado {monthlyWorkouts} entrenamientos.</p>
-            <Button className="w-full max-w-xs bg-emerald-500 hover:bg-emerald-600 text-black font-bold" onClick={() => setActiveTab('inicio')}>Ver Entrenamientos</Button>
+
+            <div className="space-y-4">
+                {groupClasses.length === 0 ? (
+                    <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 text-center">
+                        <CalendarIcon className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+                        <p className="text-zinc-400 text-sm">No hay clases programadas próximamente.</p>
+                    </div>
+                ) : (
+                    groupClasses.map((cls) => {
+                        const classDate = new Date(cls.date);
+                        const isFull = cls.spotsLeft <= 0;
+                        const isBooked = cls.isBooked;
+                        const isWaitlisted = cls.isWaitlisted;
+                        
+                        return (
+                            <div key={cls.id} className={`bg-[#111] border ${isBooked ? 'border-emerald-500/50' : 'border-zinc-800'} rounded-2xl p-5 relative overflow-hidden shadow-xl`}>
+                                {isBooked && <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-md">RESERVADO</div>}
+                                {isWaitlisted && <div className="absolute top-0 right-0 bg-orange-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-md">EN ESPERA</div>}
+                                
+                                <div className="flex gap-4 items-start">
+                                    <div className="w-14 h-14 bg-zinc-900 rounded-xl border border-zinc-800 flex flex-col items-center justify-center flex-shrink-0 shadow-inner">
+                                        <span className="text-xs text-zinc-500 font-bold uppercase">{classDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                                        <span className="text-lg font-black text-white leading-none mt-0.5">{classDate.getDate()}</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-white font-bold text-lg leading-tight mb-1">{cls.title}</h3>
+                                        <p className="text-zinc-400 text-xs mb-3 flex items-center gap-1.5"><User className="w-3.5 h-3.5"/> {cls.coach_name}</p>
+                                        
+                                        <div className="flex items-center gap-2 text-xs font-medium">
+                                            <span className="flex items-center gap-1 text-zinc-300 bg-zinc-800 px-2 py-1 rounded-md border border-zinc-700">
+                                                <Clock className="w-3.5 h-3.5 text-zinc-400"/> 
+                                                {classDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} ({cls.duration}h)
+                                            </span>
+                                            <span className={`flex items-center gap-1 px-2 py-1 rounded-md border ${isFull ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                                                <Users className="w-3.5 h-3.5"/> {isFull ? 'Completa' : `${cls.spotsLeft} libres`}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-5 pt-4 border-t border-zinc-800/50">
+                                    {(isBooked || isWaitlisted) ? (
+                                        <Button onClick={() => handleCancelBooking(cls.id)} className="w-full bg-zinc-900 text-red-400 border border-red-500/20 hover:bg-red-500/10 font-bold h-11 rounded-xl">
+                                            Cancelar Reserva
+                                        </Button>
+                                    ) : (
+                                        <Button 
+                                            onClick={() => handleBookClass(cls.id, isFull ? 'waitlist' : 'booked')} 
+                                            className={`w-full font-bold h-11 rounded-xl ${isFull ? 'bg-orange-500 text-black hover:bg-orange-400' : 'bg-emerald-500 text-black hover:bg-emerald-400'}`}
+                                        >
+                                            {isFull ? 'Unirse a Lista de Espera' : 'Reservar Plaza'}
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
         </div>
     );
 
@@ -731,7 +872,7 @@ const ClientWorkout = () => {
 
             <div className="space-y-3">
                 <button className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-white/5 rounded-xl hover:bg-zinc-800 transition-all" onClick={() => window.location.href = "mailto:entrenador@fitleader.com"}>
-                    <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-blue-400" /><span className="text-white font-bold">Contactar Entrenador</span></div>
+                    <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-blue-400" /><span className="text-white font-bold">Contactar Centro</span></div>
                     <ChevronRight className="w-5 h-5 text-zinc-500" />
                 </button>
                 <button onClick={() => setActiveProfileModal('notifications')} className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-white/5 rounded-xl hover:bg-zinc-800 transition-all"><div className="flex items-center gap-3"><Bell className="w-5 h-5 text-yellow-500" /><span className="text-white font-bold">Notificaciones</span></div><ChevronRight className="w-5 h-5 text-zinc-500" /></button>
@@ -739,7 +880,7 @@ const ClientWorkout = () => {
             </div>
             
             <div className="pt-8 text-center">
-                <p className="text-zinc-600 text-xs mb-4">FitLeader v1.0.2</p>
+                <p className="text-zinc-600 text-xs mb-4">FitLeader Studio v1.5</p>
                 <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 p-3 text-red-400 hover:bg-red-500/10 rounded-xl border border-red-500/20"><LogOut className="w-5 h-5" /> Cerrar Sesión</button>
             </div>
         </div>
@@ -760,8 +901,8 @@ const ClientWorkout = () => {
 
             <div className="w-full max-w-md mx-auto min-h-screen bg-black relative shadow-2xl overflow-hidden">
                 {activeTab === 'inicio' && renderInicio()}
+                {activeTab === 'reservas' && renderReservas()}
                 {activeTab === 'rutina' && (viewingExercises || todayWorkout ? (viewingExercises ? renderWorkoutView() : renderInicio()) : renderInicio())} 
-                {activeTab === 'racha' && renderRacha()}
                 {activeTab === 'progreso' && renderProgreso()}
                 {activeTab === 'perfil' && renderPerfil()}
 
@@ -897,9 +1038,9 @@ const ClientWorkout = () => {
             {activeTab !== 'rutina' && !viewingExercises && (
                 <div className="fixed bottom-0 left-0 w-full bg-black/90 backdrop-blur-xl border-t border-white/10 z-50 safe-area-bottom">
                     <div className="max-w-md mx-auto flex justify-around items-center p-2 pb-4 md:pb-2">
-                        {['inicio', 'rutina', 'racha', 'progreso', 'perfil'].map((tab) => (
+                        {['inicio', 'reservas', 'rutina', 'progreso', 'perfil'].map((tab) => (
                             <button key={tab} onClick={() => { setActiveTab(tab as any); if(tab === 'rutina') setViewingExercises(true); }} className={`flex-1 flex flex-col items-center gap-1 py-2 ${activeTab === tab ? 'text-emerald-500' : 'text-zinc-500'}`}>
-                                {tab === 'inicio' ? <Home className="w-6 h-6" /> : tab === 'rutina' ? <ClipboardList className="w-6 h-6" /> : tab === 'racha' ? <Flame className="w-6 h-6" /> : tab === 'progreso' ? <TrendingUp className="w-6 h-6" /> : <User className="w-6 h-6" />}
+                                {tab === 'inicio' ? <Home className="w-6 h-6" /> : tab === 'reservas' ? <CalendarIcon className="w-6 h-6" /> : tab === 'rutina' ? <ClipboardList className="w-6 h-6" /> : tab === 'progreso' ? <TrendingUp className="w-6 h-6" /> : <User className="w-6 h-6" />}
                                 <span className="text-[9px] font-bold capitalize">{tab}</span>
                             </button>
                         ))}

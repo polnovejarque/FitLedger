@@ -25,7 +25,7 @@ const Sidebar = () => {
     const [businessName, setBusinessName] = useState('FitLeader');
     const [logoUrl, setLogoUrl] = useState('/logo.png');
 
-    // NUEVO: Estado para guardar el rol (jefe o empleado)
+    // Estado para guardar el rol
     const [userRole, setUserRole] = useState('admin');
 
     // Cargar los datos del negocio y el ROL al iniciar
@@ -33,16 +33,34 @@ const Sidebar = () => {
         const loadBusinessData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                // 1. Buscamos el perfil de quien acaba de entrar
                 const { data } = await supabase
                     .from('profiles')
-                    .select('business_name, logo_url, role') // <- Pedimos el rol a la base de datos
+                    .select('business_name, logo_url, role, studio_id') 
                     .eq('id', user.id)
                     .single();
                 
                 if (data) {
-                    if (data.business_name) setBusinessName(data.business_name);
-                    if (data.logo_url) setLogoUrl(data.logo_url);
-                    if (data.role) setUserRole(data.role); // <- Guardamos el rol en la memoria
+                    setUserRole(data.role || 'admin');
+
+                    // 2. LÓGICA DE MARCA BLANCA INTELIGENTE
+                    if (data.role === 'staff' && data.studio_id) {
+                        // Si es empleado, buscamos cómo se llama el centro de su jefe
+                        const { data: studioData } = await supabase
+                            .from('profiles')
+                            .select('business_name, logo_url')
+                            .eq('id', data.studio_id)
+                            .single();
+                            
+                        if (studioData) {
+                            setBusinessName(studioData.business_name || 'FitLeader');
+                            setLogoUrl(studioData.logo_url || '/logo.png');
+                        }
+                    } else {
+                        // Si es el dueño, pintamos sus propios datos
+                        if (data.business_name) setBusinessName(data.business_name);
+                        if (data.logo_url) setLogoUrl(data.logo_url);
+                    }
                 }
             }
         };
@@ -84,7 +102,6 @@ const Sidebar = () => {
                 </div>
 
                 <nav className="flex-1 space-y-1">
-                    {/* Imprimimos la lista filtrada, no la original */}
                     {visibleNavItems.map((item) => (
                         <NavLink
                             key={item.path}

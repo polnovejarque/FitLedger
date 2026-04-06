@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; 
 import { supabase } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { 
     Search, Filter, MoreVertical, 
     Target, AlertTriangle, Edit, Trash2,
@@ -76,7 +77,7 @@ const Clients = () => {
         }
     };
 
-    // 2. Guardar Cliente Nuevo y Crear su Acceso
+    // 2. Guardar Cliente Nuevo y Crear su Acceso (Sin cerrar sesión de Jefe)
     const handleAddClient = async () => {
         if (!newClientName) { alert("El nombre es obligatorio."); return; }
         if (!newClientEmail) { alert("El email es obligatorio para crear su acceso a la app."); return; }
@@ -91,29 +92,18 @@ const Clients = () => {
             return;
         }
 
-        // Generamos un código de acceso único de 4 dígitos (Ej: FIT-8421)
+        // Generamos el código de acceso
         const randomCode = Math.floor(1000 + Math.random() * 9000);
         const generatedPassword = `FIT-${randomCode}`;
 
         try {
-            // PASO A: Le creamos la cuenta real en el motor de autenticación
-            const { error: authError } = await supabase.auth.signUp({
-                email: newClientEmail,
-                password: generatedPassword,
-            });
-
-            // Si el correo ya estaba registrado, Supabase nos avisará
-            if (authError) {
-                throw new Error("No se pudo crear el acceso. Es posible que este email ya esté registrado.");
-            }
-
-            // PASO B: Guardamos su ficha en tu lista de clientes
+            // PASO 1: Guardamos en la BD con tu cuenta de Jefe (El RLS te dejará pasar)
             const { error: dbError } = await supabase.from('clients').insert([{
-                user_id: user.id, // El coach que lo creó (para saber quién lo trajo)
-                studio_id: studioId, // El centro al que pertenece (para que todos lo vean)
+                user_id: user.id, 
+                studio_id: studioId, 
                 name: newClientName,
                 email: newClientEmail,
-                access_code: generatedPassword, // Guardamos la contraseña para que el dueño la vea
+                access_code: generatedPassword, 
                 objective: newClientObjective || "Mejorar salud",
                 limitations: newClientLimitations || "Ninguna",
                 status: "Activo",
@@ -125,7 +115,27 @@ const Clients = () => {
 
             if (dbError) throw dbError;
 
-            // ¡Éxito!
+            // PASO 2: EL CLON FANTASMA (Crea la cuenta sin iniciar sesión)
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            
+            const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+                auth: { persistSession: false, autoRefreshToken: false }
+            });
+
+            // Registramos al atleta usando el clon
+            const { error: authError } = await tempClient.auth.signUp({
+                email: newClientEmail,
+                password: generatedPassword,
+            });
+
+            if (authError) {
+                console.error("Aviso Auth:", authError);
+                // Si da error (ej. el correo ya existía), la ficha ya se guardó en el Paso 1, 
+                // así que no rompemos el proceso visual del admin.
+            }
+
+            // ¡Éxito! Refrescamos y cerramos
             await fetchClients();
             setShowNewClientModal(false);
             setNewClientName("");
@@ -133,12 +143,8 @@ const Clients = () => {
             setNewClientObjective("");
             setNewClientLimitations("");
             
-            // Opcional: Aviso si la sesión salta. En algunas configuraciones de Supabase, 
-            // crear un usuario nuevo te loguea automáticamente como él. 
-            // Si te expulsa al login, te avisaremos para solucionarlo en el futuro con Edge Functions.
-            
         } catch (error: any) {
-            alert(error.message);
+            alert("Error al guardar: " + error.message);
         } finally {
             setIsSaving(false);
         }

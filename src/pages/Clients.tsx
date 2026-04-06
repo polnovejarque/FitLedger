@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { 
     Search, Filter, MoreVertical, 
     Target, AlertTriangle, Edit, Trash2,
-    Loader2, Plus, X, User 
+    Loader2, Plus, X, User, Key 
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -14,6 +14,7 @@ const Clients = () => {
     // ESTADOS
     const [clients, setClients] = useState<any[]>([]); 
     const [isLoading, setIsLoading] = useState(true);
+    const [studioId, setStudioId] = useState<string | null>(null);
 
     // Filtros y Búsqueda
     const [searchTerm, setSearchTerm] = useState("");
@@ -33,13 +34,12 @@ const Clients = () => {
     useEffect(() => {
         fetchClients();
         
-        // Cerrar menú si se hace click fuera
         const handleClickOutside = () => setOpenMenuId(null);
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    // NUEVO: Función inteligente de carga de clientes
+    // Carga inteligente de clientes por Studio
     const fetchClients = async () => {
         setIsLoading(true);
         try {
@@ -53,22 +53,16 @@ const Clients = () => {
                 .eq('id', user.id)
                 .single();
 
-            let query = supabase.from('clients').select('*').order('created_at', { ascending: false });
+            // Definimos cuál es el ID del negocio (Si es admin es él mismo, si es staff es su jefe)
+            const currentStudioId = profile?.role === 'admin' ? user.id : profile?.studio_id;
+            setStudioId(currentStudioId);
 
-            if (profile?.role === 'admin') {
-                // Si es el JEFE: Ve todos los clientes que pertenezcan a su "Studio"
-                // (Para que esto funcione, necesitamos que la tabla clients guarde también el studio_id. 
-                // De momento filtramos por los que creó él, o los que crearon sus empleados si tenemos ese dato)
-                
-                // NOTA: Para no romper tu BD actual, de momento le enseñamos los suyos.
-                // En el siguiente paso te daré el SQL para vincular clientes al Studio.
-                query = query.eq('user_id', user.id); 
-            } else {
-                // Si es EMPLEADO (staff): Solo ve a los clientes asignados a él (user_id)
-                query = query.eq('user_id', user.id);
-            }
-
-            const { data, error } = await query;
+            // Traemos TODOS los clientes que pertenezcan a este centro
+            const { data, error } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('studio_id', currentStudioId)
+                .order('created_at', { ascending: false });
 
             if (error) {
                 console.error('Error cargando clientes:', error);
@@ -82,48 +76,77 @@ const Clients = () => {
         }
     };
 
-    // 2. Guardar Cliente Nuevo
+    // 2. Guardar Cliente Nuevo y Crear su Acceso
     const handleAddClient = async () => {
-        if (!newClientName) return;
+        if (!newClientName) { alert("El nombre es obligatorio."); return; }
+        if (!newClientEmail) { alert("El email es obligatorio para crear su acceso a la app."); return; }
+        
         setIsSaving(true);
 
         const { data: { user } } = await supabase.auth.getUser();
 
-        if (!user) {
-            alert("Error: No estás identificado");
+        if (!user || !studioId) {
+            alert("Error de sesión. Recarga la página.");
             setIsSaving(false);
             return;
         }
 
-        const { error } = await supabase.from('clients').insert([{
-            user_id: user.id,
-            name: newClientName,
-            email: newClientEmail || "sin-email@cliente.com",
-            objective: newClientObjective || "Mejorar salud",
-            limitations: newClientLimitations || "Ninguna",
-            status: "Activo",
-            plan: "Básico",
-            location: "Remoto",
-            image_url: null, 
-            payment_status: 'pending'
-        }]);
+        // Generamos un código de acceso único de 4 dígitos (Ej: FIT-8421)
+        const randomCode = Math.floor(1000 + Math.random() * 9000);
+        const generatedPassword = `FIT-${randomCode}`;
 
-        if (error) {
-            alert("Error guardando: " + error.message);
-        } else {
+        try {
+            // PASO A: Le creamos la cuenta real en el motor de autenticación
+            const { error: authError } = await supabase.auth.signUp({
+                email: newClientEmail,
+                password: generatedPassword,
+            });
+
+            // Si el correo ya estaba registrado, Supabase nos avisará
+            if (authError) {
+                throw new Error("No se pudo crear el acceso. Es posible que este email ya esté registrado.");
+            }
+
+            // PASO B: Guardamos su ficha en tu lista de clientes
+            const { error: dbError } = await supabase.from('clients').insert([{
+                user_id: user.id, // El coach que lo creó (para saber quién lo trajo)
+                studio_id: studioId, // El centro al que pertenece (para que todos lo vean)
+                name: newClientName,
+                email: newClientEmail,
+                access_code: generatedPassword, // Guardamos la contraseña para que el dueño la vea
+                objective: newClientObjective || "Mejorar salud",
+                limitations: newClientLimitations || "Ninguna",
+                status: "Activo",
+                plan: "Básico",
+                location: "Presencial",
+                image_url: null, 
+                payment_status: 'pending'
+            }]);
+
+            if (dbError) throw dbError;
+
+            // ¡Éxito!
             await fetchClients();
             setShowNewClientModal(false);
             setNewClientName("");
             setNewClientEmail("");
             setNewClientObjective("");
             setNewClientLimitations("");
+            
+            // Opcional: Aviso si la sesión salta. En algunas configuraciones de Supabase, 
+            // crear un usuario nuevo te loguea automáticamente como él. 
+            // Si te expulsa al login, te avisaremos para solucionarlo en el futuro con Edge Functions.
+            
+        } catch (error: any) {
+            alert(error.message);
+        } finally {
+            setIsSaving(false);
         }
-        setIsSaving(false);
     };
 
     const handleDeleteClient = async (e: React.MouseEvent, id: number) => {
         e.stopPropagation(); 
-        if(!confirm("¿Seguro que quieres eliminar este cliente?")) return;
+        if(!confirm("¿Seguro que quieres eliminar este cliente? Perderá el acceso a la app.")) return;
 
         const { error } = await supabase.from('clients').delete().eq('id', id);
         
@@ -150,7 +173,7 @@ const Clients = () => {
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Cartera de Clientes</h1>
-                    <p className="text-zinc-400 mt-1">Gestiona el progreso y planes de tus atletas.</p>
+                    <p className="text-zinc-400 mt-1">Gestiona el progreso y accesos de los atletas del centro.</p>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
                     <div className="relative flex-1 md:w-64">
@@ -167,7 +190,7 @@ const Clients = () => {
                         <Filter className="w-4 h-4" />
                     </button>
                     <Button onClick={() => setShowNewClientModal(true)} className="bg-emerald-500 text-black font-bold hover:bg-emerald-600 transition-colors">
-                        + Nuevo
+                        <Plus className="w-4 h-4 mr-1" /> Nuevo Cliente
                     </Button>
                 </div>
             </div>
@@ -177,7 +200,7 @@ const Clients = () => {
                 <table className="w-full text-left">
                     <thead className="bg-zinc-900/50 text-xs uppercase text-zinc-500 font-medium">
                         <tr>
-                            <th className="px-6 py-4">Atleta</th>
+                            <th className="px-6 py-4">Atleta y Acceso</th>
                             <th className="px-6 py-4 hidden md:table-cell">Objetivo</th>
                             <th className="px-6 py-4">Estado</th>
                             <th className="px-6 py-4 hidden md:table-cell">Pago</th>
@@ -206,7 +229,12 @@ const Clients = () => {
                                             
                                             <div>
                                                 <p className="font-bold text-white group-hover:text-emerald-400 transition-colors">{client.name}</p>
-                                                <p className="text-xs text-zinc-500">{client.email}</p>
+                                                <p className="text-xs text-zinc-500 mb-0.5">{client.email}</p>
+                                                {client.access_code && (
+                                                    <p className="text-[10px] text-emerald-500 font-mono flex items-center gap-1">
+                                                        <Key className="w-3 h-3" /> {client.access_code}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </td>
@@ -265,7 +293,7 @@ const Clients = () => {
                                 </tr>
                             ))
                         ) : (
-                            <tr><td colSpan={6} className="px-6 py-12 text-center text-zinc-500 flex flex-col items-center justify-center w-full"><div className="mb-2">📭</div>No tienes clientes aún.<br/>Dale a "+ Nuevo" para empezar.</td></tr>
+                            <tr><td colSpan={6} className="px-6 py-12 text-center text-zinc-500 flex flex-col items-center justify-center w-full"><div className="mb-2">📭</div>No tienes clientes aún.<br/>Dale a "+ Nuevo Cliente" para empezar.</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -281,11 +309,12 @@ const Clients = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="text-xs text-zinc-400 mb-1 block">Nombre Completo</label>
-                                    <input autoFocus type="text" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-emerald-500 outline-none" placeholder="Ej: Juan Pérez" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} />
+                                    <input autoFocus required type="text" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-emerald-500 outline-none" placeholder="Ej: Juan Pérez" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} />
                                 </div>
                                 <div className="col-span-2">
-                                    <label className="text-xs text-zinc-400 mb-1 block">Email</label>
-                                    <input type="email" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-emerald-500 outline-none" placeholder="juan@email.com" value={newClientEmail} onChange={(e) => setNewClientEmail(e.target.value)} />
+                                    <label className="text-xs text-emerald-400 mb-1 block flex items-center gap-1"><Key className="w-3 h-3"/> Email para la App</label>
+                                    <input required type="email" className="w-full bg-zinc-900 border border-emerald-900 rounded-lg p-3 text-white focus:border-emerald-500 outline-none" placeholder="juan@email.com" value={newClientEmail} onChange={(e) => setNewClientEmail(e.target.value)} />
+                                    <p className="text-[10px] text-zinc-500 mt-1">Con este email y el código que se generará, el cliente entrará a la app.</p>
                                 </div>
                                 <div className="col-span-2">
                                     <label className="text-xs text-zinc-400 mb-1 block">Objetivo Principal</label>
@@ -307,7 +336,7 @@ const Clients = () => {
                                 onClick={handleAddClient}
                                 disabled={isSaving}
                             >
-                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : <><Plus className="w-4 h-4 mr-2" /> Crear Cliente</>}
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : <><Plus className="w-4 h-4 mr-2" /> Crear Cliente y Acceso</>}
                             </Button>
                         </div>
                     </div>

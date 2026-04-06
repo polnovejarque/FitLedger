@@ -17,37 +17,43 @@ const ClientLogin = () => {
         setError('');
 
         try {
-            // 1. Buscar al cliente por email y código
+            // 1. Autenticación real con Supabase usando el Email y el Código de Acceso
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password: accessCode.trim(),
+            });
+
+            if (authError || !authData.user) {
+                throw new Error('Email o código de acceso incorrectos.');
+            }
+
+            // 2. Buscamos sus datos en la tabla clients para guardarlos en la memoria del móvil
             const { data: client, error: queryError } = await supabase
                 .from('clients')
                 .select('*')
                 .eq('email', email.trim())
-                .eq('access_code', accessCode.trim())
-                .maybeSingle();
+                .single();
 
-            if (queryError) throw queryError;
-
-            if (!client) {
-                setError('Email o código incorrectos.');
-                setIsLoading(false);
-                return;
+            if (queryError || !client) {
+                // Si la autenticación pasó pero no está en la tabla clients (no debería pasar nunca)
+                throw new Error('Tu cuenta no está vinculada a ningún entrenador.');
             }
 
-            // 2. GUARDAR SESIÓN (CLAVE PARA QUE FUNCIONE EL HOME)
+            // 3. GUARDAR SESIÓN (CLAVE PARA QUE FUNCIONE EL HOME)
             // Guardamos el email con la clave EXACTA que busca ClientWorkout.tsx
             localStorage.setItem('fit_client_email', client.email); 
             
-            // También guardamos estos por si los necesitamos luego (opcional pero útil)
+            // También guardamos estos por si los necesitamos luego
             localStorage.setItem('fitleader_client_id', client.id);
             localStorage.setItem('fitleader_client_name', client.name);
             localStorage.setItem('fitleader_client_img', client.image_url || '');
 
-            // 3. Redirigir a la Home del Cliente
+            // 4. Redirigir a la Home del Cliente
             navigate('/client-app/home');
 
         } catch (err: any) {
-            console.error(err); // Añadido log para debug
-            setError(err.message || 'Error al conectar.');
+            console.error(err); 
+            setError(err.message || 'Error al conectar. Revisa tu conexión a internet.');
         } finally {
             setIsLoading(false);
         }
@@ -89,12 +95,12 @@ const ClientLogin = () => {
                         <div className="relative">
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
                             <input 
-                                type="password" 
+                                type="text" // Cambiado de password a text para que puedan ver el código cómodamente al escribir
                                 required
                                 value={accessCode}
-                                onChange={(e) => setAccessCode(e.target.value)}
-                                placeholder="••••"
-                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all tracking-widest"
+                                onChange={(e) => setAccessCode(e.target.value.toUpperCase())} // Lo forzamos a mayúsculas automáticamente
+                                placeholder="FIT-XXXX"
+                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all tracking-widest font-mono"
                             />
                         </div>
                     </div>

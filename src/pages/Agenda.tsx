@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
     ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
-    Clock, MapPin, MoreVertical, X, Edit, Trash2, AlignLeft, Check, Loader2, Users, Box
+    Clock, MapPin, X, Trash2, AlignLeft, Check, Loader2, Users, Box
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -18,6 +18,8 @@ interface AgendaEvent {
     notes?: string;    
     max_capacity?: number;
     assigned_staff_id?: string;
+    bookedCount?: number;
+    attendees?: { name: string; status: string }[];
 }
 
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 06:00 a 22:00
@@ -46,7 +48,6 @@ const Agenda = () => {
     // Modales y Estados de Edición
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<AgendaEvent | null>(null); 
-    const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
     const [draggedEventId, setDraggedEventId] = useState<number | null>(null);
     
     // Controlar el tipo de evento en tiempo real en el formulario
@@ -110,10 +111,30 @@ const Agenda = () => {
         const { data } = await query;
 
         if (data) {
+            // 4. Traer las reservas de estos eventos para ver los asistentes
+            const eventIds = data.map(ev => ev.id);
+            let bookingsData: any[] = [];
+            
+            if (eventIds.length > 0) {
+                const { data: bData } = await supabase
+                    .from('class_bookings')
+                    .select('event_id, status, clients(name)')
+                    .in('event_id', eventIds);
+                if (bData) bookingsData = bData;
+            }
+
             const formattedEvents: AgendaEvent[] = data.map(ev => {
                 const eventDate = new Date(ev.date);
                 let dayIndex = eventDate.getDay() - 1;
                 if (dayIndex === -1) dayIndex = 6;
+
+                // Calculamos reservas para este evento
+                const evBookings = bookingsData.filter(b => b.event_id === ev.id);
+                const bookedCount = evBookings.filter(b => b.status === 'booked').length;
+                const attendees = evBookings.map(b => ({
+                    name: (b.clients as any)?.name || 'Atleta',
+                    status: b.status
+                }));
 
                 return {
                     id: ev.id,
@@ -126,7 +147,9 @@ const Agenda = () => {
                     location: ev.location || "",
                     notes: ev.description || "",
                     max_capacity: ev.max_capacity,
-                    assigned_staff_id: ev.assigned_staff_id
+                    assigned_staff_id: ev.assigned_staff_id,
+                    bookedCount,
+                    attendees
                 };
             });
             setEvents(formattedEvents);
@@ -187,21 +210,19 @@ const Agenda = () => {
         const notes = formData.get('notes') as string;
 
         // Nuevos campos para Studio
-        let assigned_staff_id = user.id; // Por defecto es el propio usuario
+        let assigned_staff_id = user.id; 
         let inventory_id = null;
-        let max_capacity = 1; // Por defecto 1 (entrenamiento personal)
+        let max_capacity = 1; 
 
         if (type === 'group' && userRole === 'admin') {
             assigned_staff_id = formData.get('assigned_staff_id') as string || user.id;
             const selectedInvId = formData.get('inventory_id') as string;
             if (selectedInvId) {
                 inventory_id = selectedInvId;
-                // Buscar la cantidad de ese material para fijar el límite de aforo
                 const invItem = inventoryList.find(i => i.id === selectedInvId);
                 if (invItem) max_capacity = invItem.quantity;
             } else {
-                // Si es grupal pero no limitan por material, por defecto ponemos 15 (o lo que configure)
-                max_capacity = 15; 
+                max_capacity = parseInt(formData.get('manual_capacity') as string) || 15; 
             }
         }
 
@@ -211,8 +232,8 @@ const Agenda = () => {
         eventDate.setHours(Math.floor(startHour), (startHour % 1) * 60, 0, 0);
 
         const newEventData = {
-            coach_id: user.id, // El creador original
-            studio_id: studioId, // Pertenece a este centro
+            coach_id: user.id, 
+            studio_id: studioId, 
             title, 
             type, 
             date: eventDate.toISOString(), 
@@ -234,7 +255,10 @@ const Agenda = () => {
             }
         } else {
             await supabase.from('calendar_events').update(newEventData).eq('id', editingEvent.dbId || editingEvent.id);
-            setEvents(prev => prev.map(ev => ev.id === editingEvent.id ? { ...ev, title, type: type as any, day, startHour, duration, location, notes, assigned_staff_id, max_capacity } : ev));
+            const monday = getMonday(currentDate);
+            const lastDay = new Date(monday);
+            lastDay.setDate(monday.getDate() + 6);
+            loadInitialData(monday, lastDay);
         }
         setIsModalOpen(false);
         setEditingEvent(null);
@@ -243,7 +267,7 @@ const Agenda = () => {
     const handleDeleteEvent = async (id: number) => {
         if (!confirm("¿Borrar evento? Se cancelarán las reservas de los clientes.")) return;
         setEvents(events.filter(ev => ev.id !== id));
-        setActiveMenuId(null);
+        setIsModalOpen(false);
         await supabase.from('calendar_events').delete().eq('id', id);
     };
 
@@ -263,7 +287,6 @@ const Agenda = () => {
         setEditingEvent(event); 
         setFormEventType(event.type);
         setIsModalOpen(true); 
-        setActiveMenuId(null); 
     };
 
     const getEventStyle = (startHour: number, duration: number) => {
@@ -282,7 +305,7 @@ const Agenda = () => {
     };
 
     return (
-        <div className="p-8 w-full h-screen flex flex-col text-white font-sans overflow-hidden relative" onClick={() => setActiveMenuId(null)}>
+        <div className="p-8 w-full h-screen flex flex-col text-white font-sans overflow-hidden relative">
             <div className="flex justify-between items-end mb-6 flex-shrink-0">
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-1">Agenda del Centro</h1>
@@ -294,7 +317,6 @@ const Agenda = () => {
                         <span className="px-4 text-sm font-medium text-white min-w-[160px] text-center capitalize">{weekDisplay}</span>
                         <button onClick={() => changeWeek('next')} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400 hover:text-white transition-colors"><ChevronRight className="w-4 h-4" /></button>
                     </div>
-                    {/* Empleados no pueden crear clases globales, solo el Admin */}
                     {userRole === 'admin' && (
                         <Button onClick={openNewEventModal} className="bg-emerald-500 text-black font-bold hover:bg-emerald-600 gap-2"><Plus className="w-4 h-4" /> Nueva Clase</Button>
                     )}
@@ -330,22 +352,19 @@ const Agenda = () => {
                                     </div>
                                 ))}
                                 {events.filter(e => e.day === dayIndex).map(event => (
-                                    <div key={event.id} draggable={userRole === 'admin'} onDragStart={(e) => handleDragStart(e, event.id)} className={`absolute w-[94%] left-[3%] rounded-lg border-l-4 p-2 text-xs cursor-pointer ${userRole === 'admin' ? 'active:cursor-grabbing hover:brightness-110' : ''} transition-all shadow-lg overflow-hidden group z-10 flex flex-col justify-center ${getEventColor(event.type)}`} style={getEventStyle(event.startHour, event.duration)} onClick={(e) => e.stopPropagation()}>
+                                    <div key={event.id} draggable={userRole === 'admin'} onDragStart={(e) => handleDragStart(e, event.id)} className={`absolute w-[94%] left-[3%] rounded-lg border-l-4 p-2 text-xs cursor-pointer ${userRole === 'admin' ? 'active:cursor-grabbing hover:brightness-110' : ''} transition-all shadow-lg overflow-hidden group z-10 flex flex-col justify-center ${getEventColor(event.type)}`} style={getEventStyle(event.startHour, event.duration)} onClick={(e) => { e.stopPropagation(); openEditModal(event); }}>
                                         <div className="flex justify-between items-start">
                                             <span className="font-bold truncate">{event.title}</span>
-                                            {event.type === 'group' && <Users className="w-3 h-3 opacity-70" />}
                                             {event.type === 'checkin' && <CalendarIcon className="w-3 h-3 opacity-70" />}
-                                            {userRole === 'admin' && (
-                                                <button className="p-1 hover:bg-black/20 rounded transition-colors" onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === event.id ? null : event.id); }}><MoreVertical className="w-3 h-3" /></button>
-                                            )}
                                         </div>
                                         <div className="flex items-center gap-1 mt-1 opacity-70"><Clock className="w-3 h-3" /><span>{Math.floor(event.startHour)}:{((event.startHour % 1) * 60).toString().padStart(2, '0')}</span></div>
                                         {event.location && (<div className="flex items-center gap-1 mt-1 opacity-60 truncate"><MapPin className="w-3 h-3" /><span>{event.location}</span></div>)}
                                         
-                                        {activeMenuId === event.id && userRole === 'admin' && (
-                                            <div className="absolute top-6 right-2 w-32 bg-[#18181b] border border-zinc-700 rounded shadow-xl z-50 animate-in zoom-in-95">
-                                                <button onClick={() => openEditModal(event)} className="w-full text-left px-3 py-2 hover:bg-zinc-800 text-zinc-300 flex items-center gap-2"><Edit className="w-3 h-3" /> Editar</button>
-                                                <button onClick={() => handleDeleteEvent(event.id)} className="w-full text-left px-3 py-2 hover:bg-red-500/10 text-red-400 flex items-center gap-2"><Trash2 className="w-3 h-3" /> Eliminar</button>
+                                        {/* NUEVO: Mostrar el contador de reservas si es grupal */}
+                                        {event.type === 'group' && (
+                                            <div className="flex items-center gap-1 mt-1 font-bold text-purple-300">
+                                                <Users className="w-3 h-3" />
+                                                <span>{event.bookedCount || 0} / {event.max_capacity || 15}</span>
                                             </div>
                                         )}
                                     </div>
@@ -361,7 +380,14 @@ const Agenda = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in" onClick={() => setIsModalOpen(false)}>
                     <div className="bg-[#111] border border-zinc-800 w-full max-w-md rounded-2xl p-6 relative shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
-                        <h2 className="text-xl font-bold text-white mb-6">{(editingEvent && editingEvent.id !== 0) ? 'Editar Cita' : 'Nueva Cita'}</h2>
+                        <div className="flex justify-between items-center mb-6 pr-8">
+                            <h2 className="text-xl font-bold text-white">{(editingEvent && editingEvent.id !== 0) ? 'Editar Cita' : 'Nueva Cita'}</h2>
+                            {(editingEvent && editingEvent.id !== 0) && userRole === 'admin' && (
+                                <button type="button" onClick={() => handleDeleteEvent(editingEvent.id)} className="text-red-500 hover:text-red-400 p-2 bg-red-500/10 rounded-lg transition-colors">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                         
                         <form onSubmit={handleSaveEvent} className="space-y-4">
                             <div>
@@ -383,6 +409,7 @@ const Agenda = () => {
                                         value={formEventType} 
                                         onChange={(e) => setFormEventType(e.target.value)}
                                         className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-emerald-500 outline-none"
+                                        disabled={userRole !== 'admin'}
                                     >
                                         <option value="training">Entreno Personal</option>
                                         <option value="group">Clase Grupal</option>
@@ -393,36 +420,74 @@ const Agenda = () => {
                             </div>
 
                             {/* ZONA EXCLUSIVA PARA CLASES GRUPALES (STUDIO) */}
-                            {formEventType === 'group' && userRole === 'admin' && (
+                            {formEventType === 'group' && (
                                 <div className="p-4 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-4 mb-4">
-                                    <div>
-                                        <label className="text-xs text-purple-400 mb-1 block flex items-center gap-1"><Users className="w-3 h-3" /> Entrenador Asignado</label>
-                                        <select name="assigned_staff_id" defaultValue={editingEvent?.assigned_staff_id || studioId || ""} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-purple-500 outline-none">
-                                            <option value={studioId || ""}>Yo (Dueño)</option>
-                                            {staffList.map(staff => (
-                                                <option key={staff.id} value={staff.id}>{staff.business_name || staff.email}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-purple-400 mb-1 block flex items-center gap-1"><Box className="w-3 h-3" /> Material (Límite de Aforo)</label>
-                                        <select name="inventory_id" defaultValue="" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-purple-500 outline-none">
-                                            <option value="">Sin material (Aforo libre)</option>
-                                            {inventoryList.map(item => (
-                                                <option key={item.id} value={item.id}>{item.name} (Max: {item.quantity})</option>
-                                            ))}
-                                        </select>
-                                        <p className="text-[10px] text-zinc-500 mt-1">El aforo máximo de la clase se limitará a la cantidad de este material.</p>
-                                    </div>
+                                    {userRole === 'admin' && (
+                                        <>
+                                            <div>
+                                                <label className="text-xs text-purple-400 mb-1 block flex items-center gap-1"><Users className="w-3 h-3" /> Entrenador Asignado</label>
+                                                <select name="assigned_staff_id" defaultValue={editingEvent?.assigned_staff_id || studioId || ""} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-purple-500 outline-none">
+                                                    <option value={studioId || ""}>Yo (Dueño)</option>
+                                                    {staffList.map(staff => (
+                                                        <option key={staff.id} value={staff.id}>{staff.business_name || staff.email}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="text-xs text-purple-400 mb-1 block flex items-center gap-1"><Box className="w-3 h-3" /> Limitar por Material</label>
+                                                    <select name="inventory_id" defaultValue="" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-purple-500 outline-none">
+                                                        <option value="">Aforo Manual</option>
+                                                        {inventoryList.map(item => (
+                                                            <option key={item.id} value={item.id}>{item.name} (Max: {item.quantity})</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs text-purple-400 mb-1 block">Aforo Manual</label>
+                                                    <input name="manual_capacity" type="number" defaultValue={editingEvent?.max_capacity || 15} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-purple-500 outline-none" placeholder="15" />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* LISTA DE ASISTENTES (NUEVO) */}
+                                    {(editingEvent && editingEvent.id !== 0) && (
+                                        <div className="mt-4 pt-4 border-t border-purple-500/20">
+                                            <h3 className="text-sm font-bold text-white mb-3 flex items-center justify-between">
+                                                <span className="flex items-center gap-2"><Users className="w-4 h-4 text-purple-400"/> Lista de Asistentes</span>
+                                                <span className="text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md">{editingEvent.bookedCount} / {editingEvent.max_capacity}</span>
+                                            </h3>
+                                            
+                                            {editingEvent.attendees && editingEvent.attendees.length > 0 ? (
+                                                <ul className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                                                    {editingEvent.attendees.map((att, i) => (
+                                                        <li key={i} className="flex justify-between items-center text-sm p-2 bg-zinc-900/50 rounded-lg border border-zinc-800/50">
+                                                            <span className="text-zinc-300 font-medium">{att.name}</span>
+                                                            <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${att.status === 'booked' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-orange-500/10 text-orange-500'}`}>
+                                                                {att.status === 'booked' ? 'Confirmado' : 'En Espera'}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <div className="text-center py-4 bg-zinc-900/50 rounded-lg border border-zinc-800/50">
+                                                    <p className="text-xs text-zinc-500">Nadie se ha apuntado aún a esta clase.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
                             <div><label className="text-xs text-zinc-400 mb-1 block">Ubicación</label><input name="location" defaultValue={editingEvent?.location} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-emerald-500 outline-none" /></div>
                             <div><label className="text-xs text-zinc-400 mb-1 block flex items-center gap-1"><AlignLeft className="w-3 h-3" /> Notas</label><textarea name="notes" defaultValue={editingEvent?.notes} placeholder="Apuntes..." className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-emerald-500 outline-none min-h-[80px]" /></div>
                             
-                            <Button type="submit" className="w-full bg-emerald-500 text-black font-bold hover:bg-emerald-400 mt-2">
-                                <Check className="w-4 h-4 mr-2" /> Guardar Evento
-                            </Button>
+                            {userRole === 'admin' && (
+                                <Button type="submit" className="w-full bg-emerald-500 text-black font-bold hover:bg-emerald-400 mt-2 h-12">
+                                    <Check className="w-4 h-4 mr-2" /> Guardar Evento
+                                </Button>
+                            )}
                         </form>
                     </div>
                 </div>

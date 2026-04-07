@@ -5,7 +5,7 @@ import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
 import { supabase } from '../lib/supabase';
 
-// Añadimos una propiedad "restricted: true" a los botones sensibles
+// Añadimos "studioOnly: true" a las funciones exclusivas del plan más alto
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Clientes', path: '/dashboard/clients' },
@@ -13,8 +13,8 @@ const navItems = [
     { icon: Calendar, label: 'Agenda', path: '/dashboard/agenda' },
     { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance', restricted: true },
     { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports', restricted: true },
-    { icon: Shield, label: 'Mi Equipo', path: '/dashboard/team', restricted: true },
-    { icon: Box, label: 'Inventario', path: '/dashboard/inventory', restricted: true },
+    { icon: Shield, label: 'Mi Equipo', path: '/dashboard/team', restricted: true, studioOnly: true },
+    { icon: Box, label: 'Inventario', path: '/dashboard/inventory', restricted: true, studioOnly: true },
     { icon: SettingsIcon, label: 'Configuración', path: '/dashboard/settings', restricted: true },
 ];
 
@@ -25,23 +25,25 @@ const Sidebar = () => {
     const [businessName, setBusinessName] = useState('FitLeader');
     const [logoUrl, setLogoUrl] = useState('/logo.png');
 
-    // Estado para guardar el rol
+    // Estado para guardar el rol y el plan
     const [userRole, setUserRole] = useState('admin');
+    const [userPlan, setUserPlan] = useState('pro'); // Por defecto asumimos que no es studio
 
-    // Cargar los datos del negocio y el ROL al iniciar
+    // Cargar los datos del negocio, el ROL y el PLAN al iniciar
     useEffect(() => {
         const loadBusinessData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                // 1. Buscamos el perfil de quien acaba de entrar
+                // 1. Buscamos el perfil y ahora también pedimos el "plan"
                 const { data } = await supabase
                     .from('profiles')
-                    .select('business_name, logo_url, role, studio_id') 
+                    .select('business_name, logo_url, role, studio_id, plan') 
                     .eq('id', user.id)
                     .single();
                 
                 if (data) {
                     setUserRole(data.role || 'admin');
+                    setUserPlan(data.plan || 'pro'); // Guardamos el plan que paga
 
                     // 2. LÓGICA DE MARCA BLANCA INTELIGENTE
                     if (data.role === 'staff' && data.studio_id) {
@@ -72,11 +74,18 @@ const Sidebar = () => {
         navigate('/'); 
     };
 
-    // EL PORTERO: Filtramos el menú. Si es 'staff', le ocultamos los restringidos
+    // EL PORTERO INTELIGENTE: Filtramos el menú según el ROL y el PLAN
     const visibleNavItems = navItems.filter(item => {
+        // 1. Si es empleado (staff), ocultamos las cosas de dueños (restricted)
         if (userRole === 'staff' && item.restricted) {
             return false;
         }
+        
+        // 2. Si es una función exclusiva de Studio, ocultarla a los demás planes
+        if (item.studioOnly && userPlan !== 'studio') {
+            return false;
+        }
+
         return true;
     });
 

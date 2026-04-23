@@ -28,7 +28,7 @@ const Settings = () => {
     const [activeTab, setActiveTab] = useState<TabType>('profile');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [isUploading, setIsUploading] = useState(false); // Estado para la subida de imágenes
+    const [isUploading, setIsUploading] = useState(false);
 
     // Profile state
     const [firstName, setFirstName] = useState('');
@@ -46,17 +46,15 @@ const Settings = () => {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
-    // Payment integration state (Simulado)
+    // Payment integration state
     const [stripePublicKey, setStripePublicKey] = useState('');
     const [stripeSecretKey, setStripeSecretKey] = useState('');
     const [showPublicKey, setShowPublicKey] = useState(false);
     const [showSecretKey, setShowSecretKey] = useState(false);
-    
-    // Estado de conexión Stripe
     const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
 
-    // Estado para el mensaje del plan
+    // Billing
     const [billingMessage, setBillingMessage] = useState('');
 
     // --- 1. CARGAR DATOS DESDE SUPABASE ---
@@ -75,7 +73,7 @@ const Settings = () => {
                     setAvatarUrl(data.avatar_url || '');
                     setBusinessName(data.business_name || '');
                     setCurrency(data.currency || 'EUR');
-                    setLogoUrl(data.logo_url || ''); // AHORA SÍ LEEMOS EL LOGO
+                    setLogoUrl(data.logo_url || ''); 
                 }
             }
             setIsLoading(false);
@@ -85,7 +83,6 @@ const Settings = () => {
 
     // --- HANDLERS ---
 
-    // Guardar Perfil y Negocio en Supabase
     const handleSaveGeneral = async () => {
         setIsSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
@@ -98,21 +95,21 @@ const Settings = () => {
                 business_name: businessName,
                 currency: currency,
                 avatar_url: avatarUrl, 
-                logo_url: logoUrl, // AHORA SÍ ENVIAMOS EL LOGO
-                updated_at: new Date(),
+                logo_url: logoUrl, 
+                updated_at: new Date().toISOString(), // Formato seguro
             };
 
             const { error } = await supabase.from('profiles').upsert(updates);
             if (error) {
                 alert("Error al guardar: " + error.message);
             } else {
-                alert("¡Configuración guardada con éxito! ✅"); // AÑADIDO EL FEEDBACK
+                // Forzamos recarga para que el Sidebar (que está fuera) vea el nuevo nombre
+                window.location.reload(); 
             }
         }
         setIsSaving(false);
     };
 
-    // Subida real a Supabase Storage
     const uploadImageToStorage = async (file: File, prefix: string) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${prefix}_${Date.now()}.${fileExt}`;
@@ -131,7 +128,14 @@ const Settings = () => {
         try {
             const url = await uploadImageToStorage(file, 'avatar');
             setAvatarUrl(url);
-            alert("Foto subida ✅ ¡Recuerda darle a Guardar Configuración!");
+            
+            // AUTO-GUARDAR EN BASE DE DATOS
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
+            }
+            // Recargamos para actualizar menús superiores si los hubiera
+            window.location.reload();
         } catch (error: any) {
             alert("Error al subir imagen: " + error.message);
         } finally {
@@ -139,6 +143,7 @@ const Settings = () => {
         }
     };
 
+    // EL ARREGLO ESTRELLA: Guardado automático del logo
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -146,7 +151,15 @@ const Settings = () => {
         try {
             const url = await uploadImageToStorage(file, 'logo');
             setLogoUrl(url);
-            alert("Logo subido ✅ ¡Recuerda darle a Guardar Configuración!");
+            
+            // AUTO-GUARDAR DIRECTO A LA BASE DE DATOS
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('profiles').update({ logo_url: url }).eq('id', user.id);
+            }
+            
+            // Recargamos la página mágicamente para que el Sidebar se actualice al instante
+            window.location.reload();
         } catch (error: any) {
             alert("Error al subir logo: " + error.message);
         } finally {
@@ -154,7 +167,6 @@ const Settings = () => {
         }
     };
 
-    // Cambiar Contraseña Real
     const handleUpdatePassword = async () => {
         if (!newPassword || !confirmPassword) return alert("Rellena los campos de nueva contraseña.");
         if (newPassword !== confirmPassword) return alert("Las contraseñas no coinciden.");
@@ -179,7 +191,6 @@ const Settings = () => {
         window.location.href = '/';
     };
 
-    // --- SIMULACIONES DE UI (Stripe, Billing) ---
     const handleConnectStripe = () => {
         setIsSaving(true);
         setConnectionStatus('idle');
@@ -278,7 +289,7 @@ const Settings = () => {
                                 </div>
                                 <div>
                                     <p className="font-medium text-white">Tu foto</p>
-                                    <p className="text-xs text-zinc-500 mt-1">Se recomienda formato cuadrado (PNG, JPG).</p>
+                                    <p className="text-xs text-zinc-500 mt-1">Se guarda automáticamente.</p>
                                 </div>
                             </div>
 
@@ -348,8 +359,8 @@ const Settings = () => {
                                         {isUploading ? <Loader2 className="w-8 h-8 animate-spin text-zinc-500"/> : logoUrl ? (
                                             <div className="flex flex-col items-center gap-4">
                                                 <img src={logoUrl} alt="Logo" className="h-16 object-contain" />
-                                                <label className="cursor-pointer text-xs text-blue-400 hover:text-blue-300">
-                                                    Cambiar logo
+                                                <label className="cursor-pointer text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 px-3 py-1.5 rounded-lg">
+                                                    Cambiar logo (Se guarda automáticamente)
                                                     <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={isUploading} className="hidden" />
                                                 </label>
                                             </div>
@@ -369,7 +380,7 @@ const Settings = () => {
 
                             <div className="flex justify-end pt-4 border-t border-zinc-800">
                                 <Button onClick={handleSaveGeneral} disabled={isSaving || isUploading} className="bg-blue-500 text-white font-bold hover:bg-blue-600 min-w-[120px]">
-                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Guardar Configuración'}
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Guardar Datos Empresa'}
                                 </Button>
                             </div>
                         </div>

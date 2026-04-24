@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
-// Catálogo Base (Demo)
-const EXERCISE_CATALOG = [
+// Catálogo Base (Global para todos)
+const EXERCISE_CATALOG_BASE = [
     { id: 1, name: "Sentadilla con Barra", category: "Pierna", img: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=60" },
     { id: 2, name: "Peso Muerto Rumano", category: "Pierna", img: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=60&w=400" },
     { id: 3, name: "Press Banca", category: "Pecho", img: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=60" },
@@ -34,10 +34,13 @@ const WorkoutEditor = () => {
     const [exercises, setExercises] = useState<any[]>([]);
     const [activeDay, setActiveDay] = useState(1);
     
+    // Catálogo Dinámico (Base + Personalizados del Coach)
+    const [catalog, setCatalog] = useState<any[]>(EXERCISE_CATALOG_BASE);
+    
     // Control de Bloques Vacíos y Acordeones
     const [customBlocks, setCustomBlocks] = useState<{day: number, name: string}[]>([]);
     const [collapsedBlocks, setCollapsedBlocks] = useState<string[]>([]);
-    const [targetBlockName, setTargetBlockName] = useState<string | null>(null); // null = Lista normal
+    const [targetBlockName, setTargetBlockName] = useState<string | null>(null);
     
     // Estados Clientes
     const [clients, setClients] = useState<any[]>([]);
@@ -47,6 +50,7 @@ const WorkoutEditor = () => {
     // Estados UI
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isCreatingExercise, setIsCreatingExercise] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showCatalog, setShowCatalog] = useState(false);
     const [uploadingId, setUploadingId] = useState<number | null>(null);
@@ -59,9 +63,26 @@ const WorkoutEditor = () => {
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            
             const { data: clientsData } = await supabase.from('clients').select('id, name, image_url');
             if (clientsData) setClients(clientsData);
 
+            // Cargar los ejercicios personalizados del entrenador actual
+            if (user) {
+                const { data: customExData } = await supabase.from('exercises').select('*').eq('coach_id', user.id);
+                if (customExData && customExData.length > 0) {
+                    const formattedCustom = customExData.map(ex => ({
+                        id: `custom_${ex.id}`, // Prefix para que no choque con los ID del catálogo base
+                        name: ex.name,
+                        category: ex.category,
+                        img: ex.image_url
+                    }));
+                    setCatalog([...EXERCISE_CATALOG_BASE, ...formattedCustom]);
+                }
+            }
+
+            // Cargar datos de la rutina si estamos editando
             if (id) {
                 const { data: routine } = await supabase.from('routines').select('*').eq('id', id).single();
                 if (routine) {
@@ -82,16 +103,14 @@ const WorkoutEditor = () => {
                             reps: e.reps,
                             rir: e.rir || "",
                             video: e.video_url,
-                            block_name: e.block_name || null // Respetamos si no tiene bloque (lista normal)
+                            block_name: e.block_name || null 
                         }));
                         setExercises(formattedExercises);
                         
-                        // Extraemos los bloques únicos para que se pinten en la UI (ignorando los nulos)
                         const loadedBlocks = formattedExercises
                             .filter(e => e.block_name)
                             .map(e => ({ day: e.day, name: e.block_name as string }));
                             
-                        // Filtramos duplicados
                         const uniqueBlocks = loadedBlocks.filter((v, i, a) => a.findIndex(t => (t.name === v.name && t.day === v.day)) === i);
                         setCustomBlocks(uniqueBlocks);
                     }
@@ -107,7 +126,7 @@ const WorkoutEditor = () => {
         loadData();
     }, [id]);
 
-    // --- GUARDAR ---
+    // --- GUARDAR RUTINA ---
     const handleSave = async () => {
         if (!title) return alert("Ponle un nombre a la rutina");
         setIsSaving(true);
@@ -176,7 +195,6 @@ const WorkoutEditor = () => {
         else setSelectedClients([...selectedClients, clientId]);
     };
 
-    // Abre el catálogo y guarda en qué bloque queremos meter el ejercicio (o null si es en la lista general)
     const openCatalogForBlock = (blockName: string | null) => {
         setTargetBlockName(blockName);
         setShowCatalog(true);
@@ -197,20 +215,47 @@ const WorkoutEditor = () => {
         setTargetBlockName(null);
     };
 
-    // --- CREAR EJERCICIO PERSONALIZADO ---
-    const createCustomExercise = () => {
+    // --- CREAR Y GUARDAR EJERCICIO PERSONALIZADO EN SUPABASE ---
+    const createCustomExercise = async () => {
         if (!customExName) return alert("Escribe un nombre para el ejercicio");
         
-        const newCustomExercise = {
-            id: Date.now(),
-            name: customExName,
+        setIsCreatingExercise(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const newExerciseData = {
+            coach_id: user.id,
+            name: customExName.trim(),
             category: customExCategory,
-            img: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200", 
+            image_url: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200"
         };
 
-        addExercise(newCustomExercise);
+        const { data, error } = await supabase.from('exercises').insert([newExerciseData]).select().single();
+        
+        if (error) {
+            alert("Error al guardar en tu biblioteca: " + error.message);
+            setIsCreatingExercise(false);
+            return;
+        }
+
+        // Lo formateamos para el catálogo local
+        const formattedNewExercise = {
+            id: `custom_${data.id}`,
+            name: data.name,
+            category: data.category,
+            img: data.image_url
+        };
+
+        // 1. Lo añadimos a la lista del catálogo local al instante
+        setCatalog([...catalog, formattedNewExercise]);
+        
+        // 2. Lo añadimos automáticamente a la rutina actual
+        addExercise(formattedNewExercise);
+
+        // Limpiamos el formulario
         setCustomExName(""); 
         setCustomExCategory("General");
+        setIsCreatingExercise(false);
     };
 
     const removeExercise = (localId: number) => setExercises(exercises.filter(e => e.localId !== localId));
@@ -248,7 +293,7 @@ const WorkoutEditor = () => {
         setCustomBlocks(customBlocks.filter(cb => !(cb.day === activeDay && cb.name === blockName)));
     };
 
-    // Componente reutilizable para pintar un ejercicio (así no repetimos código)
+    // Componente reutilizable
     const renderExercise = (ex: any) => (
         <div key={ex.localId} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center gap-4 group hover:border-zinc-700 relative">
             <div className="w-12 h-12 bg-zinc-800 rounded-lg overflow-hidden flex-shrink-0">
@@ -278,11 +323,8 @@ const WorkoutEditor = () => {
 
     // Divisiones del día actual
     const currentDayExercises = exercises.filter(e => e.day === activeDay);
-    
-    // 1. Ejercicios sin bloque (Lista normal)
     const rootExercises = currentDayExercises.filter(e => !e.block_name);
     
-    // 2. Bloques personalizados del día
     const dayBlocks = Array.from(new Set([
         ...currentDayExercises.filter(e => e.block_name).map(e => e.block_name),
         ...customBlocks.filter(cb => cb.day === activeDay).map(cb => cb.name)
@@ -376,7 +418,7 @@ const WorkoutEditor = () => {
                     
                     <div className="flex-1 space-y-6 mb-6 overflow-y-auto custom-scrollbar pr-2">
                         
-                        {/* 1. LISTA DE EJERCICIOS NORMALES (Sin bloque) */}
+                        {/* 1. LISTA DE EJERCICIOS NORMALES */}
                         {rootExercises.length > 0 && (
                             <div className="space-y-2">
                                 {rootExercises.map(renderExercise)}
@@ -492,15 +534,16 @@ const WorkoutEditor = () => {
                                     <option>Brazo</option>
                                     <option>Cardio</option>
                                 </select>
-                                <Button onClick={createCustomExercise} size="sm" className="bg-emerald-500 text-black font-bold hover:bg-emerald-400">
-                                    Crear
+                                <Button onClick={createCustomExercise} disabled={isCreatingExercise} size="sm" className="bg-emerald-500 text-black font-bold hover:bg-emerald-400 min-w-[70px]">
+                                    {isCreatingExercise ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Crear y Guardar'}
                                 </Button>
                             </div>
+                            <p className="text-[10px] text-zinc-500 mt-2">✨ Se guardará automáticamente en tu biblioteca para futuras rutinas.</p>
                         </div>
 
-                        {/* LISTA CATÁLOGO */}
+                        {/* LISTA CATÁLOGO (Dinamizado) */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
-                            {EXERCISE_CATALOG.map((ex) => (
+                            {catalog.map((ex) => (
                                 <button key={ex.id} onClick={() => addExercise(ex)} className="w-full flex items-center gap-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-emerald-500 hover:bg-zinc-800 transition-all text-left group">
                                     <img src={ex.img} className="w-12 h-12 rounded-lg object-cover" />
                                     <div className="flex-1">

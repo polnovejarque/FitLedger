@@ -229,7 +229,7 @@ const WorkoutEditor = () => {
 
     // --- LÓGICA DE BLOQUES ---
     const handleCreateBlock = () => {
-        const blockName = prompt("Nombre del nuevo bloque (ej: Calentamiento, Antigravity, Core):");
+        const blockName = prompt("Nombre del nuevo bloque (ej: Calentamiento, Fuerza, Core):");
         if (!blockName || blockName.trim() === "") return;
         setCustomBlocks([...customBlocks, { day: activeDay, name: blockName.trim() }]);
     };
@@ -349,7 +349,6 @@ const WorkoutEditor = () => {
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                             {filteredClients.map(c => (
                                 <div key={c.id} onClick={() => toggleClient(c.id)} className={`flex items-center gap-3 p-2 rounded-xl border cursor-pointer transition-all ${selectedClients.includes(c.id) ? 'bg-orange-500/10 border-orange-500/50' : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800'}`}>
-                                    {/* ✅ FOTO CORREGIDA: Si no hay foto, icono de usuario */}
                                     {c.image_url ? (
                                         <img src={c.image_url} className="w-8 h-8 rounded-full object-cover flex-shrink-0" alt={c.name} />
                                     ) : (

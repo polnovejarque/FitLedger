@@ -34,14 +34,15 @@ const WorkoutEditor = () => {
     const [exercises, setExercises] = useState<any[]>([]);
     const [activeDay, setActiveDay] = useState(1);
     
-    // Catálogo Dinámico (Base + Personalizados del Coach)
+    // Catálogo Dinámico
     const [catalog, setCatalog] = useState<any[]>(EXERCISE_CATALOG_BASE);
     
     // Control de Bloques Vacíos, Acordeones y Drag & Drop
     const [customBlocks, setCustomBlocks] = useState<{day: number, name: string}[]>([]);
     const [collapsedBlocks, setCollapsedBlocks] = useState<string[]>([]);
     const [targetBlockName, setTargetBlockName] = useState<string | null>(null);
-    const [draggedBlockIdx, setDraggedBlockIdx] = useState<number | null>(null); // Novedad: Controlar qué bloque se arrastra
+    const [draggedBlockIdx, setDraggedBlockIdx] = useState<number | null>(null); 
+    const [draggedExId, setDraggedExId] = useState<number | null>(null); // Novedad: Control de ejercicios
     
     // Estados Clientes
     const [clients, setClients] = useState<any[]>([]);
@@ -91,7 +92,7 @@ const WorkoutEditor = () => {
                     setDaysPerWeek(routine.days_per_week || 3);
                     setDuration(routine.estimated_duration || "60 min");
 
-                    const { data: exData } = await supabase.from('routine_exercises').select('*').eq('routine_id', id).order('id', { ascending: true }); // Respetar orden de inserción
+                    const { data: exData } = await supabase.from('routine_exercises').select('*').eq('routine_id', id).order('id', { ascending: true });
                     if (exData) {
                         const formattedExercises = exData.map(e => ({
                             localId: e.id, 
@@ -157,19 +158,24 @@ const WorkoutEditor = () => {
             await supabase.from('routine_exercises').delete().eq('routine_id', routineId);
             
             if (exercises.length > 0) {
-                // ORDENAR LOS EJERCICIOS SEGÚN EL ORDEN DE LOS BLOQUES ANTES DE GUARDAR
-                const sortedExercises = [...exercises].sort((a, b) => {
-                    if (a.day !== b.day) return a.day - b.day;
+                // Reconstruimos el orden exacto visual para guardarlo
+                let orderedExercises: any[] = [];
+                
+                for (let day = 1; day <= daysPerWeek; day++) {
+                    const dayExs = exercises.filter(e => e.day === day);
+                    // 1. Ejercicios sueltos primero
+                    orderedExercises.push(...dayExs.filter(e => !e.block_name));
                     
-                    const blocksForDay = customBlocks.filter(cb => cb.day === a.day).map(cb => cb.name);
-                    const indexA = a.block_name ? blocksForDay.indexOf(a.block_name) : -1;
-                    const indexB = b.block_name ? blocksForDay.indexOf(b.block_name) : -1;
-                    
-                    if (indexA !== indexB) return indexA - indexB;
-                    return a.localId - b.localId;
-                });
+                    // 2. Ejercicios en el orden de los bloques
+                    const dayBlocksList = customBlocks.filter(cb => cb.day === day).map(cb => cb.name);
+                    dayExs.forEach(e => { if (e.block_name && !dayBlocksList.includes(e.block_name)) dayBlocksList.push(e.block_name) });
 
-                const exercisesToSave = sortedExercises.map(ex => ({
+                    dayBlocksList.forEach(bName => {
+                        orderedExercises.push(...dayExs.filter(e => e.block_name === bName));
+                    });
+                }
+
+                const exercisesToSave = orderedExercises.map(ex => ({
                     routine_id: routineId, 
                     day_name: `Día ${ex.day}`, 
                     exercise_name: ex.name,
@@ -228,7 +234,6 @@ const WorkoutEditor = () => {
         setTargetBlockName(null);
     };
 
-    // --- CREAR Y GUARDAR EJERCICIO PERSONALIZADO EN SUPABASE ---
     const createCustomExercise = async () => {
         if (!customExName) return alert("Escribe un nombre para el ejercicio");
         
@@ -280,7 +285,7 @@ const WorkoutEditor = () => {
         } catch (error: any) { alert("Error: " + error.message); } finally { setUploadingId(null); }
     };
 
-    // --- LÓGICA DE BLOQUES Y DRAG & DROP ---
+    // --- LÓGICA DRAG & DROP PARA BLOQUES ---
     const handleCreateBlock = () => {
         const blockName = prompt("Nombre del nuevo bloque (ej: Calentamiento, Fuerza, Core):");
         if (!blockName || blockName.trim() === "") return;
@@ -301,28 +306,20 @@ const WorkoutEditor = () => {
         setCustomBlocks(customBlocks.filter(cb => !(cb.day === activeDay && cb.name === blockName)));
     };
 
-    // Drag & Drop Handlers para reorganizar los bloques
     const handleDragStartBlock = (e: React.DragEvent, index: number) => {
         setDraggedBlockIdx(index);
         e.dataTransfer.effectAllowed = "move";
     };
 
-    const handleDragOverBlock = (e: React.DragEvent) => {
-        e.preventDefault(); 
-    };
-
     const handleDropBlock = (e: React.DragEvent, targetIndex: number) => {
         e.preventDefault();
+        e.stopPropagation();
         if (draggedBlockIdx === null || draggedBlockIdx === targetIndex) return;
 
-        // Extraemos los bloques del día activo
         const currentDayBlocks = customBlocks.filter(cb => cb.day === activeDay).map(cb => cb.name);
-        
-        // Movemos el bloque de la posición origen a la destino
         const [movedBlock] = currentDayBlocks.splice(draggedBlockIdx, 1);
         currentDayBlocks.splice(targetIndex, 0, movedBlock);
 
-        // Reconstruimos el array global de customBlocks
         const otherDaysBlocks = customBlocks.filter(cb => cb.day !== activeDay);
         const newActiveDayBlocks = currentDayBlocks.map(name => ({ day: activeDay, name }));
 
@@ -330,9 +327,71 @@ const WorkoutEditor = () => {
         setDraggedBlockIdx(null);
     };
 
-    // Componente reutilizable
+    // --- LÓGICA DRAG & DROP PARA EJERCICIOS ---
+    const handleDragStartEx = (e: React.DragEvent, localId: number) => {
+        e.stopPropagation(); // Evita arrastrar el bloque contenedor
+        setDraggedExId(localId);
+        e.dataTransfer.effectAllowed = "move";
+    };
+
+    const handleDragOverItem = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDropEx = (e: React.DragEvent, targetLocalId: number, targetBlockName: string | null) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (!draggedExId || draggedExId === targetLocalId) {
+            setDraggedExId(null);
+            return;
+        }
+
+        const newExercises = [...exercises];
+        const draggedIdx = newExercises.findIndex(ex => ex.localId === draggedExId);
+        const targetIdx = newExercises.findIndex(ex => ex.localId === targetLocalId);
+
+        if (draggedIdx === -1 || targetIdx === -1) return;
+
+        const [draggedItem] = newExercises.splice(draggedIdx, 1);
+        draggedItem.block_name = targetBlockName; // Si lo arrastramos a otro bloque, asume el nuevo bloque
+        newExercises.splice(targetIdx, 0, draggedItem);
+
+        setExercises(newExercises);
+        setDraggedExId(null);
+    };
+
+    // Cuando sueltan un ejercicio en un bloque vacío
+    const handleDropEmptyBlock = (e: React.DragEvent, targetBlockName: string | null) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!draggedExId) return;
+
+        const newExercises = [...exercises];
+        const draggedIdx = newExercises.findIndex(ex => ex.localId === draggedExId);
+        if (draggedIdx > -1) {
+            const [draggedItem] = newExercises.splice(draggedIdx, 1);
+            draggedItem.block_name = targetBlockName;
+            newExercises.push(draggedItem);
+            setExercises(newExercises);
+        }
+        setDraggedExId(null);
+    };
+
+    // Componente reutilizable con Drag & Drop
     const renderExercise = (ex: any) => (
-        <div key={ex.localId} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center gap-4 group hover:border-zinc-700 relative">
+        <div 
+            key={ex.localId} 
+            draggable
+            onDragStart={(e) => handleDragStartEx(e, ex.localId)}
+            onDragOver={handleDragOverItem}
+            onDrop={(e) => handleDropEx(e, ex.localId, ex.block_name)}
+            className={`bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center gap-4 group hover:border-zinc-700 relative transition-all ${draggedExId === ex.localId ? 'opacity-40 border-dashed border-emerald-500' : ''}`}
+        >
+            <div className="cursor-grab active:cursor-grabbing p-1 -ml-2 hover:bg-zinc-800 rounded text-zinc-600 hover:text-white" title="Arrastrar para ordenar">
+                <GripVertical className="w-4 h-4" />
+            </div>
             <div className="w-12 h-12 bg-zinc-800 rounded-lg overflow-hidden flex-shrink-0">
                 <img src={ex.img} className="w-full h-full object-cover opacity-80" alt={ex.name} />
             </div>
@@ -358,17 +417,12 @@ const WorkoutEditor = () => {
         </div>
     );
 
-    // Divisiones del día actual
     const currentDayExercises = exercises.filter(e => e.day === activeDay);
     const rootExercises = currentDayExercises.filter(e => !e.block_name);
     
-    // Obtenemos el orden maestro de los bloques desde customBlocks
     const dayBlocks = customBlocks.filter(cb => cb.day === activeDay).map(cb => cb.name);
-    // Añadimos por seguridad cualquier bloque huérfano que pudiera haber en los ejercicios
     currentDayExercises.forEach(e => {
-        if (e.block_name && !dayBlocks.includes(e.block_name)) {
-            dayBlocks.push(e.block_name);
-        }
+        if (e.block_name && !dayBlocks.includes(e.block_name)) dayBlocks.push(e.block_name);
     });
 
     const filteredClients = clients.filter(c => c.name.toLowerCase().includes(searchClient.toLowerCase()));
@@ -446,7 +500,6 @@ const WorkoutEditor = () => {
                                 </div>
                             ))}
                         </div>
-
                     </div>
                 </div>
 
@@ -466,12 +519,11 @@ const WorkoutEditor = () => {
                             </div>
                         )}
 
-                        {/* BOTÓN PARA AÑADIR A LA LISTA NORMAL */}
                         <button onClick={() => openCatalogForBlock(null)} className="w-full py-3 border border-zinc-800 border-dashed rounded-xl text-zinc-500 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all text-sm font-medium flex items-center justify-center gap-2">
                             <Plus className="w-4 h-4" /> Añadir Ejercicio Normal
                         </button>
 
-                        {/* 2. RENDERIZAR BLOQUES PERSONALIZADOS (AHORA ARRASTRABLES) */}
+                        {/* 2. BLOQUES PERSONALIZADOS */}
                         {dayBlocks.length > 0 && (
                             <div className="space-y-4 pt-4 border-t border-zinc-800/50">
                                 {dayBlocks.map((blockName, idx) => {
@@ -483,20 +535,18 @@ const WorkoutEditor = () => {
                                             key={idx} 
                                             draggable
                                             onDragStart={(e) => handleDragStartBlock(e, idx)}
-                                            onDragOver={handleDragOverBlock}
+                                            onDragOver={handleDragOverItem}
                                             onDrop={(e) => handleDropBlock(e, idx)}
                                             className={`bg-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden transition-all ${draggedBlockIdx === idx ? 'opacity-40 border-dashed border-purple-500' : ''}`}
                                         >
-                                            {/* CABECERA DEL BLOQUE */}
                                             <div className="bg-zinc-900 border-b border-zinc-800 p-3 flex items-center justify-between">
                                                 <div 
                                                     className="flex items-center gap-3 cursor-pointer flex-1" 
                                                     onClick={() => toggleBlockCollapse(blockName as string)}
                                                 >
-                                                    {/* Ícono de Drag & Drop */}
                                                     <div 
                                                         className="cursor-grab active:cursor-grabbing p-1 -ml-1 hover:bg-zinc-800 rounded text-zinc-600 hover:text-white" 
-                                                        title="Arrastrar para ordenar"
+                                                        title="Arrastrar bloque"
                                                     >
                                                         <GripVertical className="w-4 h-4" />
                                                     </div>
@@ -516,12 +566,15 @@ const WorkoutEditor = () => {
                                                 </div>
                                             </div>
 
-                                            {/* LISTA DE EJERCICIOS DEL BLOQUE */}
                                             {!isCollapsed && (
                                                 <div className="p-3 space-y-2">
                                                     {blockExercises.length === 0 ? (
-                                                        <div className="py-6 text-center text-zinc-600 border-2 border-dashed border-zinc-800/50 rounded-xl">
-                                                            <p className="text-xs">Bloque vacío. Añade ejercicios.</p>
+                                                        <div 
+                                                            className="py-6 text-center text-zinc-600 border-2 border-dashed border-zinc-800/50 rounded-xl"
+                                                            onDragOver={handleDragOverItem}
+                                                            onDrop={(e) => handleDropEmptyBlock(e, blockName as string)}
+                                                        >
+                                                            <p className="text-xs">Bloque vacío. Arrastra un ejercicio aquí.</p>
                                                         </div>
                                                     ) : (
                                                         blockExercises.map(renderExercise)
@@ -535,7 +588,6 @@ const WorkoutEditor = () => {
                         )}
                     </div>
                     
-                    {/* BOTÓN AÑADIR NUEVO BLOQUE */}
                     <div className="pt-4 border-t border-zinc-800">
                         <button onClick={handleCreateBlock} className="w-full py-4 border border-zinc-800 border-dashed rounded-xl text-zinc-500 hover:text-purple-400 hover:border-purple-500 hover:bg-purple-500/5 transition-all text-sm font-medium flex items-center justify-center gap-2">
                             <Layers className="w-4 h-4" /> Crear Nuevo Bloque
@@ -548,8 +600,6 @@ const WorkoutEditor = () => {
             {showCatalog && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-[#111] border border-zinc-800 w-full max-w-lg rounded-2xl relative shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[80vh] overflow-hidden">
-                        
-                        {/* CABECERA MODAL */}
                         <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
                             <div>
                                 <h2 className="text-xl font-bold text-white">Seleccionar Ejercicio</h2>
@@ -557,22 +607,18 @@ const WorkoutEditor = () => {
                             </div>
                             <button onClick={() => {setShowCatalog(false); setTargetBlockName(null);}} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                         </div>
-
-                        {/* BUSCADOR */}
                         <div className="p-4 border-b border-zinc-800">
                             <div className="relative">
                                 <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
                                 <input type="text" placeholder="Buscar en catálogo..." className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-emerald-500 outline-none" />
                             </div>
                         </div>
-
-                        {/* CREAR NUEVO (FORMULARIO ADICIONAL) */}
                         <div className="p-4 bg-zinc-900/50 border-b border-zinc-800">
                             <p className="text-xs text-zinc-400 mb-2 font-bold uppercase">¿No está en la lista? Crea uno nuevo:</p>
                             <div className="flex gap-2">
                                 <input 
                                     type="text" 
-                                    placeholder="Nombre (ej: Tela invertida)" 
+                                    placeholder="Nombre (ej: Plancha)" 
                                     value={customExName}
                                     onChange={(e) => setCustomExName(e.target.value)}
                                     className="flex-1 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
@@ -596,8 +642,6 @@ const WorkoutEditor = () => {
                             </div>
                             <p className="text-[10px] text-zinc-500 mt-2">✨ Se guardará automáticamente en tu biblioteca para futuras rutinas.</p>
                         </div>
-
-                        {/* LISTA CATÁLOGO (Dinamizado) */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
                             {catalog.map((ex) => (
                                 <button key={ex.id} onClick={() => addExercise(ex)} className="w-full flex items-center gap-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-emerald-500 hover:bg-zinc-800 transition-all text-left group">

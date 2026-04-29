@@ -5,7 +5,7 @@ import {
     Save, X, Plus, Trash2, Dumbbell, 
     ChevronLeft, Layout, Calendar, Clock,
     Search, Loader2, Upload, Video, Users, CheckCircle, Signal,
-    ChevronDown, ChevronUp, Layers, User
+    ChevronDown, ChevronUp, Layers, User, GripVertical
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -37,10 +37,11 @@ const WorkoutEditor = () => {
     // Catálogo Dinámico (Base + Personalizados del Coach)
     const [catalog, setCatalog] = useState<any[]>(EXERCISE_CATALOG_BASE);
     
-    // Control de Bloques Vacíos y Acordeones
+    // Control de Bloques Vacíos, Acordeones y Drag & Drop
     const [customBlocks, setCustomBlocks] = useState<{day: number, name: string}[]>([]);
     const [collapsedBlocks, setCollapsedBlocks] = useState<string[]>([]);
     const [targetBlockName, setTargetBlockName] = useState<string | null>(null);
+    const [draggedBlockIdx, setDraggedBlockIdx] = useState<number | null>(null); // Novedad: Controlar qué bloque se arrastra
     
     // Estados Clientes
     const [clients, setClients] = useState<any[]>([]);
@@ -68,12 +69,11 @@ const WorkoutEditor = () => {
             const { data: clientsData } = await supabase.from('clients').select('id, name, image_url');
             if (clientsData) setClients(clientsData);
 
-            // Cargar los ejercicios personalizados del entrenador actual
             if (user) {
                 const { data: customExData } = await supabase.from('exercises').select('*').eq('coach_id', user.id);
                 if (customExData && customExData.length > 0) {
                     const formattedCustom = customExData.map(ex => ({
-                        id: `custom_${ex.id}`, // Prefix para que no choque con los ID del catálogo base
+                        id: `custom_${ex.id}`,
                         name: ex.name,
                         category: ex.category,
                         img: ex.image_url
@@ -82,7 +82,6 @@ const WorkoutEditor = () => {
                 }
             }
 
-            // Cargar datos de la rutina si estamos editando
             if (id) {
                 const { data: routine } = await supabase.from('routines').select('*').eq('id', id).single();
                 if (routine) {
@@ -92,7 +91,7 @@ const WorkoutEditor = () => {
                     setDaysPerWeek(routine.days_per_week || 3);
                     setDuration(routine.estimated_duration || "60 min");
 
-                    const { data: exData } = await supabase.from('routine_exercises').select('*').eq('routine_id', id);
+                    const { data: exData } = await supabase.from('routine_exercises').select('*').eq('routine_id', id).order('id', { ascending: true }); // Respetar orden de inserción
                     if (exData) {
                         const formattedExercises = exData.map(e => ({
                             localId: e.id, 
@@ -156,8 +155,21 @@ const WorkoutEditor = () => {
 
         if (routineId) {
             await supabase.from('routine_exercises').delete().eq('routine_id', routineId);
+            
             if (exercises.length > 0) {
-                const exercisesToSave = exercises.map(ex => ({
+                // ORDENAR LOS EJERCICIOS SEGÚN EL ORDEN DE LOS BLOQUES ANTES DE GUARDAR
+                const sortedExercises = [...exercises].sort((a, b) => {
+                    if (a.day !== b.day) return a.day - b.day;
+                    
+                    const blocksForDay = customBlocks.filter(cb => cb.day === a.day).map(cb => cb.name);
+                    const indexA = a.block_name ? blocksForDay.indexOf(a.block_name) : -1;
+                    const indexB = b.block_name ? blocksForDay.indexOf(b.block_name) : -1;
+                    
+                    if (indexA !== indexB) return indexA - indexB;
+                    return a.localId - b.localId;
+                });
+
+                const exercisesToSave = sortedExercises.map(ex => ({
                     routine_id: routineId, 
                     day_name: `Día ${ex.day}`, 
                     exercise_name: ex.name,
@@ -170,6 +182,7 @@ const WorkoutEditor = () => {
                 }));
                 await supabase.from('routine_exercises').insert(exercisesToSave);
             }
+            
             await supabase.from('routine_assignments').delete().eq('routine_id', routineId);
             if (selectedClients.length > 0) {
                 const assignments = selectedClients.map(clientId => ({ routine_id: routineId, client_id: clientId }));
@@ -238,7 +251,6 @@ const WorkoutEditor = () => {
             return;
         }
 
-        // Lo formateamos para el catálogo local
         const formattedNewExercise = {
             id: `custom_${data.id}`,
             name: data.name,
@@ -246,13 +258,9 @@ const WorkoutEditor = () => {
             img: data.image_url
         };
 
-        // 1. Lo añadimos a la lista del catálogo local al instante
         setCatalog([...catalog, formattedNewExercise]);
-        
-        // 2. Lo añadimos automáticamente a la rutina actual
         addExercise(formattedNewExercise);
 
-        // Limpiamos el formulario
         setCustomExName(""); 
         setCustomExCategory("General");
         setIsCreatingExercise(false);
@@ -272,7 +280,7 @@ const WorkoutEditor = () => {
         } catch (error: any) { alert("Error: " + error.message); } finally { setUploadingId(null); }
     };
 
-    // --- LÓGICA DE BLOQUES ---
+    // --- LÓGICA DE BLOQUES Y DRAG & DROP ---
     const handleCreateBlock = () => {
         const blockName = prompt("Nombre del nuevo bloque (ej: Calentamiento, Fuerza, Core):");
         if (!blockName || blockName.trim() === "") return;
@@ -291,6 +299,35 @@ const WorkoutEditor = () => {
         if (!confirm(`¿Borrar el bloque "${blockName}" y todos sus ejercicios?`)) return;
         setExercises(exercises.filter(ex => !(ex.day === activeDay && ex.block_name === blockName)));
         setCustomBlocks(customBlocks.filter(cb => !(cb.day === activeDay && cb.name === blockName)));
+    };
+
+    // Drag & Drop Handlers para reorganizar los bloques
+    const handleDragStartBlock = (e: React.DragEvent, index: number) => {
+        setDraggedBlockIdx(index);
+        e.dataTransfer.effectAllowed = "move";
+    };
+
+    const handleDragOverBlock = (e: React.DragEvent) => {
+        e.preventDefault(); 
+    };
+
+    const handleDropBlock = (e: React.DragEvent, targetIndex: number) => {
+        e.preventDefault();
+        if (draggedBlockIdx === null || draggedBlockIdx === targetIndex) return;
+
+        // Extraemos los bloques del día activo
+        const currentDayBlocks = customBlocks.filter(cb => cb.day === activeDay).map(cb => cb.name);
+        
+        // Movemos el bloque de la posición origen a la destino
+        const [movedBlock] = currentDayBlocks.splice(draggedBlockIdx, 1);
+        currentDayBlocks.splice(targetIndex, 0, movedBlock);
+
+        // Reconstruimos el array global de customBlocks
+        const otherDaysBlocks = customBlocks.filter(cb => cb.day !== activeDay);
+        const newActiveDayBlocks = currentDayBlocks.map(name => ({ day: activeDay, name }));
+
+        setCustomBlocks([...otherDaysBlocks, ...newActiveDayBlocks]);
+        setDraggedBlockIdx(null);
     };
 
     // Componente reutilizable
@@ -325,10 +362,14 @@ const WorkoutEditor = () => {
     const currentDayExercises = exercises.filter(e => e.day === activeDay);
     const rootExercises = currentDayExercises.filter(e => !e.block_name);
     
-    const dayBlocks = Array.from(new Set([
-        ...currentDayExercises.filter(e => e.block_name).map(e => e.block_name),
-        ...customBlocks.filter(cb => cb.day === activeDay).map(cb => cb.name)
-    ]));
+    // Obtenemos el orden maestro de los bloques desde customBlocks
+    const dayBlocks = customBlocks.filter(cb => cb.day === activeDay).map(cb => cb.name);
+    // Añadimos por seguridad cualquier bloque huérfano que pudiera haber en los ejercicios
+    currentDayExercises.forEach(e => {
+        if (e.block_name && !dayBlocks.includes(e.block_name)) {
+            dayBlocks.push(e.block_name);
+        }
+    });
 
     const filteredClients = clients.filter(c => c.name.toLowerCase().includes(searchClient.toLowerCase()));
 
@@ -430,7 +471,7 @@ const WorkoutEditor = () => {
                             <Plus className="w-4 h-4" /> Añadir Ejercicio Normal
                         </button>
 
-                        {/* 2. RENDERIZAR BLOQUES PERSONALIZADOS */}
+                        {/* 2. RENDERIZAR BLOQUES PERSONALIZADOS (AHORA ARRASTRABLES) */}
                         {dayBlocks.length > 0 && (
                             <div className="space-y-4 pt-4 border-t border-zinc-800/50">
                                 {dayBlocks.map((blockName, idx) => {
@@ -438,13 +479,28 @@ const WorkoutEditor = () => {
                                     const isCollapsed = collapsedBlocks.includes(blockName as string);
 
                                     return (
-                                        <div key={idx} className="bg-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden">
+                                        <div 
+                                            key={idx} 
+                                            draggable
+                                            onDragStart={(e) => handleDragStartBlock(e, idx)}
+                                            onDragOver={handleDragOverBlock}
+                                            onDrop={(e) => handleDropBlock(e, idx)}
+                                            className={`bg-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden transition-all ${draggedBlockIdx === idx ? 'opacity-40 border-dashed border-purple-500' : ''}`}
+                                        >
                                             {/* CABECERA DEL BLOQUE */}
                                             <div className="bg-zinc-900 border-b border-zinc-800 p-3 flex items-center justify-between">
                                                 <div 
                                                     className="flex items-center gap-3 cursor-pointer flex-1" 
                                                     onClick={() => toggleBlockCollapse(blockName as string)}
                                                 >
+                                                    {/* Ícono de Drag & Drop */}
+                                                    <div 
+                                                        className="cursor-grab active:cursor-grabbing p-1 -ml-1 hover:bg-zinc-800 rounded text-zinc-600 hover:text-white" 
+                                                        title="Arrastrar para ordenar"
+                                                    >
+                                                        <GripVertical className="w-4 h-4" />
+                                                    </div>
+                                                    
                                                     <Layers className="w-4 h-4 text-purple-500" />
                                                     <h4 className="font-bold text-white text-sm">{blockName}</h4>
                                                     <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{blockExercises.length} ej.</span>

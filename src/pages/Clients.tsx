@@ -40,25 +40,23 @@ const Clients = () => {
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    // Carga inteligente de clientes por Studio
+    // Carga inteligente de clientes
     const fetchClients = async () => {
         setIsLoading(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Preguntamos el rol y el ID del estudio
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('role, studio_id')
                 .eq('id', user.id)
                 .single();
 
-            // Definimos cuál es el ID del negocio (Si es admin es él mismo, si es staff es su jefe)
-            const currentStudioId = profile?.role === 'admin' ? user.id : profile?.studio_id;
+            // LÓGICA CORREGIDA: Si tiene studio_id es empleado. Si no lo tiene, es su propio jefe (independiente).
+            const currentStudioId = profile?.studio_id || user.id;
             setStudioId(currentStudioId);
 
-            // Traemos TODOS los clientes que pertenezcan a este centro
             const { data, error } = await supabase
                 .from('clients')
                 .select('*')
@@ -77,7 +75,7 @@ const Clients = () => {
         }
     };
 
-    // 2. Guardar Cliente Nuevo y Crear su Acceso (Sin cerrar sesión de Jefe)
+    // 2. Guardar Cliente Nuevo
     const handleAddClient = async () => {
         if (!newClientName) { alert("El nombre es obligatorio."); return; }
         if (!newClientEmail) { alert("El email es obligatorio para crear su acceso a la app."); return; }
@@ -86,21 +84,25 @@ const Clients = () => {
 
         const { data: { user } } = await supabase.auth.getUser();
 
-        if (!user || !studioId) {
+        // LÓGICA CORREGIDA: Solo falla si no hay usuario logueado en absoluto.
+        if (!user) {
             alert("Error de sesión. Recarga la página.");
             setIsSaving(false);
             return;
         }
+
+        // Por seguridad, aseguramos el ID del negocio en el último milisegundo
+        const finalStudioId = studioId || user.id;
 
         // Generamos el código de acceso
         const randomCode = Math.floor(1000 + Math.random() * 9000);
         const generatedPassword = `FIT-${randomCode}`;
 
         try {
-            // PASO 1: Guardamos en la BD con tu cuenta de Jefe (El RLS te dejará pasar)
+            // PASO 1: Guardamos en la BD con tu cuenta de Jefe
             const { error: dbError } = await supabase.from('clients').insert([{
                 user_id: user.id, 
-                studio_id: studioId, 
+                studio_id: finalStudioId, 
                 name: newClientName,
                 email: newClientEmail,
                 access_code: generatedPassword, 
@@ -131,8 +133,6 @@ const Clients = () => {
 
             if (authError) {
                 console.error("Aviso Auth:", authError);
-                // Si da error (ej. el correo ya existía), la ficha ya se guardó en el Paso 1, 
-                // así que no rompemos el proceso visual del admin.
             }
 
             // ¡Éxito! Refrescamos y cerramos

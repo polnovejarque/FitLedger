@@ -91,6 +91,7 @@ const DropinLanding = () => {
                         name: formData.name,
                         email: formData.email,
                         phone: formData.phone,
+                        user_id: event.studio_id,
                         studio_id: event.studio_id,
                         status: 'lead'
                     })

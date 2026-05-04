@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
     ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
-    Clock, MapPin, X, Trash2, AlignLeft, Check, Loader2, Users, Box
+    Clock, MapPin, X, Trash2, AlignLeft, Check, Loader2, Users, Box, Copy
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -54,6 +54,9 @@ const Agenda = () => {
     
     // Controlar el tipo de evento en tiempo real en el formulario
     const [formEventType, setFormEventType] = useState('training');
+    
+    // Estado para el feedback visual al copiar el enlace
+    const [copiedLink, setCopiedLink] = useState(false);
 
     useEffect(() => {
         const monday = getMonday(currentDate);
@@ -314,6 +317,13 @@ const Agenda = () => {
         }
     };
 
+    const handleCopyLink = (id: number) => {
+        const link = `${window.location.origin}/join/${id}`;
+        navigator.clipboard.writeText(link);
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+    };
+
     return (
         <div className="p-8 w-full h-screen flex flex-col text-white font-sans overflow-hidden relative">
             <div className="flex justify-between items-end mb-6 flex-shrink-0">
@@ -370,7 +380,7 @@ const Agenda = () => {
                                         <div className="flex items-center gap-1 mt-1 opacity-70"><Clock className="w-3 h-3" /><span>{Math.floor(event.startHour)}:{((event.startHour % 1) * 60).toString().padStart(2, '0')}</span></div>
                                         {event.location && (<div className="flex items-center gap-1 mt-1 opacity-60 truncate"><MapPin className="w-3 h-3" /><span>{event.location}</span></div>)}
                                         
-                                        {/* NUEVO: Mostrar el contador de reservas si es grupal */}
+                                        {/* Mostrar el contador de reservas si es grupal */}
                                         {event.type === 'group' && (
                                             <div className="flex items-center gap-1 mt-1 font-bold text-purple-300">
                                                 <Users className="w-3 h-3" />
@@ -484,7 +494,34 @@ const Agenda = () => {
                                         </>
                                     )}
 
-                                    {/* LISTA DE ASISTENTES (NUEVO) */}
+                                    {/* MÓDULO DE INVITACIÓN (CÓDIGO QR Y LINK) */}
+                                    {(editingEvent && editingEvent.id !== 0 && editingEvent.is_public) && (
+                                        <div className="mt-4 pt-4 border-t border-purple-500/20 flex flex-col items-center text-center space-y-3">
+                                            <h3 className="text-sm font-bold text-white">🎟️ Invitación Pública</h3>
+                                            <p className="text-xs text-zinc-400 mb-2">Comparte este QR o enlace para que se inscriban los invitados.</p>
+                                            
+                                            {/* Generador dinámico de QR usando la API gratuita de QR Server */}
+                                            <div className="p-2 bg-white rounded-xl shadow-lg inline-block">
+                                                <img 
+                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + '/join/' + editingEvent.id)}`} 
+                                                    alt="QR Code" 
+                                                    className="w-28 h-28"
+                                                />
+                                            </div>
+
+                                            <Button 
+                                                type="button" 
+                                                variant="outline" 
+                                                onClick={() => handleCopyLink(editingEvent.id)}
+                                                className={`w-full font-bold transition-all ${copiedLink ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/50' : 'bg-purple-500/10 text-purple-400 border-purple-500/50 hover:bg-purple-500/20'}`}
+                                            >
+                                                {copiedLink ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                                                {copiedLink ? '¡Enlace Copiado!' : 'Copiar Enlace'}
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* LISTA DE ASISTENTES */}
                                     {(editingEvent && editingEvent.id !== 0) && (
                                         <div className="mt-4 pt-4 border-t border-purple-500/20">
                                             <h3 className="text-sm font-bold text-white mb-3 flex items-center justify-between">

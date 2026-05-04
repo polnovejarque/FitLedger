@@ -6,7 +6,8 @@ import ClientHistoryModal from '../components/ClientHistoryModal';
 import { 
     ArrowLeft, Mail, MapPin, AlertCircle, 
     Lock, Copy, Check, Loader2, CreditCard, 
-    Scale, Camera, ImageIcon, Trophy, User
+    Scale, Camera, ImageIcon, Trophy, User, 
+    CalendarDays, Dumbbell, Plus, Trash2, X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
@@ -15,6 +16,16 @@ import PaymentLinkModal from '../components/PaymentLinkModal';
 import EditClientModal from '../components/EditClientModal';
 import ToastContainer from '../components/ui/ToastContainer';
 import type { ToastProps } from '../components/ui/Toast';
+
+const DAYS_OF_WEEK = [
+    { id: 1, name: 'Lunes' },
+    { id: 2, name: 'Martes' },
+    { id: 3, name: 'Miércoles' },
+    { id: 4, name: 'Jueves' },
+    { id: 5, name: 'Viernes' },
+    { id: 6, name: 'Sábado' },
+    { id: 7, name: 'Domingo' }
+];
 
 const ClientProfile = () => {
     const navigate = useNavigate();
@@ -33,6 +44,11 @@ const ClientProfile = () => {
     });
     const [photos, setPhotos] = useState<any[]>([]); 
     
+    // --- NUEVOS ESTADOS: PLANIFICACIÓN SEMANAL ---
+    const [coachRoutines, setCoachRoutines] = useState<any[]>([]);
+    const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
+    const [assigningDay, setAssigningDay] = useState<number | null>(null); // Controla el modal de asignar rutina
+
     // UI
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -40,8 +56,6 @@ const ClientProfile = () => {
     const [toasts, setToasts] = useState<ToastProps[]>([]);
     const [copied, setCopied] = useState(false); 
     const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
-    
-    // NUEVO ESTADO PARA EL TOOLTIP PREMIUM
     const [showPremiumTooltip, setShowPremiumTooltip] = useState(false);
 
     // --- CARGA DE DATOS ---
@@ -51,6 +65,8 @@ const ClientProfile = () => {
             setLoading(true);
 
             try {
+                const { data: { user } } = await supabase.auth.getUser();
+
                 // 1. Cliente
                 const { data: clientData, error } = await supabase
                     .from('clients')
@@ -99,7 +115,6 @@ const ClientProfile = () => {
                         waistDiff: (latest.waist && first.waist) ? (latest.waist - first.waist) : 0
                     });
 
-                    // Procesar fotos para la galería
                     const extractedPhotos: any[] = [];
                     progressData.forEach((entry: any) => {
                         if (entry.front_photo) extractedPhotos.push({ url: entry.front_photo, date: entry.date, type: 'Frontal' });
@@ -112,6 +127,22 @@ const ClientProfile = () => {
                     setPhotos([]);
                 }
 
+                // 3. Cargar las rutinas del Coach (Para el selector)
+                if (user) {
+                    const { data: routinesData } = await supabase
+                        .from('routines')
+                        .select('id, name, level')
+                        .eq('coach_id', user.id);
+                    if (routinesData) setCoachRoutines(routinesData);
+                }
+
+                // 4. Cargar la Planificación Semanal actual del cliente
+                const { data: planData } = await supabase
+                    .from('client_weekly_plan')
+                    .select('id, day_of_week, routine_id, routines(name)')
+                    .eq('client_id', id);
+                if (planData) setWeeklyPlan(planData);
+
             } catch (err) {
                 console.error("Excepción:", err);
             } finally {
@@ -120,6 +151,35 @@ const ClientProfile = () => {
         };
         fetchRealData();
     }, [id, navigate]);
+
+    // --- FUNCIONES PLANIFICACIÓN SEMANAL ---
+    const handleAssignRoutine = async (routineId: number) => {
+        if (!assigningDay || !id) return;
+        
+        // Asignamos la rutina al día seleccionado en Supabase
+        const { data, error } = await supabase.from('client_weekly_plan').insert({
+            client_id: id,
+            routine_id: routineId,
+            day_of_week: assigningDay
+        }).select('id, day_of_week, routine_id, routines(name)').single();
+
+        if (error) {
+            addToast('Error al asignar rutina', 'error');
+            console.error(error);
+        } else if (data) {
+            setWeeklyPlan([...weeklyPlan, data]);
+            setAssigningDay(null); // Cerramos el modal
+            addToast('Rutina asignada al plan', 'success');
+        }
+    };
+
+    const handleRemoveRoutineFromPlan = async (planId: number) => {
+        const { error } = await supabase.from('client_weekly_plan').delete().eq('id', planId);
+        if (!error) {
+            setWeeklyPlan(weeklyPlan.filter(p => p.id !== planId));
+            addToast('Rutina eliminada del día', 'info');
+        }
+    };
 
     // --- FUNCIONES AUXILIARES ---
     const addToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
@@ -149,7 +209,7 @@ const ClientProfile = () => {
 
     const handlePremiumClick = () => {
         setShowPremiumTooltip(true);
-        setTimeout(() => setShowPremiumTooltip(false), 3000); // Se oculta a los 3 segundos
+        setTimeout(() => setShowPremiumTooltip(false), 3000);
     };
 
     const formatDateSafe = (dateString: string | null) => {
@@ -165,7 +225,7 @@ const ClientProfile = () => {
     return (
         <div className="space-y-6 pb-20 animate-in fade-in duration-500">
             
-            {/* --- HEADER: DISEÑO "HERO CARD" UNIFICADO --- */}
+            {/* --- HEADER --- */}
             <div className="space-y-4">
                 <button onClick={() => navigate('/dashboard/clients')} className="flex items-center gap-2 text-zinc-500 hover:text-white text-sm transition-colors mb-2">
                     <ArrowLeft className="w-4 h-4" /> Volver a la lista
@@ -175,9 +235,7 @@ const ClientProfile = () => {
                     <div className="absolute top-0 right-0 p-40 bg-emerald-500/5 blur-[100px] rounded-full pointer-events-none" />
 
                     <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6">
-                        
                         <div className="flex flex-col md:flex-row gap-6 w-full">
-                            {/* FOTO DE PERFIL */}
                             <div className="relative flex-shrink-0 mx-auto md:mx-0">
                                 <div className="w-24 h-24 rounded-full border-4 border-zinc-900 shadow-xl overflow-hidden bg-zinc-800 flex items-center justify-center">
                                     {displayImage ? (
@@ -189,7 +247,6 @@ const ClientProfile = () => {
                                 <div className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-4 border-[#111] rounded-full" title="Activo"></div>
                             </div>
 
-                            {/* DATOS DEL CLIENTE */}
                             <div className="text-center md:text-left space-y-2 flex-1">
                                 <h1 className="text-3xl font-bold text-white">{client.name}</h1>
                                 
@@ -210,10 +267,7 @@ const ClientProfile = () => {
                             </div>
                         </div>
 
-                        {/* Derecha: Botones de Acción */}
                         <div className="flex flex-wrap gap-2 justify-center md:justify-end w-full md:w-auto flex-shrink-0">
-                            
-                            {/* --- BOTÓN CHAT BLOQUEADO --- */}
                             <div className="relative">
                                 <Button 
                                     variant="outline" 
@@ -232,8 +286,6 @@ const ClientProfile = () => {
                                     </div>
                                 )}
                             </div>
-                            {/* --------------------------- */}
-
                             <Button className="h-9 bg-emerald-500 text-black hover:bg-emerald-400 font-bold gap-2" onClick={() => setEditModalOpen(true)}>
                                 Editar Perfil
                             </Button>
@@ -253,7 +305,7 @@ const ClientProfile = () => {
                                         : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50"
                                 )}
                             >
-                                {tab === 'overview' ? 'Resumen' : tab === 'workouts' ? 'Rutinas' : tab === 'finance' ? 'Finanzas' : 'Fotos y Métricas'}
+                                {tab === 'overview' ? 'Resumen' : tab === 'workouts' ? 'Plan Semanal' : tab === 'finance' ? 'Finanzas' : 'Fotos y Métricas'}
                             </button>
                         ))}
                         
@@ -271,10 +323,11 @@ const ClientProfile = () => {
 
             {/* --- CONTENIDO --- */}
             <div className="mt-6">
+                
+                {/* PESTAÑA 1: RESUMEN */}
                 {activeTab === 'overview' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-6">
-                            {/* Credenciales */}
                             <Card className="border-blue-500/20 bg-blue-500/5 relative overflow-hidden">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-base flex items-center gap-2 text-blue-400">
@@ -325,9 +378,68 @@ const ClientProfile = () => {
                     </div>
                 )}
 
+                {/* PESTAÑA 2: PLANIFICACIÓN SEMANAL (NUEVO) */}
+                {activeTab === 'workouts' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <CalendarDays className="w-6 h-6 text-emerald-500" /> Planificación Semanal
+                                </h2>
+                                <p className="text-zinc-400 text-sm mt-1">Organiza qué rutinas debe hacer el atleta cada día.</p>
+                            </div>
+                        </div>
+
+                        {/* CALENDARIO SEMANAL */}
+                        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                            {DAYS_OF_WEEK.map((day) => {
+                                const routinesForDay = weeklyPlan.filter(plan => plan.day_of_week === day.id);
+                                
+                                return (
+                                    <Card key={day.id} className="bg-[#111] border-zinc-800 flex flex-col h-full min-h-[200px]">
+                                        <CardHeader className="p-3 bg-zinc-900/50 border-b border-zinc-800">
+                                            <CardTitle className="text-sm text-center text-zinc-300 font-bold uppercase tracking-wider">{day.name}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-3 flex-1 flex flex-col gap-2 relative">
+                                            
+                                            {/* Rutinas Asignadas */}
+                                            {routinesForDay.map(plan => (
+                                                <div key={plan.id} className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 flex justify-between items-center group transition-colors hover:border-emerald-500/50">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <Dumbbell className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                                                        <span className="text-xs text-white font-medium truncate">{plan.routines?.name}</span>
+                                                    </div>
+                                                    <button onClick={() => handleRemoveRoutineFromPlan(plan.id)} className="text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            {routinesForDay.length === 0 && (
+                                                <div className="flex-1 flex items-center justify-center">
+                                                    <p className="text-[10px] text-zinc-600 font-medium italic">Día de descanso</p>
+                                                </div>
+                                            )}
+
+                                            {/* Botón Añadir */}
+                                            <button 
+                                                onClick={() => setAssigningDay(day.id)}
+                                                className="mt-auto w-full py-2 border border-dashed border-zinc-700 rounded-lg text-xs font-bold text-zinc-500 hover:text-emerald-500 hover:bg-emerald-500/5 hover:border-emerald-500/30 transition-all flex items-center justify-center gap-1"
+                                            >
+                                                <Plus className="w-3 h-3" /> Asignar
+                                            </button>
+
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* PESTAÑA 3: PROGRESO */}
                 {activeTab === 'progress' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                        {/* Resumen Stats */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <Card className="bg-[#111] border-zinc-800">
                                 <CardContent className="p-4 flex flex-col items-center justify-center text-center">
@@ -362,7 +474,6 @@ const ClientProfile = () => {
                             </Card>
                         </div>
 
-                        {/* Galería Fotos */}
                         <Card className="bg-[#111] border-zinc-800">
                             <CardHeader>
                                 <CardTitle className="text-white flex items-center gap-2">
@@ -392,7 +503,6 @@ const ClientProfile = () => {
                             </CardContent>
                         </Card>
 
-                        {/* Tabla Historial */}
                         <Card className="bg-[#111] border-zinc-800">
                             <CardHeader>
                                 <CardTitle className="text-white flex items-center gap-2">
@@ -414,15 +524,9 @@ const ClientProfile = () => {
                                             <tbody className="divide-y divide-zinc-800">
                                                 {progressHistory.map((entry) => (
                                                     <tr key={entry.id} className="hover:bg-zinc-900/30 transition-colors">
-                                                        <td className="px-4 py-3 font-medium text-white">
-                                                            {formatDateSafe(entry.date)}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-zinc-300">
-                                                            {entry.weight ? `${entry.weight} kg` : '-'}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-zinc-300">
-                                                            {entry.waist ? `${entry.waist} cm` : '-'}
-                                                        </td>
+                                                        <td className="px-4 py-3 font-medium text-white">{formatDateSafe(entry.date)}</td>
+                                                        <td className="px-4 py-3 text-zinc-300">{entry.weight ? `${entry.weight} kg` : '-'}</td>
+                                                        <td className="px-4 py-3 text-zinc-300">{entry.waist ? `${entry.waist} cm` : '-'}</td>
                                                         <td className="px-4 py-3">
                                                             <div className="flex gap-2">
                                                                 {entry.front_photo && <div className="w-2 h-2 rounded-full bg-emerald-500" title="Frontal"></div>}
@@ -444,33 +548,65 @@ const ClientProfile = () => {
                     </div>
                 )}
 
-                {activeTab !== 'overview' && activeTab !== 'progress' && (
+                {activeTab === 'finance' && (
                     <div className="text-center py-20 text-zinc-500 border border-dashed border-zinc-800 rounded-xl">
-                        <p>Gestión de {activeTab} disponible próximamente.</p>
+                        <p>Gestión de Finanzas disponible próximamente.</p>
                     </div>
                 )}
             </div>
 
-            {/* --- ZOOM FOTO --- */}
+            {/* --- MODAL PARA ASIGNAR RUTINAS AL DÍA --- */}
+            {assigningDay && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-[#111] border border-zinc-800 w-full max-w-sm rounded-2xl relative shadow-2xl animate-in zoom-in-95 overflow-hidden">
+                        <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Asignar Rutina</h3>
+                                <p className="text-xs text-emerald-500">Para el {DAYS_OF_WEEK.find(d => d.id === assigningDay)?.name}</p>
+                            </div>
+                            <button onClick={() => setAssigningDay(null)} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                            {coachRoutines.length > 0 ? (
+                                coachRoutines.map(routine => (
+                                    <button 
+                                        key={routine.id} 
+                                        onClick={() => handleAssignRoutine(routine.id)}
+                                        className="w-full text-left p-3 hover:bg-zinc-800 rounded-lg flex items-center justify-between group transition-colors"
+                                    >
+                                        <div>
+                                            <p className="text-sm font-bold text-white">{routine.name}</p>
+                                            <p className="text-[10px] text-zinc-500">{routine.level}</p>
+                                        </div>
+                                        <Plus className="w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="p-6 text-center text-sm text-zinc-500">
+                                    <Dumbbell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                                    No tienes rutinas creadas en tu catálogo. Ve a la pestaña de Entrenamientos para crear la primera.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ZOOM FOTO */}
             {expandedPhoto && (
                 <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" onClick={() => setExpandedPhoto(null)}>
                     <img src={expandedPhoto} alt="Zoom" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
                     <button className="absolute top-4 right-4 text-white hover:text-zinc-300">
                         <span className="sr-only">Cerrar</span>
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        <X className="w-8 h-8" />
                     </button>
                 </div>
             )}
 
-            {/* MODALES */}
+            {/* MODALES EXTRAS */}
             {historyModalOpen && (
-                <ClientHistoryModal 
-                    clientId={id || ''} 
-                    clientName={client.name} 
-                    onClose={() => setHistoryModalOpen(false)} 
-                />
+                <ClientHistoryModal clientId={id || ''} clientName={client.name} onClose={() => setHistoryModalOpen(false)} />
             )}
-
             <PaymentLinkModal isOpen={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} clientName={client.name} defaultAmount={150} />
             <EditClientModal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} client={client} onUpdate={handleUpdateClient} />
             <ToastContainer toasts={toasts} onClose={() => {}} />

@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
-// Catálogo Base (Global para todos)
 const EXERCISE_CATALOG_BASE = [
     { id: 1, name: "Sentadilla con Barra", category: "Pierna", img: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=60" },
     { id: 2, name: "Peso Muerto Rumano", category: "Pierna", img: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=60&w=400" },
@@ -23,33 +22,26 @@ const WorkoutEditor = () => {
     const navigate = useNavigate();
     const { id } = useParams(); 
 
-    // Estados Generales
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [level, setLevel] = useState("Intermedio");
     const [daysPerWeek, setDaysPerWeek] = useState(3);
     const [duration, setDuration] = useState("60 min");
     
-    // Estados Planificación y Bloques
     const [exercises, setExercises] = useState<any[]>([]);
     const [activeDay, setActiveDay] = useState(1);
-    
-    // Catálogo Dinámico
     const [catalog, setCatalog] = useState<any[]>(EXERCISE_CATALOG_BASE);
     
-    // Control de Bloques Vacíos, Acordeones y Drag & Drop
     const [customBlocks, setCustomBlocks] = useState<{day: number, name: string}[]>([]);
     const [collapsedBlocks, setCollapsedBlocks] = useState<string[]>([]);
     const [targetBlockName, setTargetBlockName] = useState<string | null>(null);
     const [draggedBlockIdx, setDraggedBlockIdx] = useState<number | null>(null); 
-    const [draggedExId, setDraggedExId] = useState<number | null>(null); // Novedad: Control de ejercicios
+    const [draggedExId, setDraggedExId] = useState<number | null>(null); 
     
-    // Estados Clientes
     const [clients, setClients] = useState<any[]>([]);
     const [selectedClients, setSelectedClients] = useState<number[]>([]);
     const [searchClient, setSearchClient] = useState("");
 
-    // Estados UI
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isCreatingExercise, setIsCreatingExercise] = useState(false);
@@ -57,11 +49,9 @@ const WorkoutEditor = () => {
     const [showCatalog, setShowCatalog] = useState(false);
     const [uploadingId, setUploadingId] = useState<number | null>(null);
 
-    // Estados para CREAR EJERCICIO PERSONALIZADO
     const [customExName, setCustomExName] = useState("");
     const [customExCategory, setCustomExCategory] = useState("General");
 
-    // 1. CARGA INICIAL
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
@@ -100,10 +90,13 @@ const WorkoutEditor = () => {
                             img: e.image_url,
                             day: parseInt(e.day_name.split(' ')[1]),
                             sets: e.sets,
-                            reps: e.reps,
+                            reps: e.reps || "",
                             rir: e.rir || "",
                             video: e.video_url,
-                            block_name: e.block_name || null 
+                            block_name: e.block_name || null,
+                            exercise_type: e.exercise_type || 'reps',
+                            time_duration: e.time_duration || "",
+                            rest_time: e.rest_time || "60s"
                         }));
                         setExercises(formattedExercises);
                         
@@ -116,9 +109,7 @@ const WorkoutEditor = () => {
                     }
 
                     const { data: assignData } = await supabase.from('routine_assignments').select('client_id').eq('routine_id', id);
-                    if (assignData) {
-                        setSelectedClients(assignData.map(a => a.client_id));
-                    }
+                    if (assignData) setSelectedClients(assignData.map(a => a.client_id));
                 }
             }
             setIsLoading(false);
@@ -126,7 +117,6 @@ const WorkoutEditor = () => {
         loadData();
     }, [id]);
 
-    // --- GUARDAR RUTINA ---
     const handleSave = async () => {
         if (!title) return alert("Ponle un nombre a la rutina");
         setIsSaving(true);
@@ -158,15 +148,11 @@ const WorkoutEditor = () => {
             await supabase.from('routine_exercises').delete().eq('routine_id', routineId);
             
             if (exercises.length > 0) {
-                // Reconstruimos el orden exacto visual para guardarlo
                 let orderedExercises: any[] = [];
-                
                 for (let day = 1; day <= daysPerWeek; day++) {
                     const dayExs = exercises.filter(e => e.day === day);
-                    // 1. Ejercicios sueltos primero
                     orderedExercises.push(...dayExs.filter(e => !e.block_name));
                     
-                    // 2. Ejercicios en el orden de los bloques
                     const dayBlocksList = customBlocks.filter(cb => cb.day === day).map(cb => cb.name);
                     dayExs.forEach(e => { if (e.block_name && !dayBlocksList.includes(e.block_name)) dayBlocksList.push(e.block_name) });
 
@@ -180,11 +166,14 @@ const WorkoutEditor = () => {
                     day_name: `Día ${ex.day}`, 
                     exercise_name: ex.name,
                     sets: ex.sets, 
-                    reps: ex.reps, 
+                    reps: ex.exercise_type === 'reps' ? ex.reps : null, 
                     rir: ex.rir, 
                     image_url: ex.img, 
                     video_url: ex.video || "",
-                    block_name: ex.block_name 
+                    block_name: ex.block_name,
+                    exercise_type: ex.exercise_type || 'reps',
+                    time_duration: ex.exercise_type === 'time' ? ex.time_duration : null,
+                    rest_time: ex.rest_time || "60s"
                 }));
                 await supabase.from('routine_exercises').insert(exercisesToSave);
             }
@@ -205,10 +194,9 @@ const WorkoutEditor = () => {
         setIsDeleting(true);
         const { error } = await supabase.from('routines').delete().eq('id', id);
         if (error) { alert("Error al borrar: " + error.message); setIsDeleting(false); } 
-        else { navigate('/dashboard/workouts'); }
+        else navigate('/dashboard/workouts');
     };
 
-    // --- UTILS ---
     const toggleClient = (clientId: number) => {
         if (selectedClients.includes(clientId)) setSelectedClients(selectedClients.filter(id => id !== clientId));
         else setSelectedClients([...selectedClients, clientId]);
@@ -228,7 +216,10 @@ const WorkoutEditor = () => {
             reps: "10-12", 
             rir: "", 
             video: "",
-            block_name: targetBlockName 
+            block_name: targetBlockName,
+            exercise_type: 'reps',
+            time_duration: "",
+            rest_time: "60s"
         }]);
         setShowCatalog(false);
         setTargetBlockName(null);
@@ -236,7 +227,6 @@ const WorkoutEditor = () => {
 
     const createCustomExercise = async () => {
         if (!customExName) return alert("Escribe un nombre para el ejercicio");
-        
         setIsCreatingExercise(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -249,26 +239,13 @@ const WorkoutEditor = () => {
         };
 
         const { data, error } = await supabase.from('exercises').insert([newExerciseData]).select().single();
-        
-        if (error) {
-            alert("Error al guardar en tu biblioteca: " + error.message);
-            setIsCreatingExercise(false);
-            return;
-        }
+        if (error) { alert("Error al guardar: " + error.message); setIsCreatingExercise(false); return; }
 
-        const formattedNewExercise = {
-            id: `custom_${data.id}`,
-            name: data.name,
-            category: data.category,
-            img: data.image_url
-        };
-
+        const formattedNewExercise = { id: `custom_${data.id}`, name: data.name, category: data.category, img: data.image_url };
         setCatalog([...catalog, formattedNewExercise]);
         addExercise(formattedNewExercise);
 
-        setCustomExName(""); 
-        setCustomExCategory("General");
-        setIsCreatingExercise(false);
+        setCustomExName(""); setCustomExCategory("General"); setIsCreatingExercise(false);
     };
 
     const removeExercise = (localId: number) => setExercises(exercises.filter(e => e.localId !== localId));
@@ -285,7 +262,6 @@ const WorkoutEditor = () => {
         } catch (error: any) { alert("Error: " + error.message); } finally { setUploadingId(null); }
     };
 
-    // --- LÓGICA DRAG & DROP PARA BLOQUES ---
     const handleCreateBlock = () => {
         const blockName = prompt("Nombre del nuevo bloque (ej: Calentamiento, Fuerza, Core):");
         if (!blockName || blockName.trim() === "") return;
@@ -293,11 +269,8 @@ const WorkoutEditor = () => {
     };
 
     const toggleBlockCollapse = (blockName: string) => {
-        if (collapsedBlocks.includes(blockName)) {
-            setCollapsedBlocks(collapsedBlocks.filter(b => b !== blockName));
-        } else {
-            setCollapsedBlocks([...collapsedBlocks, blockName]);
-        }
+        if (collapsedBlocks.includes(blockName)) setCollapsedBlocks(collapsedBlocks.filter(b => b !== blockName));
+        else setCollapsedBlocks([...collapsedBlocks, blockName]);
     };
 
     const removeBlock = (blockName: string) => {
@@ -306,14 +279,11 @@ const WorkoutEditor = () => {
         setCustomBlocks(customBlocks.filter(cb => !(cb.day === activeDay && cb.name === blockName)));
     };
 
-    const handleDragStartBlock = (e: React.DragEvent, index: number) => {
-        setDraggedBlockIdx(index);
-        e.dataTransfer.effectAllowed = "move";
-    };
+    const handleDragStartBlock = (e: React.DragEvent, index: number) => { setDraggedBlockIdx(index); e.dataTransfer.effectAllowed = "move"; };
+    const handleDragOverItem = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
 
     const handleDropBlock = (e: React.DragEvent, targetIndex: number) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
         if (draggedBlockIdx === null || draggedBlockIdx === targetIndex) return;
 
         const currentDayBlocks = customBlocks.filter(cb => cb.day === activeDay).map(cb => cb.name);
@@ -327,26 +297,13 @@ const WorkoutEditor = () => {
         setDraggedBlockIdx(null);
     };
 
-    // --- LÓGICA DRAG & DROP PARA EJERCICIOS ---
     const handleDragStartEx = (e: React.DragEvent, localId: number) => {
-        e.stopPropagation(); // Evita arrastrar el bloque contenedor
-        setDraggedExId(localId);
-        e.dataTransfer.effectAllowed = "move";
-    };
-
-    const handleDragOverItem = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.stopPropagation(); setDraggedExId(localId); e.dataTransfer.effectAllowed = "move";
     };
 
     const handleDropEx = (e: React.DragEvent, targetLocalId: number, targetBlockName: string | null) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (!draggedExId || draggedExId === targetLocalId) {
-            setDraggedExId(null);
-            return;
-        }
+        e.preventDefault(); e.stopPropagation();
+        if (!draggedExId || draggedExId === targetLocalId) { setDraggedExId(null); return; }
 
         const newExercises = [...exercises];
         const draggedIdx = newExercises.findIndex(ex => ex.localId === draggedExId);
@@ -355,17 +312,15 @@ const WorkoutEditor = () => {
         if (draggedIdx === -1 || targetIdx === -1) return;
 
         const [draggedItem] = newExercises.splice(draggedIdx, 1);
-        draggedItem.block_name = targetBlockName; // Si lo arrastramos a otro bloque, asume el nuevo bloque
+        draggedItem.block_name = targetBlockName; 
         newExercises.splice(targetIdx, 0, draggedItem);
 
         setExercises(newExercises);
         setDraggedExId(null);
     };
 
-    // Cuando sueltan un ejercicio en un bloque vacío
     const handleDropEmptyBlock = (e: React.DragEvent, targetBlockName: string | null) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
         if (!draggedExId) return;
 
         const newExercises = [...exercises];
@@ -379,7 +334,6 @@ const WorkoutEditor = () => {
         setDraggedExId(null);
     };
 
-    // Componente reutilizable con Drag & Drop
     const renderExercise = (ex: any) => (
         <div 
             key={ex.localId} 
@@ -398,10 +352,38 @@ const WorkoutEditor = () => {
             <div className="flex-1 min-w-0">
                 <h4 className="font-bold text-sm text-white truncate">{ex.name}</h4>
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-white/5"><span className="text-[9px] text-zinc-500 font-bold">SETS</span><input type="number" value={ex.sets} onChange={(e) => updateExercise(ex.localId, 'sets', Number(e.target.value))} className="w-6 bg-transparent text-white text-xs text-center font-bold outline-none" /></div>
-                    <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-white/5"><span className="text-[9px] text-zinc-500 font-bold">REPS</span><input type="text" value={ex.reps} onChange={(e) => updateExercise(ex.localId, 'reps', e.target.value)} className="w-10 bg-transparent text-white text-xs text-center font-bold outline-none" /></div>
+                    
+                    {/* SETS */}
+                    <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-white/5">
+                        <span className="text-[9px] text-zinc-500 font-bold">SETS</span>
+                        <input type="number" value={ex.sets} onChange={(e) => updateExercise(ex.localId, 'sets', Number(e.target.value))} className="w-6 bg-transparent text-white text-xs text-center font-bold outline-none" />
+                    </div>
+
+                    {/* SELECTOR: REPS O TIEMPO */}
                     <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-emerald-500/30">
-                        <Signal className="w-3 h-3 text-emerald-500" />
+                        <select 
+                            value={ex.exercise_type || 'reps'} 
+                            onChange={(e) => updateExercise(ex.localId, 'exercise_type', e.target.value)} 
+                            className="bg-transparent text-[9px] text-emerald-500 font-bold outline-none cursor-pointer"
+                        >
+                            <option value="reps">REPS</option>
+                            <option value="time">TIEMPO</option>
+                        </select>
+                        {ex.exercise_type === 'time' ? (
+                            <input type="text" placeholder="ej: 45s" value={ex.time_duration || ''} onChange={(e) => updateExercise(ex.localId, 'time_duration', e.target.value)} className="w-10 bg-transparent text-white text-xs text-center font-bold outline-none" />
+                        ) : (
+                            <input type="text" placeholder="ej: 10-12" value={ex.reps || ''} onChange={(e) => updateExercise(ex.localId, 'reps', e.target.value)} className="w-10 bg-transparent text-white text-xs text-center font-bold outline-none" />
+                        )}
+                    </div>
+
+                    {/* DESCANSO ENTRE SERIES */}
+                    <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-blue-500/30">
+                        <Clock className="w-3 h-3 text-blue-500" />
+                        <input type="text" placeholder="Descanso" value={ex.rest_time || ''} onChange={(e) => updateExercise(ex.localId, 'rest_time', e.target.value)} className="w-8 bg-transparent text-white text-xs text-center font-bold outline-none" title="Descanso entre series" />
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-orange-500/30">
+                        <Signal className="w-3 h-3 text-orange-500" />
                         <span className="text-[9px] text-zinc-500 font-bold">RIR</span>
                         <input type="text" value={ex.rir} onChange={(e) => updateExercise(ex.localId, 'rir', e.target.value)} className="w-6 bg-transparent text-white text-xs text-center font-bold outline-none" />
                     </div>
@@ -453,7 +435,6 @@ const WorkoutEditor = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* IZQUIERDA */}
                 <div className="space-y-6">
                     <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6">
                         <h3 className="text-sm font-bold text-emerald-500 uppercase mb-4 flex items-center gap-2"><Layout className="w-4 h-4" /> Información General</h3>
@@ -463,17 +444,11 @@ const WorkoutEditor = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs text-zinc-500 mb-1 block">Días / Semana</label>
-                                    <div className="relative">
-                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                                        <input type="number" value={daysPerWeek} onChange={(e) => setDaysPerWeek(Number(e.target.value))} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-3 py-3 text-white focus:border-emerald-500 outline-none" />
-                                    </div>
+                                    <div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" /><input type="number" value={daysPerWeek} onChange={(e) => setDaysPerWeek(Number(e.target.value))} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-3 py-3 text-white focus:border-emerald-500 outline-none" /></div>
                                 </div>
                                 <div>
                                     <label className="text-xs text-zinc-500 mb-1 block">Duración</label>
-                                    <div className="relative">
-                                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                                        <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-3 py-3 text-white focus:border-emerald-500 outline-none" />
-                                    </div>
+                                    <div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" /><input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-3 py-3 text-white focus:border-emerald-500 outline-none" /></div>
                                 </div>
                             </div>
                             <div><label className="text-xs text-zinc-500 mb-1 block">Descripción</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-emerald-500 outline-none resize-none" /></div>
@@ -486,16 +461,8 @@ const WorkoutEditor = () => {
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                             {filteredClients.map(c => (
                                 <div key={c.id} onClick={() => toggleClient(c.id)} className={`flex items-center gap-3 p-2 rounded-xl border cursor-pointer transition-all ${selectedClients.includes(c.id) ? 'bg-orange-500/10 border-orange-500/50' : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800'}`}>
-                                    {c.image_url ? (
-                                        <img src={c.image_url} className="w-8 h-8 rounded-full object-cover flex-shrink-0" alt={c.name} />
-                                    ) : (
-                                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                                            <User className="w-4 h-4 text-zinc-500" />
-                                        </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`text-sm font-medium truncate ${selectedClients.includes(c.id) ? 'text-orange-400' : 'text-white'}`}>{c.name}</p>
-                                    </div>
+                                    {c.image_url ? (<img src={c.image_url} className="w-8 h-8 rounded-full object-cover flex-shrink-0" alt={c.name} />) : (<div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0"><User className="w-4 h-4 text-zinc-500" /></div>)}
+                                    <div className="flex-1 min-w-0"><p className={`text-sm font-medium truncate ${selectedClients.includes(c.id) ? 'text-orange-400' : 'text-white'}`}>{c.name}</p></div>
                                     {selectedClients.includes(c.id) && <CheckCircle className="w-4 h-4 text-orange-500" />}
                                 </div>
                             ))}
@@ -503,7 +470,6 @@ const WorkoutEditor = () => {
                     </div>
                 </div>
 
-                {/* DERECHA (PLAN DE ENTRENAMIENTO) */}
                 <div className="lg:col-span-2 bg-[#111] border border-zinc-800 rounded-2xl p-6 min-h-[600px] flex flex-col">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-sm font-bold text-purple-500 uppercase flex items-center gap-2"><Dumbbell className="w-4 h-4" /> Plan de Entrenamiento</h3>
@@ -511,19 +477,12 @@ const WorkoutEditor = () => {
                     </div>
                     
                     <div className="flex-1 space-y-6 mb-6 overflow-y-auto custom-scrollbar pr-2">
-                        
-                        {/* 1. LISTA DE EJERCICIOS NORMALES */}
-                        {rootExercises.length > 0 && (
-                            <div className="space-y-2">
-                                {rootExercises.map(renderExercise)}
-                            </div>
-                        )}
+                        {rootExercises.length > 0 && (<div className="space-y-2">{rootExercises.map(renderExercise)}</div>)}
 
                         <button onClick={() => openCatalogForBlock(null)} className="w-full py-3 border border-zinc-800 border-dashed rounded-xl text-zinc-500 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all text-sm font-medium flex items-center justify-center gap-2">
                             <Plus className="w-4 h-4" /> Añadir Ejercicio Normal
                         </button>
 
-                        {/* 2. BLOQUES PERSONALIZADOS */}
                         {dayBlocks.length > 0 && (
                             <div className="space-y-4 pt-4 border-t border-zinc-800/50">
                                 {dayBlocks.map((blockName, idx) => {
@@ -531,54 +490,23 @@ const WorkoutEditor = () => {
                                     const isCollapsed = collapsedBlocks.includes(blockName as string);
 
                                     return (
-                                        <div 
-                                            key={idx} 
-                                            draggable
-                                            onDragStart={(e) => handleDragStartBlock(e, idx)}
-                                            onDragOver={handleDragOverItem}
-                                            onDrop={(e) => handleDropBlock(e, idx)}
-                                            className={`bg-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden transition-all ${draggedBlockIdx === idx ? 'opacity-40 border-dashed border-purple-500' : ''}`}
-                                        >
+                                        <div key={idx} draggable onDragStart={(e) => handleDragStartBlock(e, idx)} onDragOver={handleDragOverItem} onDrop={(e) => handleDropBlock(e, idx)} className={`bg-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden transition-all ${draggedBlockIdx === idx ? 'opacity-40 border-dashed border-purple-500' : ''}`}>
                                             <div className="bg-zinc-900 border-b border-zinc-800 p-3 flex items-center justify-between">
-                                                <div 
-                                                    className="flex items-center gap-3 cursor-pointer flex-1" 
-                                                    onClick={() => toggleBlockCollapse(blockName as string)}
-                                                >
-                                                    <div 
-                                                        className="cursor-grab active:cursor-grabbing p-1 -ml-1 hover:bg-zinc-800 rounded text-zinc-600 hover:text-white" 
-                                                        title="Arrastrar bloque"
-                                                    >
-                                                        <GripVertical className="w-4 h-4" />
-                                                    </div>
-                                                    
+                                                <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => toggleBlockCollapse(blockName as string)}>
+                                                    <div className="cursor-grab active:cursor-grabbing p-1 -ml-1 hover:bg-zinc-800 rounded text-zinc-600 hover:text-white" title="Arrastrar bloque"><GripVertical className="w-4 h-4" /></div>
                                                     <Layers className="w-4 h-4 text-purple-500" />
                                                     <h4 className="font-bold text-white text-sm">{blockName}</h4>
                                                     <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{blockExercises.length} ej.</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <button onClick={() => openCatalogForBlock(blockName as string)} className="text-xs font-bold text-emerald-500 hover:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
-                                                        <Plus className="w-3 h-3" /> Añadir
-                                                    </button>
+                                                    <button onClick={() => openCatalogForBlock(blockName as string)} className="text-xs font-bold text-emerald-500 hover:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"><Plus className="w-3 h-3" /> Añadir</button>
                                                     <button onClick={() => removeBlock(blockName as string)} className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
-                                                    <button onClick={() => toggleBlockCollapse(blockName as string)} className="p-1.5 text-zinc-500 hover:text-white transition-colors">
-                                                        {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                                                    </button>
+                                                    <button onClick={() => toggleBlockCollapse(blockName as string)} className="p-1.5 text-zinc-500 hover:text-white transition-colors">{isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}</button>
                                                 </div>
                                             </div>
-
                                             {!isCollapsed && (
                                                 <div className="p-3 space-y-2">
-                                                    {blockExercises.length === 0 ? (
-                                                        <div 
-                                                            className="py-6 text-center text-zinc-600 border-2 border-dashed border-zinc-800/50 rounded-xl"
-                                                            onDragOver={handleDragOverItem}
-                                                            onDrop={(e) => handleDropEmptyBlock(e, blockName as string)}
-                                                        >
-                                                            <p className="text-xs">Bloque vacío. Arrastra un ejercicio aquí.</p>
-                                                        </div>
-                                                    ) : (
-                                                        blockExercises.map(renderExercise)
-                                                    )}
+                                                    {blockExercises.length === 0 ? (<div className="py-6 text-center text-zinc-600 border-2 border-dashed border-zinc-800/50 rounded-xl" onDragOver={handleDragOverItem} onDrop={(e) => handleDropEmptyBlock(e, blockName as string)}><p className="text-xs">Bloque vacío. Arrastra un ejercicio aquí.</p></div>) : (blockExercises.map(renderExercise))}
                                                 </div>
                                             )}
                                         </div>
@@ -596,60 +524,29 @@ const WorkoutEditor = () => {
                 </div>
             </div>
 
-            {/* MODAL CATÁLOGO MEJORADO */}
             {showCatalog && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-[#111] border border-zinc-800 w-full max-w-lg rounded-2xl relative shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[80vh] overflow-hidden">
                         <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
-                            <div>
-                                <h2 className="text-xl font-bold text-white">Seleccionar Ejercicio</h2>
-                                <p className="text-xs text-emerald-500 mt-1 font-medium">Añadiendo a: {targetBlockName || 'Lista General'}</p>
-                            </div>
+                            <div><h2 className="text-xl font-bold text-white">Seleccionar Ejercicio</h2><p className="text-xs text-emerald-500 mt-1 font-medium">Añadiendo a: {targetBlockName || 'Lista General'}</p></div>
                             <button onClick={() => {setShowCatalog(false); setTargetBlockName(null);}} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="p-4 border-b border-zinc-800">
-                            <div className="relative">
-                                <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                                <input type="text" placeholder="Buscar en catálogo..." className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-emerald-500 outline-none" />
-                            </div>
+                            <div className="relative"><Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" /><input type="text" placeholder="Buscar en catálogo..." className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-emerald-500 outline-none" /></div>
                         </div>
                         <div className="p-4 bg-zinc-900/50 border-b border-zinc-800">
                             <p className="text-xs text-zinc-400 mb-2 font-bold uppercase">¿No está en la lista? Crea uno nuevo:</p>
                             <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    placeholder="Nombre (ej: Plancha)" 
-                                    value={customExName}
-                                    onChange={(e) => setCustomExName(e.target.value)}
-                                    className="flex-1 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
-                                />
-                                <select 
-                                    value={customExCategory} 
-                                    onChange={(e) => setCustomExCategory(e.target.value)}
-                                    className="bg-black border border-zinc-700 rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-emerald-500"
-                                >
-                                    <option>General</option>
-                                    <option>Pierna</option>
-                                    <option>Pecho</option>
-                                    <option>Espalda</option>
-                                    <option>Hombro</option>
-                                    <option>Brazo</option>
-                                    <option>Cardio</option>
-                                </select>
-                                <Button onClick={createCustomExercise} disabled={isCreatingExercise} size="sm" className="bg-emerald-500 text-black font-bold hover:bg-emerald-400 min-w-[70px]">
-                                    {isCreatingExercise ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Crear y Guardar'}
-                                </Button>
+                                <input type="text" placeholder="Nombre (ej: Plancha)" value={customExName} onChange={(e) => setCustomExName(e.target.value)} className="flex-1 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500" />
+                                <select value={customExCategory} onChange={(e) => setCustomExCategory(e.target.value)} className="bg-black border border-zinc-700 rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-emerald-500"><option>General</option><option>Pierna</option><option>Pecho</option><option>Espalda</option><option>Hombro</option><option>Brazo</option><option>Cardio</option></select>
+                                <Button onClick={createCustomExercise} disabled={isCreatingExercise} size="sm" className="bg-emerald-500 text-black font-bold hover:bg-emerald-400 min-w-[70px]">{isCreatingExercise ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Crear y Guardar'}</Button>
                             </div>
-                            <p className="text-[10px] text-zinc-500 mt-2">✨ Se guardará automáticamente en tu biblioteca para futuras rutinas.</p>
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
                             {catalog.map((ex) => (
                                 <button key={ex.id} onClick={() => addExercise(ex)} className="w-full flex items-center gap-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-emerald-500 hover:bg-zinc-800 transition-all text-left group">
                                     <img src={ex.img} className="w-12 h-12 rounded-lg object-cover" />
-                                    <div className="flex-1">
-                                        <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">{ex.name}</h4>
-                                        <span className="text-xs text-zinc-500">{ex.category}</span>
-                                    </div>
+                                    <div className="flex-1"><h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">{ex.name}</h4><span className="text-xs text-zinc-500">{ex.category}</span></div>
                                     <Plus className="w-5 h-5 text-zinc-600 group-hover:text-emerald-500" />
                                 </button>
                             ))}

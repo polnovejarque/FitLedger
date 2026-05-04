@@ -5,7 +5,6 @@ import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
 import { supabase } from '../lib/supabase';
 
-// Añadimos "studioOnly: true" a las funciones exclusivas del plan más alto
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Clientes', path: '/dashboard/clients' },
@@ -21,48 +20,45 @@ const navItems = [
 const Sidebar = () => {
     const navigate = useNavigate();
     
-    // Estados para la marca blanca
-    const [businessName, setBusinessName] = useState('FitLeader');
-    const [logoUrl, setLogoUrl] = useState('/logo.png');
+    // Estados para la marca blanca (Inician en null para detectar si hay datos reales)
+    const [businessName, setBusinessName] = useState<string | null>(null);
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
     // Estado para guardar el rol y el plan
     const [userRole, setUserRole] = useState('admin');
-    const [userPlan, setUserPlan] = useState('pro'); // Por defecto asumimos que no es studio
+    const [userPlan, setUserPlan] = useState('pro');
 
-    // Cargar los datos del negocio, el ROL y el PLAN al iniciar
     useEffect(() => {
         const loadBusinessData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                // 1. Buscamos el perfil y ahora también pedimos el "plan"
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('business_name, logo_url, role, studio_id, plan') 
-                    .eq('id', user.id)
-                    .single();
-                
-                if (data) {
-                    setUserRole(data.role || 'admin');
-                    setUserPlan(data.plan || 'pro'); // Guardamos el plan que paga
+            if (!user) return;
 
-                    // 2. LÓGICA DE MARCA BLANCA INTELIGENTE
-                    if (data.role === 'staff' && data.studio_id) {
-                        // Si es empleado, buscamos cómo se llama el centro de su jefe
-                        const { data: studioData } = await supabase
-                            .from('profiles')
-                            .select('business_name, logo_url')
-                            .eq('id', data.studio_id)
-                            .single();
-                            
-                        if (studioData) {
-                            setBusinessName(studioData.business_name || 'FitLeader');
-                            setLogoUrl(studioData.logo_url || '/logo.png');
-                        }
-                    } else {
-                        // Si es el dueño, pintamos sus propios datos
-                        if (data.business_name) setBusinessName(data.business_name);
-                        if (data.logo_url) setLogoUrl(data.logo_url);
+            const { data } = await supabase
+                .from('profiles')
+                .select('business_name, logo_url, role, studio_id, plan') 
+                .eq('id', user.id)
+                .single();
+            
+            if (data) {
+                setUserRole(data.role || 'admin');
+                setUserPlan(data.plan || 'pro');
+
+                if (data.role === 'staff' && data.studio_id) {
+                    // Si es empleado, buscamos cómo se llama el centro de su jefe
+                    const { data: studioData } = await supabase
+                        .from('profiles')
+                        .select('business_name, logo_url')
+                        .eq('id', data.studio_id)
+                        .single();
+                        
+                    if (studioData) {
+                        setBusinessName(studioData.business_name);
+                        setLogoUrl(studioData.logo_url);
                     }
+                } else {
+                    // Si es el dueño, pintamos sus propios datos
+                    setBusinessName(data.business_name);
+                    setLogoUrl(data.logo_url);
                 }
             }
         };
@@ -76,18 +72,16 @@ const Sidebar = () => {
 
     // EL PORTERO INTELIGENTE: Filtramos el menú según el ROL y el PLAN
     const visibleNavItems = navItems.filter(item => {
-        // 1. Si es empleado (staff), ocultamos las cosas de dueños (restricted)
-        if (userRole === 'staff' && item.restricted) {
-            return false;
-        }
-        
-        // 2. Si es una función exclusiva de Studio, ocultarla a los demás planes
-        if (item.studioOnly && userPlan !== 'studio') {
-            return false;
-        }
-
+        if (userRole === 'staff' && item.restricted) return false;
+        if (item.studioOnly && userPlan !== 'studio') return false;
         return true;
     });
+
+    // --- LÓGICA DE VISUALIZACIÓN DE MARCA BLANCA ---
+    // Si no hay nombre de negocio en la BD, usamos 'FitLeader' por defecto
+    const displayName = businessName || 'FitLeader';
+    // Sacamos la primera letra para el logo generado por defecto (ej: "M" de Manoliko)
+    const initialLetter = displayName.charAt(0).toUpperCase();
 
     return (
         <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
@@ -96,16 +90,23 @@ const Sidebar = () => {
                 {/* --- LOGO Y MARCA DINÁMICOS --- */}
                 <div className="mb-8 flex items-center px-2">
                     <Link to="/dashboard" className="flex items-center gap-3 w-full">
-                        <img 
-                            src={logoUrl} 
-                            alt={businessName} 
-                            className="h-8 w-8 object-contain rounded-md bg-transparent" 
-                        />
+                        {logoUrl ? (
+                            <img 
+                                src={logoUrl} 
+                                alt={displayName} 
+                                className="h-8 w-8 object-cover rounded-md bg-zinc-900 border border-zinc-800" 
+                            />
+                        ) : (
+                            // Si no hay logo subido, generamos un icono con la inicial del negocio
+                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500 text-black font-bold text-lg flex-shrink-0">
+                                {initialLetter}
+                            </div>
+                        )}
                         <span 
-                            className="text-xl font-bold tracking-tight text-foreground truncate" 
-                            title={businessName}
+                            className="text-xl font-bold tracking-tight text-white truncate" 
+                            title={displayName}
                         >
-                            {businessName}
+                            {displayName}
                         </span>
                     </Link>
                 </div>

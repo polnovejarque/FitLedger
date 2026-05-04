@@ -152,18 +152,30 @@ const ClientWorkout = () => {
                         setWeeklyPlan(planData);
                         const todayPlans = planData.filter(p => p.day_of_week === currentDayOfWeek);
                         if (todayPlans.length > 0) {
-                            setTodayWorkout({ ...todayPlans[0].routines, plan_id: todayPlans[0].id });
-                            setCurrentAssignmentId(todayPlans[0].id.toString());
-                        } else { setTodayWorkout(null); }
+                            const currentPlan = todayPlans[0];
+                            
+                            // LÓGICA INTELIGENTE: Calculamos qué día toca hoy basándonos en las veces que aparece en la semana
+                            const allOccurrences = planData.filter(p => p.routine_id === currentPlan.routine_id).sort((a, b) => a.day_of_week - b.day_of_week);
+                            const occurrenceIndex = allOccurrences.findIndex(p => p.id === currentPlan.id);
+                            const dayNumberToLoad = occurrenceIndex !== -1 ? occurrenceIndex + 1 : 1;
+
+                            setTodayWorkout({ ...currentPlan.routines, plan_id: currentPlan.id, occurrence_day: dayNumberToLoad });
+                            setCurrentAssignmentId(currentPlan.id.toString());
+                        } else { 
+                            setTodayWorkout(null); 
+                        }
                         fetchWorkoutStats(planData[0].id.toString());
                     } else {
+                        // LEGACY PARA RUTINAS VIEJAS
                         const { data: assignment } = await supabase.from('routine_assignments').select(`*, routine:routines!fk_routine (*)`).eq('client_id', clientData.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
                         if (assignment && assignment.routine) {
                             setTodayWorkout({ ...assignment.routine, is_completed_today: false });
                             setCurrentAssignmentId(assignment.id);
                             if (assignment.routine.days_per_week) setWeeklyGoal(assignment.routine.days_per_week);
                             fetchWorkoutStats(assignment.id.toString());
-                        } else { setTodayWorkout(null); }
+                        } else { 
+                            setTodayWorkout(null); 
+                        }
                     }
                     fetchProgress(clientData.id);
                 }
@@ -249,20 +261,44 @@ const ClientWorkout = () => {
     };
 
     // --- LOGICA DE ENTRENAMIENTO ---
-    const startWorkout = async (routine: any, planOrAssignmentId: string) => {
-        setLoading(true); setTodayWorkout(routine); setCurrentAssignmentId(planOrAssignmentId);
+    const startWorkout = async (routine: any, planOrAssignmentId: string, targetDayNumber?: number) => {
+        setLoading(true); 
+        setTodayWorkout(routine); 
+        setCurrentAssignmentId(planOrAssignmentId);
+        
         const { data: exerciseData } = await supabase.from('routine_exercises').select('*').eq('routine_id', routine.id).order('id', { ascending: true }); 
-        setExercises(exerciseData || []);
-        const uniqueDays = Array.from(new Set((exerciseData || []).map((ex: any) => ex.day_name))).filter(Boolean);
-        if (uniqueDays.length > 0) setCurrentDayFilter(uniqueDays[0] as string);
-        setViewingExercises(true); setActiveTab('plan'); setLoading(false);
+        const allExs = exerciseData || [];
+        setExercises(allExs);
+        
+        let dayToSet = "Día 1";
+        const uniqueDays = Array.from(new Set(allExs.map((ex: any) => ex.day_name))).filter(Boolean) as string[];
+
+        // LÓGICA INTELIGENTE: Determinar el día correcto a mostrar
+        if (weeklyPlan.length > 0 && targetDayNumber) {
+            if (uniqueDays.length > 0) {
+                const wrappedIndex = (targetDayNumber - 1) % uniqueDays.length;
+                dayToSet = uniqueDays[wrappedIndex];
+            }
+        } else {
+            // Legacy Logic (por si usan el sistema antiguo)
+            const savedDay = localStorage.getItem(`fit_client_day_${planOrAssignmentId}`);
+            if (savedDay && uniqueDays.includes(savedDay)) {
+                dayToSet = savedDay;
+            } else if (uniqueDays.length > 0) {
+                dayToSet = uniqueDays[0];
+            }
+        }
+
+        setCurrentDayFilter(dayToSet);
+        setViewingExercises(true); 
+        setActiveTab('plan'); 
+        setLoading(false);
     };
 
     const handleLogChange = (exerciseId: number, setIndex: number, field: 'weight' | 'reps' | 'time', value: string) => {
         setWorkoutLogs((prev: any) => ({ ...prev, [exerciseId]: { ...prev[exerciseId], [setIndex]: { ...prev[exerciseId]?.[setIndex], [field]: value } } }));
     };
 
-    // MAGIA DE PRECISIÓN: El cronómetro absorbe los segundos exactos
     const toggleSetComplete = (exerciseId: number, setIndex: number, restTimeStr: string | null) => {
         setWorkoutLogs((prev: any) => {
             const currentExercise = prev[exerciseId] || {};
@@ -272,7 +308,6 @@ const ClientWorkout = () => {
             if (isNowDone) { 
                 let restSeconds = 90; // Default por si hay fallo
                 if (restTimeStr) {
-                    // Extraemos solo los dígitos del campo del coach (ej: "60s" -> 60)
                     const parsed = parseInt(String(restTimeStr).replace(/\D/g, ''));
                     if (!isNaN(parsed) && parsed > 0) {
                         restSeconds = parsed;
@@ -314,6 +349,17 @@ const ClientWorkout = () => {
                 if (resultsToSave.length > 0) {
                     const { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
                     if (resultsErr) throw resultsErr;
+                }
+
+                // Guardamos el progreso de día (solo para el sistema Legacy)
+                if (weeklyPlan.length === 0) {
+                    const uniqueDays = Array.from(new Set(exercises.map(ex => ex.day_name))).filter(Boolean) as string[];
+                    let nextDay = currentDayFilter;
+                    if (uniqueDays.length > 0) {
+                        const currentIndex = uniqueDays.indexOf(currentDayFilter);
+                        nextDay = uniqueDays[(currentIndex + 1) % uniqueDays.length];
+                    }
+                    localStorage.setItem(`fit_client_day_${currentAssignmentId}`, nextDay);
                 }
 
                 setWorkoutLogs({});
@@ -398,8 +444,9 @@ const ClientWorkout = () => {
 
     const renderWorkoutView = () => {
         if (!todayWorkout) { setViewingExercises(false); setActiveTab('plan'); return null; }
-        let displayExercises = exercises;
-        if (weeklyPlan.length === 0 && currentDayFilter) displayExercises = exercises.filter(ex => ex.day_name === currentDayFilter) || exercises;
+        
+        // FILTRAMOS SOLO EL DÍA SELECCIONADO
+        const displayExercises = exercises.filter(ex => ex.day_name === currentDayFilter);
         const blocks = Array.from(new Set(displayExercises.map(ex => ex.block_name || 'Bloque Principal')));
 
         return (
@@ -409,6 +456,7 @@ const ClientWorkout = () => {
                     <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/60 to-black"></div>
                     <div className="absolute top-6 left-4 z-20"><button onClick={() => { setViewingExercises(false); setActiveTab('plan'); }} className="bg-black/50 p-2 rounded-full backdrop-blur-md border border-white/10 text-white hover:bg-black/70"><ArrowLeft className="w-5 h-5" /></button></div>
                     <div className="absolute bottom-6 left-6 right-6 z-20">
+                        <div className="flex items-center gap-2 mb-2"><span className="bg-emerald-500 text-black px-2 py-0.5 rounded text-xs font-bold uppercase">{currentDayFilter}</span></div>
                         <h1 className="text-3xl font-black text-white leading-tight mb-2">{todayWorkout.name}</h1>
                         <div className="flex items-center gap-4 text-xs font-medium text-emerald-400">
                             <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5"/> ~60 min</span>
@@ -459,7 +507,6 @@ const ClientWorkout = () => {
                                                             <div className="col-span-1 text-center text-zinc-500 font-bold text-sm">{setNum}</div>
                                                             <div className="col-span-4 relative"><input type="number" placeholder="0" value={log.weight || ''} onChange={(e) => handleLogChange(ex.id, setNum, 'weight', e.target.value)} className={`w-full bg-black border ${isDone ? 'border-emerald-900 text-emerald-500' : 'border-zinc-800 text-white'} rounded-lg py-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 transition-colors`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600 font-bold pointer-events-none">KG</span></div>
                                                             <div className="col-span-4 relative"><input type="text" placeholder={isTime ? "45s" : "0"} value={isTime ? (log.time || '') : (log.reps || '')} onChange={(e) => handleLogChange(ex.id, setNum, isTime ? 'time' : 'reps', e.target.value)} className={`w-full bg-black border ${isDone ? 'border-emerald-900 text-emerald-500' : 'border-zinc-800 text-white'} rounded-lg py-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 transition-colors`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600 font-bold pointer-events-none">{isTime ? 'SEG' : 'REPS'}</span></div>
-                                                            {/* Aquí se le pasa el tiempo de descanso (ex.rest_time) al hacer check */}
                                                             <div className="col-span-1 flex justify-center"><button onClick={() => toggleSetComplete(ex.id, setNum, ex.rest_time)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${isDone ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]' : 'bg-zinc-800 text-zinc-600 hover:bg-zinc-700'}`}><Check className="w-5 h-5 stroke-[3]" /></button></div>
                                                         </div>
                                                     );
@@ -507,12 +554,12 @@ const ClientWorkout = () => {
         return (
             <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
                 <div className="flex justify-between items-center mb-2"><div><h1 className="text-3xl font-bold text-white">Hola, {clientName} 👋</h1><p className="text-zinc-400 text-xs mt-1">Vamos a por el objetivo de hoy.</p></div><button className="flex items-center gap-2 bg-[#111] border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-800 transition-colors"><Flame className="w-4 h-4 text-orange-500" /><span className="text-white font-bold text-sm">{monthlyWorkouts}</span></button></div>
-                <div className="bg-[#051F1A] border border-emerald-900/50 rounded-2xl p-5 relative overflow-hidden"><div className="flex justify-between items-start mb-4 relative z-10"><div><h3 className="text-emerald-400 font-bold text-sm mb-1">Objetivo Semanal</h3><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-white">{weeklyWorkouts}</span><span className="text-zinc-400 text-sm">/ {weeklyGoal} sesiones</span></div></div><Trophy className="w-6 h-6 text-emerald-600" /></div><div className="h-2 w-full bg-emerald-900/30 rounded-full mb-2 relative z-10"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} /></div><p className="text-right text-xs text-emerald-500 font-medium relative z-10">{weeklyWorkouts >= weeklyGoal ? "¡Objetivo cumplido! 🔥" : "¡Casi lo tienes!"}</p><div className="absolute top-0 right-0 p-20 bg-emerald-500/5 blur-[50px] rounded-full pointer-events-none"/></div>
+                <div className="bg-[#051F1A] border border-emerald-900/50 rounded-2xl p-5 relative overflow-hidden"><div className="flex justify-between items-start mb-4 relative z-10"><div><h3 className="text-emerald-400 font-bold text-sm mb-1">Objetivo Semanal</h3><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-white">{weeklyWorkouts}</span><span className="text-zinc-400 text-sm">/ {weeklyGoal} sessions</span></div></div><Trophy className="w-6 h-6 text-emerald-600" /></div><div className="h-2 w-full bg-emerald-900/30 rounded-full mb-2 relative z-10"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} /></div><p className="text-right text-xs text-emerald-500 font-medium relative z-10">{weeklyWorkouts >= weeklyGoal ? "¡Objetivo cumplido! 🔥" : "¡Casi lo tienes!"}</p><div className="absolute top-0 right-0 p-20 bg-emerald-500/5 blur-[50px] rounded-full pointer-events-none"/></div>
                 <div className="bg-[#111] border border-zinc-800 rounded-2xl p-4 flex gap-4 items-start"><div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center flex-shrink-0"><Lightbulb className="w-5 h-5 text-yellow-500" /></div><div><h3 className="text-white font-bold text-sm mb-1">Tip del Día</h3><p className="text-zinc-400 text-xs leading-relaxed">Concéntrate en la técnica durante los bloques de control postural. ¡La calidad supera a la cantidad! ⚖️</p></div></div>
                 <div>
                     <h3 className="text-white font-bold text-lg mb-3">Tu plan de hoy:</h3>
                     {todayWorkout ? (
-                        <div onClick={() => startWorkout(todayWorkout, currentAssignmentId!)} className={`bg-[#111] border border-zinc-800 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-emerald-500/30 transition-all group`}>
+                        <div onClick={() => startWorkout(todayWorkout, currentAssignmentId!, todayWorkout.occurrence_day)} className={`bg-[#111] border border-zinc-800 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-emerald-500/30 transition-all group`}>
                             <div className="flex items-center gap-4">
                                 <div className={`w-12 h-12 bg-zinc-800 text-emerald-500 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/10 transition-colors`}><ClipboardList className="w-6 h-6" /></div>
                                 <div><h3 className="text-white font-bold text-base group-hover:text-emerald-400 transition-colors">{todayWorkout.name}</h3><p className={`text-xs flex items-center gap-1 text-zinc-500`}><Clock className="w-3 h-3"/> Toca empezar</p></div>
@@ -559,22 +606,36 @@ const ClientWorkout = () => {
 
                                 {dayPlans.length > 0 ? (
                                     <div className="space-y-2">
-                                        {dayPlans.map(plan => (
-                                            <button 
-                                                key={plan.id} 
-                                                onClick={() => startWorkout(plan.routines, plan.id.toString())} 
-                                                className="w-full flex items-center justify-between bg-zinc-900/80 border border-zinc-700/50 p-3 rounded-xl hover:border-emerald-500/50 transition-colors group text-left"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="bg-zinc-800 p-2 rounded-lg group-hover:bg-emerald-500/10 transition-colors"><Dumbbell className="w-4 h-4 text-emerald-500" /></div>
-                                                    <div><span className="text-white font-bold text-sm block leading-tight">{plan.routines?.name}</span><span className="text-[10px] text-zinc-500 font-medium">Haz clic para empezar</span></div>
-                                                </div>
-                                                <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-emerald-500 transition-colors" />
-                                            </button>
-                                        ))}
+                                        {dayPlans.map(plan => {
+                                            // CALCULO DINÁMICO DE QUÉ DÍA TOCA HOY (Ej: Día 1, Día 2...)
+                                            const allOccurrences = weeklyPlan.filter(p => p.routine_id === plan.routine_id).sort((a, b) => a.day_of_week - b.day_of_week);
+                                            const occurrenceIndex = allOccurrences.findIndex(p => p.id === plan.id);
+                                            const dayNumberToLoad = occurrenceIndex !== -1 ? occurrenceIndex + 1 : 1;
+
+                                            return (
+                                                <button 
+                                                    key={plan.id} 
+                                                    onClick={() => startWorkout(plan.routines, plan.id.toString(), dayNumberToLoad)} 
+                                                    className="w-full flex items-center justify-between bg-zinc-900/80 border border-zinc-700/50 p-3 rounded-xl hover:border-emerald-500/50 transition-colors group text-left"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="bg-zinc-800 p-2 rounded-lg group-hover:bg-emerald-500/10 transition-colors">
+                                                            <Dumbbell className="w-4 h-4 text-emerald-500" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-white font-bold text-sm block leading-tight">{plan.routines?.name}</span>
+                                                            <span className="text-[10px] text-zinc-500 font-medium">Haz clic para empezar</span>
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-emerald-500 transition-colors" />
+                                                </button>
+                                            )
+                                        })}
                                     </div>
                                 ) : (
-                                    <div className="bg-zinc-900/30 rounded-lg p-3 border border-dashed border-zinc-800 text-center"><p className="text-xs text-zinc-500 italic">Descanso Activo</p></div>
+                                    <div className="bg-zinc-900/30 rounded-lg p-3 border border-dashed border-zinc-800 text-center">
+                                        <p className="text-xs text-zinc-500 italic">Descanso Activo</p>
+                                    </div>
                                 )}
                             </div>
                         )
@@ -583,7 +644,9 @@ const ClientWorkout = () => {
                             <CalendarIcon className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
                             <p className="text-zinc-400 text-sm mb-4">No tienes una planificación semanal asignada.</p>
                             {todayWorkout && (
-                                <button onClick={() => startWorkout(todayWorkout, currentAssignmentId!)} className="bg-emerald-500 text-black font-bold text-sm px-6 py-2 rounded-lg">Ver Mi Rutina Base</button>
+                                <button onClick={() => startWorkout(todayWorkout, currentAssignmentId!)} className="bg-emerald-500 text-black font-bold text-sm px-6 py-2 rounded-lg">
+                                    Ver Mi Rutina Base
+                                </button>
                             )}
                         </div>
                     )}

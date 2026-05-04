@@ -20,11 +20,8 @@ const navItems = [
 const Sidebar = () => {
     const navigate = useNavigate();
     
-    // Estados para la marca blanca (Inician en null para detectar si hay datos reales)
     const [businessName, setBusinessName] = useState<string | null>(null);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
-
-    // Estado para guardar el rol y el plan
     const [userRole, setUserRole] = useState('admin');
     const [userPlan, setUserPlan] = useState('pro');
 
@@ -33,22 +30,27 @@ const Sidebar = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Buscamos los datos en la tabla profiles
-            const { data } = await supabase
+            // SOLUCIÓN: Usamos select('*') igual que en Settings para evitar cuelgues por columnas faltantes
+            const { data, error } = await supabase
                 .from('profiles')
-                .select('business_name, logo_url, role, studio_id, plan') 
+                .select('*') 
                 .eq('id', user.id)
                 .single();
+            
+            if (error) {
+                console.error("Error al cargar el Sidebar:", error.message);
+                return;
+            }
             
             if (data) {
                 setUserRole(data.role || 'admin');
                 setUserPlan(data.plan || 'pro');
 
                 if (data.role === 'staff' && data.studio_id) {
-                    // Si es empleado, buscamos cómo se llama el centro de su jefe
+                    // Si es empleado, buscamos a su jefe con select('*') también
                     const { data: studioData } = await supabase
                         .from('profiles')
-                        .select('business_name, logo_url')
+                        .select('*')
                         .eq('id', data.studio_id)
                         .single();
                         
@@ -57,7 +59,7 @@ const Sidebar = () => {
                         setLogoUrl(studioData.logo_url);
                     }
                 } else {
-                    // Si es el dueño, pintamos sus propios datos
+                    // Si es el dueño, pintamos sus datos
                     setBusinessName(data.business_name);
                     setLogoUrl(data.logo_url);
                 }
@@ -71,14 +73,13 @@ const Sidebar = () => {
         navigate('/'); 
     };
 
-    // EL PORTERO INTELIGENTE: Filtramos el menú según el ROL y el PLAN
     const visibleNavItems = navItems.filter(item => {
         if (userRole === 'staff' && item.restricted) return false;
         if (item.studioOnly && userPlan !== 'studio') return false;
         return true;
     });
 
-    // Si no hay nombre de negocio en la BD, usamos 'FitLeader' por defecto
+    // Filtro visual
     const displayName = businessName || 'FitLeader';
 
     return (
@@ -95,7 +96,7 @@ const Sidebar = () => {
                                 className="h-8 w-8 object-cover rounded-md bg-zinc-900 border border-zinc-800" 
                             />
                         ) : (
-                            // Recuperamos el logo original de FitLeader
+                            // Recuperamos el logo original de FitLeader por defecto
                             <img 
                                 src="/logo.png" 
                                 alt="FitLeader" 

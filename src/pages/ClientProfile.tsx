@@ -198,6 +198,16 @@ const ClientProfile = () => {
         }
     };
 
+    const handleConvertToClient = async () => {
+        const { error } = await supabase.from('clients').update({ status: 'active' }).eq('id', id);
+        if (!error) {
+            setClient((prev: any) => ({ ...prev, status: 'active' }));
+            addToast('Cliente convertido exitosamente', 'success');
+        } else {
+            addToast('Error al convertir cliente', 'error');
+        }
+    };
+
     const copyCredentials = () => {
         if (!client) return;
         const text = `Usuario: ${client.email}\nCódigo: ${client.access_code || '1234'}`;
@@ -248,7 +258,14 @@ const ClientProfile = () => {
                             </div>
 
                             <div className="text-center md:text-left space-y-2 flex-1">
-                                <h1 className="text-3xl font-bold text-white">{client.name}</h1>
+                                <div className="flex items-center gap-2 justify-center md:justify-start">
+                                    <h1 className="text-3xl font-bold text-white">{client.name}</h1>
+                                    {client.status === 'lead' && (
+                                        <span className="px-3 py-1 text-sm font-bold bg-blue-500 text-white rounded-full">
+                                            Invitado
+                                        </span>
+                                    )}
+                                </div>
                                 
                                 <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 text-sm text-zinc-400">
                                     <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {client.location || 'Remoto'}</span>
@@ -286,6 +303,14 @@ const ClientProfile = () => {
                                     </div>
                                 )}
                             </div>
+                            {client.status === 'lead' && (
+                                <Button 
+                                    className="h-9 bg-blue-500 text-white hover:bg-blue-600 font-bold gap-2" 
+                                    onClick={handleConvertToClient}
+                                >
+                                    Convertir a Cliente
+                                </Button>
+                            )}
                             <Button className="h-9 bg-emerald-500 text-black hover:bg-emerald-400 font-bold gap-2" onClick={() => setEditModalOpen(true)}>
                                 Editar Perfil
                             </Button>

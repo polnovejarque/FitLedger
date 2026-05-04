@@ -19,6 +19,7 @@ const Clients = () => {
 
     // Filtros y Búsqueda
     const [searchTerm, setSearchTerm] = useState("");
+    const [activeTab, setActiveTab] = useState<'active' | 'lead'>('active');
     
     // Menús y Modales
     const [openMenuId, setOpenMenuId] = useState<number | null>(null); 
@@ -108,7 +109,7 @@ const Clients = () => {
                 access_code: generatedPassword, 
                 objective: newClientObjective || "Mejorar salud",
                 limitations: newClientLimitations || "Ninguna",
-                status: "Activo",
+                status: "active",
                 plan: "Básico",
                 location: "Presencial",
                 image_url: null, 
@@ -163,7 +164,8 @@ const Clients = () => {
     };
 
     const filteredClients = clients.filter(client => 
-        client.name.toLowerCase().includes(searchTerm.toLowerCase())
+        client.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        (activeTab === 'active' ? (client.status === 'active' || !client.status) : client.status === 'lead')
     );
 
     const toggleMenu = (e: React.MouseEvent, id: number) => {
@@ -201,6 +203,26 @@ const Clients = () => {
                 </div>
             </div>
 
+            {/* PESTAÑAS */}
+            <div className="flex gap-1 mb-4 bg-[#111] border border-zinc-800 rounded-lg p-1 w-fit">
+                <button
+                    onClick={() => setActiveTab('active')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        activeTab === 'active' ? 'bg-emerald-500 text-black' : 'text-zinc-400 hover:text-white'
+                    }`}
+                >
+                    Activos ({clients.filter(c => c.status === 'active' || !c.status).length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('lead')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        activeTab === 'lead' ? 'bg-emerald-500 text-black' : 'text-zinc-400 hover:text-white'
+                    }`}
+                >
+                    Leads (Invitados) ({clients.filter(c => c.status === 'lead').length})
+                </button>
+            </div>
+
             {/* TABLA DE CLIENTES */}
             <div className="bg-[#111] border border-zinc-800 rounded-2xl overflow-visible shadow-xl">
                 <table className="w-full text-left">
@@ -234,7 +256,14 @@ const Clients = () => {
                                             )}
                                             
                                             <div>
-                                                <p className="font-bold text-white group-hover:text-emerald-400 transition-colors">{client.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-white group-hover:text-emerald-400 transition-colors">{client.name}</p>
+                                                    {client.status === 'lead' && (
+                                                        <span className="px-2 py-0.5 text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
+                                                            Lead
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <p className="text-xs text-zinc-500 mb-0.5">{client.email}</p>
                                                 {client.access_code && (
                                                     <p className="text-[10px] text-emerald-500 font-mono flex items-center gap-1">

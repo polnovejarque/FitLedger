@@ -20,6 +20,8 @@ interface AgendaEvent {
     assigned_staff_id?: string;
     bookedCount?: number;
     attendees?: { name: string; status: string }[];
+    is_public?: boolean;
+    dropin_price?: number;
 }
 
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 06:00 a 22:00
@@ -149,7 +151,9 @@ const Agenda = () => {
                     max_capacity: ev.max_capacity,
                     assigned_staff_id: ev.assigned_staff_id,
                     bookedCount,
-                    attendees
+                    attendees,
+                    is_public: ev.is_public,
+                    dropin_price: ev.dropin_price
                 };
             });
             setEvents(formattedEvents);
@@ -209,6 +213,10 @@ const Agenda = () => {
         const location = formData.get('location') as string;
         const notes = formData.get('notes') as string;
 
+        // Nuevos campos para clases públicas
+        const is_public = formData.get('is_public') === 'on';
+        const dropin_price = is_public ? parseFloat(formData.get('dropin_price') as string) || 0 : null;
+
         // Nuevos campos para Studio
         let assigned_staff_id = user.id; 
         let inventory_id = null;
@@ -242,7 +250,9 @@ const Agenda = () => {
             description: notes,
             assigned_staff_id,
             inventory_id,
-            max_capacity
+            max_capacity,
+            is_public,
+            dropin_price
         };
 
         if (!editingEvent || editingEvent.id === 0) {
@@ -447,6 +457,29 @@ const Agenda = () => {
                                                     <label className="text-xs text-purple-400 mb-1 block">Aforo Manual</label>
                                                     <input name="manual_capacity" type="number" defaultValue={editingEvent?.max_capacity || 15} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-purple-500 outline-none" placeholder="15" />
                                                 </div>
+                                            </div>
+
+                                            {/* Clase Pública */}
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    name="is_public" 
+                                                    defaultChecked={editingEvent?.is_public} 
+                                                    className="rounded border-zinc-600" 
+                                                />
+                                                <label className="text-sm text-purple-400">Permitir Invitados (Clase Pública)</label>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-xs text-purple-400 mb-1 block">Precio Drop-in (€)</label>
+                                                <input 
+                                                    name="dropin_price" 
+                                                    type="number" 
+                                                    step="0.1" 
+                                                    defaultValue={editingEvent?.dropin_price || ''} 
+                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:border-purple-500 outline-none" 
+                                                    placeholder="0.00" 
+                                                />
                                             </div>
                                         </>
                                     )}

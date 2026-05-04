@@ -376,10 +376,11 @@ const WorkoutEditor = () => {
                         )}
                     </div>
 
-                    {/* DESCANSO ENTRE SERIES */}
+                    {/* DESCANSO ENTRE SERIES AHORA CON TEXTO EXPLÍCITO */}
                     <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-blue-500/30">
                         <Clock className="w-3 h-3 text-blue-500" />
-                        <input type="text" placeholder="Descanso" value={ex.rest_time || ''} onChange={(e) => updateExercise(ex.localId, 'rest_time', e.target.value)} className="w-8 bg-transparent text-white text-xs text-center font-bold outline-none" title="Descanso entre series" />
+                        <span className="text-[9px] text-blue-400 font-bold uppercase">Descanso</span>
+                        <input type="text" placeholder="60s" value={ex.rest_time || ''} onChange={(e) => updateExercise(ex.localId, 'rest_time', e.target.value)} className="w-8 bg-transparent text-white text-xs text-center font-bold outline-none" title="Descanso entre series" />
                     </div>
 
                     <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-orange-500/30">

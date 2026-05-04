@@ -11,6 +11,7 @@ import {
 import { Button } from '../components/ui/Button';
 
 const ClientWorkout = () => {
+    // --- ESTADOS DE DATOS ---
     const [clientId, setClientId] = useState<string | null>(null);
     const [clientName, setClientName] = useState("Atleta");
     const [clientLastName, setClientLastName] = useState("");
@@ -19,9 +20,11 @@ const ClientWorkout = () => {
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
     
+    // --- NUEVOS ESTADOS PLANIFICACIÓN SEMANAL ---
     const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
     const [todayDayId, setTodayDayId] = useState<number>(1);
     
+    // --- ESTADOS DE MARCA BLANCA Y RESERVAS ---
     const [coachLogo, setCoachLogo] = useState<string>('/logo.png');
     const [coachBusinessName, setCoachBusinessName] = useState<string>('FitLeader');
     const [studioId, setStudioId] = useState<string | null>(null);
@@ -30,15 +33,18 @@ const ClientWorkout = () => {
     const [currentAssignmentId, setCurrentAssignmentId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // --- ESTADOS PARA LOS EJERCICIOS ---
     const [exercises, setExercises] = useState<any[]>([]);
     const [currentDayFilter, setCurrentDayFilter] = useState("Día 1"); 
     const [viewingExercises, setViewingExercises] = useState(false);
     const [workoutLogs, setWorkoutLogs] = useState<any>({}); 
 
+    // --- ESTADOS DEL TEMPORIZADOR ---
     const [timerActive, setTimerActive] = useState(false);
     const [timerTime, setTimerTime] = useState(90); 
     const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
+    // --- ESTADOS DEL PROGRESO ---
     const [currentWeight, setCurrentWeight] = useState<string>("--");
     const [currentWaist, setCurrentWaist] = useState<string>("--");
     const [currentArm, setCurrentArm] = useState<string>("--");
@@ -50,6 +56,7 @@ const ClientWorkout = () => {
     const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
     const [weeklyGoal, setWeeklyGoal] = useState(4); 
 
+    // --- ESTADOS DE FOTOS ---
     const [viewAngle, setViewAngle] = useState<'front' | 'back' | 'side'>('front');
     const [photos, setPhotos] = useState<{
         front: { before: string | null; now: string | null; beforeId: string | null };
@@ -61,11 +68,13 @@ const ClientWorkout = () => {
         side: { before: null, now: null, beforeId: null }
     });
 
+    // --- UI STATE ---
     const [activeTab, setActiveTab] = useState<'inicio' | 'reservas' | 'plan' | 'progreso' | 'perfil'>('inicio');
     const [activeProfileModal, setActiveProfileModal] = useState<'notifications' | 'settings' | null>(null);
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
 
+    // --- CONFIGURACIÓN PERSISTENTE ---
     const [notifSettings, setNotifSettings] = useState(() => {
         const saved = localStorage.getItem('fit_client_notifs');
         return saved ? JSON.parse(saved) : { workouts: true, messages: true, tips: false };
@@ -79,6 +88,7 @@ const ClientWorkout = () => {
     useEffect(() => { localStorage.setItem('fit_client_notifs', JSON.stringify(notifSettings)); }, [notifSettings]);
     useEffect(() => { localStorage.setItem('fit_client_config', JSON.stringify(config)); }, [config]);
 
+    // --- ESTADOS DE FORMULARIOS Y SUBIDAS ---
     const [formWeight, setFormWeight] = useState("");
     const [formWaist, setFormWaist] = useState("");
     const [formArm, setFormArm] = useState("");
@@ -105,6 +115,7 @@ const ClientWorkout = () => {
         return () => clearInterval(interval);
     }, [timerActive, timerTime]);
 
+    // --- CARGAR DATOS PRINCIPALES ---
     useEffect(() => {
         const fetchClientData = async () => {
             setLoading(true);
@@ -162,6 +173,7 @@ const ClientWorkout = () => {
         fetchClientData();
     }, []);
 
+    // --- RESERVAS ---
     const fetchClasses = async (studioId: string, clientId: string) => {
         const today = new Date().toISOString();
         const { data: events } = await supabase.from('calendar_events').select('*').eq('studio_id', studioId).eq('type', 'group').gte('date', today).order('date', { ascending: true });
@@ -200,6 +212,7 @@ const ClientWorkout = () => {
         } catch (err: any) { alert("Error al cancelar: " + err.message); } finally { setLoading(false); }
     };
 
+    // --- STATS Y PROGRESO ---
     const getWeekRange = () => {
         const now = new Date(); const currentDay = now.getDay(); const diffToMonday = currentDay === 0 ? 6 : currentDay - 1; 
         const monday = new Date(now); monday.setDate(now.getDate() - diffToMonday); monday.setHours(0, 0, 0, 0); 
@@ -235,6 +248,7 @@ const ClientWorkout = () => {
         }
     };
 
+    // --- LOGICA DE ENTRENAMIENTO ---
     const startWorkout = async (routine: any, planOrAssignmentId: string) => {
         setLoading(true); setTodayWorkout(routine); setCurrentAssignmentId(planOrAssignmentId);
         const { data: exerciseData } = await supabase.from('routine_exercises').select('*').eq('routine_id', routine.id).order('id', { ascending: true }); 
@@ -248,21 +262,26 @@ const ClientWorkout = () => {
         setWorkoutLogs((prev: any) => ({ ...prev, [exerciseId]: { ...prev[exerciseId], [setIndex]: { ...prev[exerciseId]?.[setIndex], [field]: value } } }));
     };
 
-    // MAGIA: El temporizador absorbe el descanso que ha configurado el coach
+    // MAGIA DE PRECISIÓN: El cronómetro absorbe los segundos exactos
     const toggleSetComplete = (exerciseId: number, setIndex: number, restTimeStr: string | null) => {
         setWorkoutLogs((prev: any) => {
             const currentExercise = prev[exerciseId] || {};
             const currentSet = currentExercise[setIndex] || {};
             const isNowDone = !currentSet.done;
+            
             if (isNowDone) { 
-                let restSeconds = 90; // Fallback por defecto
+                let restSeconds = 90; // Default por si hay fallo
                 if (restTimeStr) {
-                    const parsed = parseInt(restTimeStr.replace(/\D/g, ''));
-                    if (!isNaN(parsed)) restSeconds = parsed;
+                    // Extraemos solo los dígitos del campo del coach (ej: "60s" -> 60)
+                    const parsed = parseInt(String(restTimeStr).replace(/\D/g, ''));
+                    if (!isNaN(parsed) && parsed > 0) {
+                        restSeconds = parsed;
+                    }
                 }
                 setTimerTime(restSeconds); 
                 setTimerActive(true); 
             }
+            
             return { ...prev, [exerciseId]: { ...currentExercise, [setIndex]: { ...currentSet, done: isNowDone } } };
         });
     };
@@ -306,6 +325,7 @@ const ClientWorkout = () => {
         }
     };
 
+    // --- ACCIONES DE PERFIL Y FOTOS ---
     const handleSaveCheckin = async () => {
         if (!clientId) return; setSaving(true);
         try {
@@ -316,7 +336,7 @@ const ClientWorkout = () => {
             if (existing) { const { error: updateErr } = await supabase.from('client_progress').update(payload).eq('id', existing.id); if (updateErr) throw updateErr; } 
             else { const { error: insertErr } = await supabase.from('client_progress').insert(payload); if (insertErr) throw insertErr; }
             alert("✅ Guardado"); setShowCheckinModal(false); setFormWeight(""); setFormWaist(""); setFormArm(""); setFormLeg(""); fetchProgress(clientId);
-        } catch (e: any) { alert("Error al guardar: " + e.message); } finally { setSaving(false); }
+        } catch (e: any) { console.error(e); alert("Error al guardar: " + e.message); } finally { setSaving(false); }
     };
 
     const handleFileSelect = (e: any) => { if (e.target.files?.[0]) { setFileToUpload(e.target.files[0]); setPreviewUrl(URL.createObjectURL(e.target.files[0])); } };
@@ -332,7 +352,7 @@ const ClientWorkout = () => {
             if (existing) { const { error: updateErr } = await supabase.from('client_progress').update(updateData).eq('id', existing.id); if (updateErr) throw updateErr; } 
             else { const { error: insertErr } = await supabase.from('client_progress').insert({ client_id: clientId, date: today, ...updateData }); if (insertErr) throw insertErr; }
             alert("¡Foto guardada!"); setShowPhotoModal(false); setFileToUpload(null); setPreviewUrl(null); fetchProgress(clientId); 
-        } catch (e: any) { alert("Error al guardar la foto: " + e.message); } finally { setUploading(false); } 
+        } catch (e: any) { console.error(e); alert("Error al guardar la foto: " + e.message); } finally { setUploading(false); } 
     };
 
     const handleDeleteBefore = async () => { 
@@ -418,13 +438,11 @@ const ClientWorkout = () => {
                                                     <h3 className="text-white font-bold text-lg leading-tight mb-2">{ex.exercise_name}</h3>
                                                     <div className="flex flex-wrap gap-2">
                                                         <span className="px-2 py-1 bg-zinc-800 rounded-md text-xs text-zinc-400 border border-zinc-700">{ex.sets} Series</span>
-                                                        {/* MOSTRAR TIEMPO O REPES SEGÚN LO ELIGIDO POR EL COACH */}
                                                         {ex.exercise_type === 'time' ? (
                                                             <span className="px-2 py-1 bg-zinc-800 rounded-md text-xs text-zinc-400 border border-zinc-700">{ex.time_duration}</span>
                                                         ) : (
                                                             <span className="px-2 py-1 bg-zinc-800 rounded-md text-xs text-zinc-400 border border-zinc-700">{ex.reps} Reps</span>
                                                         )}
-                                                        {/* MOSTRAR DESCANSO */}
                                                         {ex.rest_time && (
                                                             <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs border border-blue-500/20 flex items-center gap-1"><Clock className="w-3 h-3"/> {ex.rest_time}</span>
                                                         )}
@@ -441,7 +459,7 @@ const ClientWorkout = () => {
                                                             <div className="col-span-1 text-center text-zinc-500 font-bold text-sm">{setNum}</div>
                                                             <div className="col-span-4 relative"><input type="number" placeholder="0" value={log.weight || ''} onChange={(e) => handleLogChange(ex.id, setNum, 'weight', e.target.value)} className={`w-full bg-black border ${isDone ? 'border-emerald-900 text-emerald-500' : 'border-zinc-800 text-white'} rounded-lg py-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 transition-colors`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600 font-bold pointer-events-none">KG</span></div>
                                                             <div className="col-span-4 relative"><input type="text" placeholder={isTime ? "45s" : "0"} value={isTime ? (log.time || '') : (log.reps || '')} onChange={(e) => handleLogChange(ex.id, setNum, isTime ? 'time' : 'reps', e.target.value)} className={`w-full bg-black border ${isDone ? 'border-emerald-900 text-emerald-500' : 'border-zinc-800 text-white'} rounded-lg py-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 transition-colors`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600 font-bold pointer-events-none">{isTime ? 'SEG' : 'REPS'}</span></div>
-                                                            {/* PASAMOS EL DESCANSO AL BOTÓN */}
+                                                            {/* Aquí se le pasa el tiempo de descanso (ex.rest_time) al hacer check */}
                                                             <div className="col-span-1 flex justify-center"><button onClick={() => toggleSetComplete(ex.id, setNum, ex.rest_time)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${isDone ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]' : 'bg-zinc-800 text-zinc-600 hover:bg-zinc-700'}`}><Check className="w-5 h-5 stroke-[3]" /></button></div>
                                                         </div>
                                                     );
@@ -548,22 +566,15 @@ const ClientWorkout = () => {
                                                 className="w-full flex items-center justify-between bg-zinc-900/80 border border-zinc-700/50 p-3 rounded-xl hover:border-emerald-500/50 transition-colors group text-left"
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className="bg-zinc-800 p-2 rounded-lg group-hover:bg-emerald-500/10 transition-colors">
-                                                        <Dumbbell className="w-4 h-4 text-emerald-500" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-white font-bold text-sm block leading-tight">{plan.routines?.name}</span>
-                                                        <span className="text-[10px] text-zinc-500 font-medium">Haz clic para empezar</span>
-                                                    </div>
+                                                    <div className="bg-zinc-800 p-2 rounded-lg group-hover:bg-emerald-500/10 transition-colors"><Dumbbell className="w-4 h-4 text-emerald-500" /></div>
+                                                    <div><span className="text-white font-bold text-sm block leading-tight">{plan.routines?.name}</span><span className="text-[10px] text-zinc-500 font-medium">Haz clic para empezar</span></div>
                                                 </div>
                                                 <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-emerald-500 transition-colors" />
                                             </button>
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="bg-zinc-900/30 rounded-lg p-3 border border-dashed border-zinc-800 text-center">
-                                        <p className="text-xs text-zinc-500 italic">Descanso Activo</p>
-                                    </div>
+                                    <div className="bg-zinc-900/30 rounded-lg p-3 border border-dashed border-zinc-800 text-center"><p className="text-xs text-zinc-500 italic">Descanso Activo</p></div>
                                 )}
                             </div>
                         )
@@ -572,9 +583,7 @@ const ClientWorkout = () => {
                             <CalendarIcon className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
                             <p className="text-zinc-400 text-sm mb-4">No tienes una planificación semanal asignada.</p>
                             {todayWorkout && (
-                                <button onClick={() => startWorkout(todayWorkout, currentAssignmentId!)} className="bg-emerald-500 text-black font-bold text-sm px-6 py-2 rounded-lg">
-                                    Ver Mi Rutina Base
-                                </button>
+                                <button onClick={() => startWorkout(todayWorkout, currentAssignmentId!)} className="bg-emerald-500 text-black font-bold text-sm px-6 py-2 rounded-lg">Ver Mi Rutina Base</button>
                             )}
                         </div>
                     )}
@@ -585,31 +594,17 @@ const ClientWorkout = () => {
 
     const renderReservas = () => (
         <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
-            <div className="flex justify-between items-center mb-2">
-                <div>
-                    <h2 className="text-2xl font-bold text-white">Clases Disponibles</h2>
-                    <p className="text-zinc-400 text-xs mt-1">Reserva tu plaza en el estudio.</p>
-                </div>
-            </div>
-
+            <div className="flex justify-between items-center mb-2"><div><h2 className="text-2xl font-bold text-white">Clases Disponibles</h2><p className="text-zinc-400 text-xs mt-1">Reserva tu plaza en el estudio.</p></div></div>
             <div className="space-y-4">
                 {groupClasses.length === 0 ? (
-                    <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 text-center">
-                        <CalendarIcon className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
-                        <p className="text-zinc-400 text-sm">No hay clases programadas próximamente.</p>
-                    </div>
+                    <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 text-center"><CalendarIcon className="w-8 h-8 text-zinc-600 mx-auto mb-3" /><p className="text-zinc-400 text-sm">No hay clases programadas próximamente.</p></div>
                 ) : (
                     groupClasses.map((cls) => {
-                        const classDate = new Date(cls.date);
-                        const isFull = cls.spotsLeft <= 0;
-                        const isBooked = cls.isBooked;
-                        const isWaitlisted = cls.isWaitlisted;
-                        
+                        const classDate = new Date(cls.date); const isFull = cls.spotsLeft <= 0; const isBooked = cls.isBooked; const isWaitlisted = cls.isWaitlisted;
                         return (
                             <div key={cls.id} className={`bg-[#111] border ${isBooked ? 'border-emerald-500/50' : 'border-zinc-800'} rounded-2xl p-5 relative overflow-hidden shadow-xl`}>
                                 {isBooked && <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-md">RESERVADO</div>}
                                 {isWaitlisted && <div className="absolute top-0 right-0 bg-orange-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-md">EN ESPERA</div>}
-                                
                                 <div className="flex gap-4 items-start">
                                     <div className="w-14 h-14 bg-zinc-900 rounded-xl border border-zinc-800 flex flex-col items-center justify-center flex-shrink-0 shadow-inner">
                                         <span className="text-xs text-zinc-500 font-bold uppercase">{classDate.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
@@ -618,32 +613,14 @@ const ClientWorkout = () => {
                                     <div className="flex-1">
                                         <h3 className="text-white font-bold text-lg leading-tight mb-1">{cls.title}</h3>
                                         <p className="text-zinc-400 text-xs mb-3 flex items-center gap-1.5"><User className="w-3.5 h-3.5"/> {cls.coach_name}</p>
-                                        
                                         <div className="flex items-center gap-2 text-xs font-medium">
-                                            <span className="flex items-center gap-1 text-zinc-300 bg-zinc-800 px-2 py-1 rounded-md border border-zinc-700">
-                                                <Clock className="w-3.5 h-3.5 text-zinc-400"/> 
-                                                {classDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} ({cls.duration}h)
-                                            </span>
-                                            <span className={`flex items-center gap-1 px-2 py-1 rounded-md border ${isFull ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                                                <Users className="w-3.5 h-3.5"/> {isFull ? 'Completa' : `${cls.spotsLeft} libres`}
-                                            </span>
+                                            <span className="flex items-center gap-1 text-zinc-300 bg-zinc-800 px-2 py-1 rounded-md border border-zinc-700"><Clock className="w-3.5 h-3.5 text-zinc-400"/> {classDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} ({cls.duration}h)</span>
+                                            <span className={`flex items-center gap-1 px-2 py-1 rounded-md border ${isFull ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}><Users className="w-3.5 h-3.5"/> {isFull ? 'Completa' : `${cls.spotsLeft} libres`}</span>
                                         </div>
                                     </div>
                                 </div>
-                                
                                 <div className="mt-5 pt-4 border-t border-zinc-800/50">
-                                    {(isBooked || isWaitlisted) ? (
-                                        <Button onClick={() => handleCancelBooking(cls.id)} className="w-full bg-zinc-900 text-red-400 border border-red-500/20 hover:bg-red-500/10 font-bold h-11 rounded-xl">
-                                            Cancelar Reserva
-                                        </Button>
-                                    ) : (
-                                        <Button 
-                                            onClick={() => handleBookClass(cls.id, isFull ? 'waitlist' : 'booked')} 
-                                            className={`w-full font-bold h-11 rounded-xl ${isFull ? 'bg-orange-500 text-black hover:bg-orange-400' : 'bg-emerald-500 text-black hover:bg-emerald-400'}`}
-                                        >
-                                            {isFull ? 'Unirse a Lista de Espera' : 'Reservar Plaza'}
-                                        </Button>
-                                    )}
+                                    {(isBooked || isWaitlisted) ? (<Button onClick={() => handleCancelBooking(cls.id)} className="w-full bg-zinc-900 text-red-400 border border-red-500/20 hover:bg-red-500/10 font-bold h-11 rounded-xl">Cancelar Reserva</Button>) : (<Button onClick={() => handleBookClass(cls.id, isFull ? 'waitlist' : 'booked')} className={`w-full font-bold h-11 rounded-xl ${isFull ? 'bg-orange-500 text-black hover:bg-orange-400' : 'bg-emerald-500 text-black hover:bg-emerald-400'}`}>{isFull ? 'Unirse a Lista de Espera' : 'Reservar Plaza'}</Button>)}
                                 </div>
                             </div>
                         );
@@ -685,55 +662,33 @@ const ClientWorkout = () => {
     const renderPerfil = () => (
         <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
              <div className="flex flex-col items-center justify-center mb-6">
-                 <div 
-                    className="w-24 h-24 rounded-full bg-zinc-800 border-2 border-emerald-500 p-1 mb-3 relative group overflow-hidden cursor-pointer"
-                    onClick={() => { if(!uploadingProfile) profileInputRef.current?.click(); }}
-                 >
+                 <div className="w-24 h-24 rounded-full bg-zinc-800 border-2 border-emerald-500 p-1 mb-3 relative group overflow-hidden cursor-pointer" onClick={() => { if(!uploadingProfile) profileInputRef.current?.click(); }}>
                      <input type="file" ref={profileInputRef} className="hidden" accept="image/*" onChange={handleProfileFileSelect} />
                      {uploadingProfile ? (
                          <div className="w-full h-full flex items-center justify-center bg-black/50"><Activity className="w-6 h-6 animate-spin text-emerald-500"/></div>
                      ) : clientPhoto ? (
-                         <>
-                            <img src={clientPhoto} alt="Profile" className="w-full h-full object-cover rounded-full" />
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Camera className="w-6 h-6 text-white" /></div>
-                         </>
+                         <><img src={clientPhoto} alt="Profile" className="w-full h-full object-cover rounded-full" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Camera className="w-6 h-6 text-white" /></div></>
                      ) : (
-                         <div className="w-full h-full bg-zinc-700 rounded-full flex items-center justify-center text-3xl font-bold text-zinc-500 group-hover:bg-zinc-600 transition-colors relative">
-                             {clientName.charAt(0)}
-                             <div className="absolute bottom-0 right-0 bg-emerald-500 rounded-full p-1 border-2 border-[#111]"><Plus className="w-3 h-3 text-black" /></div>
-                         </div>
+                         <div className="w-full h-full bg-zinc-700 rounded-full flex items-center justify-center text-3xl font-bold text-zinc-500 group-hover:bg-zinc-600 transition-colors relative">{clientName.charAt(0)}<div className="absolute bottom-0 right-0 bg-emerald-500 rounded-full p-1 border-2 border-[#111]"><Plus className="w-3 h-3 text-black" /></div></div>
                      )}
                  </div>
-                 {clientPhoto && (
-                     <button onClick={handleDeleteProfilePic} className="text-xs text-red-500 hover:text-red-400 mb-2 flex items-center gap-1"><Trash2 className="w-3 h-3" /> Borrar foto</button>
-                 )}
+                 {clientPhoto && (<button onClick={handleDeleteProfilePic} className="text-xs text-red-500 hover:text-red-400 mb-2 flex items-center gap-1"><Trash2 className="w-3 h-3" /> Borrar foto</button>)}
                  <h2 className="text-2xl font-bold text-white">{clientName} {clientLastName}</h2>
                  <p className="text-zinc-500 text-sm">{email}</p>
-                 <div className="flex gap-2 mt-2">
-                     <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-bold rounded border border-emerald-500/20">ACTIVO</span>
-                     <span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 text-[10px] font-bold rounded border border-zinc-700">PLAN MENSUAL</span>
-                 </div>
+                 <div className="flex gap-2 mt-2"><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-bold rounded border border-emerald-500/20">ACTIVO</span><span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 text-[10px] font-bold rounded border border-zinc-700">PLAN MENSUAL</span></div>
              </div>
 
              {paymentLink && (
-                 <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl mb-6">
-                     <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2 text-emerald-500 font-bold"><CreditCard className="w-5 h-5"/> Suscripción</div></div>
-                     <Button onClick={() => window.open(paymentLink, '_blank')} className="w-full bg-emerald-500 text-black font-bold hover:bg-emerald-400">Gestionar Pagos</Button>
-                 </div>
+                 <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl mb-6"><div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2 text-emerald-500 font-bold"><CreditCard className="w-5 h-5"/> Suscripción</div></div><Button onClick={() => window.open(paymentLink, '_blank')} className="w-full bg-emerald-500 text-black font-bold hover:bg-emerald-400">Gestionar Pagos</Button></div>
              )}
 
             <div className="space-y-3">
-                <button className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-white/5 rounded-xl hover:bg-zinc-800 transition-all" onClick={() => window.location.href = "mailto:entrenador@fitleader.com"}>
-                    <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-blue-400" /><span className="text-white font-bold">Contactar Centro</span></div><ChevronRight className="w-5 h-5 text-zinc-500" />
-                </button>
+                <button className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-white/5 rounded-xl hover:bg-zinc-800 transition-all" onClick={() => window.location.href = "mailto:entrenador@fitleader.com"}><div className="flex items-center gap-3"><Mail className="w-5 h-5 text-blue-400" /><span className="text-white font-bold">Contactar Centro</span></div><ChevronRight className="w-5 h-5 text-zinc-500" /></button>
                 <button onClick={() => setActiveProfileModal('notifications')} className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-white/5 rounded-xl hover:bg-zinc-800 transition-all"><div className="flex items-center gap-3"><Bell className="w-5 h-5 text-yellow-500" /><span className="text-white font-bold">Notificaciones</span></div><ChevronRight className="w-5 h-5 text-zinc-500" /></button>
                 <button onClick={() => setActiveProfileModal('settings')} className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-white/5 rounded-xl hover:bg-zinc-800 transition-all"><div className="flex items-center gap-3"><Settings className="w-5 h-5 text-purple-500" /><span className="text-white font-bold">Configuración</span></div><ChevronRight className="w-5 h-5 text-zinc-500" /></button>
             </div>
             
-            <div className="pt-8 text-center">
-                <p className="text-zinc-600 text-xs mb-4">FitLeader App v2.0</p>
-                <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 p-3 text-red-400 hover:bg-red-500/10 rounded-xl border border-red-500/20"><LogOut className="w-5 h-5" /> Cerrar Sesión</button>
-            </div>
+            <div className="pt-8 text-center"><p className="text-zinc-600 text-xs mb-4">FitLeader App v2.0</p><button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 p-3 text-red-400 hover:bg-red-500/10 rounded-xl border border-red-500/20"><LogOut className="w-5 h-5" /> Cerrar Sesión</button></div>
         </div>
     );
 
@@ -741,10 +696,7 @@ const ClientWorkout = () => {
         <div className="min-h-screen bg-black text-white font-sans pb-safe selection:bg-emerald-500 selection:text-black">
             {!viewingExercises && (
                 <div className="fixed top-0 w-full max-w-md left-0 right-0 mx-auto bg-black/90 backdrop-blur-md border-b border-white/10 z-50 px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3 w-full">
-                        <img src={coachLogo} alt={coachBusinessName} className="h-10 w-auto object-contain rounded bg-transparent" />
-                        <span className="font-bold text-lg text-white tracking-tight italic truncate">{coachBusinessName}</span>
-                    </div>
+                    <div className="flex items-center gap-3 w-full"><img src={coachLogo} alt={coachBusinessName} className="h-10 w-auto object-contain rounded bg-transparent" /><span className="font-bold text-lg text-white tracking-tight italic truncate">{coachBusinessName}</span></div>
                 </div>
             )}
 

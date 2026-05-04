@@ -33,6 +33,7 @@ const Sidebar = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            // Buscamos los datos en la tabla profiles
             const { data } = await supabase
                 .from('profiles')
                 .select('business_name, logo_url, role, studio_id, plan') 
@@ -77,11 +78,8 @@ const Sidebar = () => {
         return true;
     });
 
-    // --- LÓGICA DE VISUALIZACIÓN DE MARCA BLANCA ---
     // Si no hay nombre de negocio en la BD, usamos 'FitLeader' por defecto
     const displayName = businessName || 'FitLeader';
-    // Sacamos la primera letra para el logo generado por defecto (ej: "M" de Manoliko)
-    const initialLetter = displayName.charAt(0).toUpperCase();
 
     return (
         <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
@@ -97,10 +95,12 @@ const Sidebar = () => {
                                 className="h-8 w-8 object-cover rounded-md bg-zinc-900 border border-zinc-800" 
                             />
                         ) : (
-                            // Si no hay logo subido, generamos un icono con la inicial del negocio
-                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500 text-black font-bold text-lg flex-shrink-0">
-                                {initialLetter}
-                            </div>
+                            // Recuperamos el logo original de FitLeader
+                            <img 
+                                src="/logo.png" 
+                                alt="FitLeader" 
+                                className="h-8 w-8 object-contain" 
+                            />
                         )}
                         <span 
                             className="text-xl font-bold tracking-tight text-white truncate" 

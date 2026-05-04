@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
     DollarSign, Download, Search, ArrowUpRight, ArrowDownRight, 
-    Clock, CheckCircle2, AlertCircle, Plus, X, Loader2, Calendar 
+    Clock, CheckCircle2, AlertCircle, Plus, X, Loader2, Calendar, CreditCard, Banknote
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -26,6 +26,8 @@ const Finance = () => {
     const [newConcept, setNewConcept] = useState('');
     const [newClientId, setNewClientId] = useState('');
     const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+    // NUEVO: Estado para el método de pago
+    const [newPaymentMethod, setNewPaymentMethod] = useState<'card' | 'cash'>('card');
 
     // 1. CARGAR DATOS (Pagos y Clientes)
     useEffect(() => {
@@ -58,7 +60,8 @@ const Finance = () => {
                 category: p.amount >= 0 ? 'Ingreso' : 'Gasto',
                 status: p.status === 'paid' ? 'Completado' : 'Pendiente',
                 amount: p.amount,
-                rawDate: new Date(p.date) // Para ordenar gráficas
+                rawDate: new Date(p.date), // Para ordenar gráficas
+                paymentMethod: p.payment_method || 'card' // Recuperamos el método de pago
             }));
             setTransactions(formatted);
         }
@@ -81,7 +84,9 @@ const Finance = () => {
             concept: newConcept,
             date: newDate,
             status: 'paid', // Por defecto pagado al crearlo manual
-            client_id: newType === 'income' && newClientId ? newClientId : null
+            client_id: newType === 'income' && newClientId ? newClientId : null,
+            // Guardamos el método de pago (asegúrate de tener esta columna en tu DB si quieres persistirlo a largo plazo)
+            // payment_method: newPaymentMethod  <-- Descomenta si creas la columna en Supabase
         };
 
         const { error } = await supabase.from('payments').insert([paymentData]);
@@ -91,7 +96,7 @@ const Finance = () => {
         } else {
             setShowModal(false);
             // Reset form
-            setNewAmount(''); setNewConcept(''); setNewClientId('');
+            setNewAmount(''); setNewConcept(''); setNewClientId(''); setNewPaymentMethod('card');
             fetchData(); // Recargar tabla
         }
         setIsSaving(false);
@@ -151,9 +156,9 @@ const Finance = () => {
 
     const handleExportCSV = () => {
         const separator = ";";
-        const headers = ["ID", "Fecha", "Descripción", "Categoría", "Estado", "Monto (€)"];
+        const headers = ["ID", "Fecha", "Descripción", "Categoría", "Estado", "Método", "Monto (€)"];
         const rows = filteredTransactions.map(t => [
-            t.id, t.date, `"${t.description}"`, t.category, t.status, t.amount.toFixed(2)
+            t.id, t.date, `"${t.description}"`, t.category, t.status, t.paymentMethod === 'cash' ? 'Efectivo' : 'Tarjeta', t.amount.toFixed(2)
         ].join(separator));
         const csvContent = [headers.join(separator), ...rows].join("\n");
         const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -274,16 +279,30 @@ const Finance = () => {
                     <div className="rounded-md border border-zinc-800 overflow-hidden">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-zinc-900 text-zinc-400 font-medium">
-                                <tr className="border-b border-zinc-800"><th className="p-4">Fecha</th><th className="p-4">Descripción</th><th className="p-4">Categoría</th><th className="p-4">Estado</th><th className="p-4 text-right">Monto</th></tr>
+                                <tr className="border-b border-zinc-800">
+                                    <th className="p-4">Fecha</th>
+                                    <th className="p-4">Descripción</th>
+                                    <th className="p-4 hidden sm:table-cell">Método</th>
+                                    <th className="p-4">Categoría</th>
+                                    <th className="p-4">Estado</th>
+                                    <th className="p-4 text-right">Monto</th>
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-800 text-zinc-300">
                                 {filteredTransactions.length === 0 ? (
-                                    <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No hay movimientos aún.</td></tr>
+                                    <tr><td colSpan={6} className="p-8 text-center text-zinc-500">No hay movimientos aún.</td></tr>
                                 ) : (
                                     filteredTransactions.map((t) => (
                                         <tr key={t.id} className="hover:bg-zinc-900/50">
                                             <td className="p-4 text-zinc-500">{t.date}</td>
                                             <td className="p-4 font-medium text-white">{t.description}</td>
+                                            <td className="p-4 hidden sm:table-cell">
+                                                {t.paymentMethod === 'cash' ? (
+                                                    <span className="flex items-center gap-1.5 text-zinc-400"><Banknote className="w-3.5 h-3.5"/> Efectivo</span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1.5 text-zinc-400"><CreditCard className="w-3.5 h-3.5"/> Tarjeta</span>
+                                                )}
+                                            </td>
                                             <td className="p-4"><span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${t.category === 'Ingreso' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{t.category === 'Ingreso' ? <ArrowUpRight className="w-3 h-3"/> : <ArrowDownRight className="w-3 h-3"/>} {t.category}</span></td>
                                             <td className="p-4"><span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border ${t.status === 'Completado' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{t.status === 'Completado' ? <CheckCircle2 className="w-3 h-3"/> : <AlertCircle className="w-3 h-3"/>} {t.status}</span></td>
                                             <td className={`p-4 text-right font-bold ${t.amount > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{t.amount > 0 ? '+' : ''}{t.amount} €</td>
@@ -320,13 +339,32 @@ const Finance = () => {
                             </div>
 
                             {newType === 'income' && (
-                                <div>
-                                    <label className="text-xs text-zinc-500 mb-1 block">Cliente (Opcional)</label>
-                                    <select value={newClientId} onChange={(e) => setNewClientId(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-md p-2 text-sm text-white outline-none focus:border-emerald-500">
-                                        <option value="">-- Seleccionar Cliente --</option>
-                                        {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
+                                <>
+                                    <div>
+                                        <label className="text-xs text-zinc-500 mb-1 block">Cliente (Opcional)</label>
+                                        <select value={newClientId} onChange={(e) => setNewClientId(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-md p-2 text-sm text-white outline-none focus:border-emerald-500">
+                                            <option value="">-- Seleccionar Cliente --</option>
+                                            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-zinc-500 mb-1 block">Método de Pago</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button 
+                                                onClick={() => setNewPaymentMethod('card')} 
+                                                className={`py-2 px-3 flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-all ${newPaymentMethod === 'card' ? 'bg-blue-500/10 border-blue-500 text-blue-400' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}
+                                            >
+                                                <CreditCard className="w-4 h-4" /> Tarjeta / Trans.
+                                            </button>
+                                            <button 
+                                                onClick={() => setNewPaymentMethod('cash')} 
+                                                className={`py-2 px-3 flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-all ${newPaymentMethod === 'cash' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}
+                                            >
+                                                <Banknote className="w-4 h-4" /> Efectivo
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
                             )}
 
                             <div>

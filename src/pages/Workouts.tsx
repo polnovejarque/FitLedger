@@ -4,8 +4,7 @@ import { supabase } from '../lib/supabase';
 import { 
     Search, Plus, Dumbbell, Calendar, 
     MoreVertical, Clock, 
-    LayoutGrid, List, Loader2
-} from 'lucide-react';
+    LayoutGrid, List, Loader2, Edit} from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
 const Workouts = () => {
@@ -38,8 +37,6 @@ const Workouts = () => {
         setIsLoading(false);
     };
 
-    // CORREGIDO: Usamos 'name' en lugar de 'title'
-    // Añadimos '?' y '|| ""' para evitar el crash si el nombre viene vacío
     const filteredRoutines = routines.filter(r => 
         (r.name || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -81,7 +78,6 @@ const Workouts = () => {
                                 <div className="absolute top-3 right-3 z-20 pointer-events-none"><span className="text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-md border border-white/10 bg-white/10 text-white">{routine.level || 'N/A'}</span></div>
                             </div>
                             <div className="p-5 flex-1 flex flex-col">
-                                {/* CORREGIDO: routine.name en lugar de routine.title */}
                                 <h3 className="text-lg font-bold text-white mb-1 group-hover:text-emerald-400 transition-colors">{routine.name}</h3>
                                 <p className="text-xs text-zinc-500 line-clamp-2 mb-4">{routine.description || 'Sin descripción'}</p>
                                 <div className="grid grid-cols-2 gap-2 text-xs text-zinc-400 mb-4">
@@ -100,7 +96,65 @@ const Workouts = () => {
                     </div>
                 </div>
             ) : (
-                <div>Vista de lista no implementada</div>
+                // --- VISTA DE LISTA IMPLEMENTADA ---
+                <div className="bg-[#111] border border-zinc-800 rounded-2xl overflow-hidden shadow-xl">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-zinc-900/50 text-xs uppercase text-zinc-500 font-medium">
+                            <tr>
+                                <th className="px-6 py-4">Rutina</th>
+                                <th className="px-6 py-4 hidden md:table-cell">Nivel</th>
+                                <th className="px-6 py-4 hidden sm:table-cell">Días / Sem</th>
+                                <th className="px-6 py-4 hidden sm:table-cell">Duración</th>
+                                <th className="px-6 py-4 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800">
+                            {filteredRoutines.length > 0 ? (
+                                filteredRoutines.map((routine) => (
+                                    <tr 
+                                        key={routine.id} 
+                                        onClick={() => navigate(`/dashboard/workouts/edit/${routine.id}`)}
+                                        className="hover:bg-zinc-900/50 transition-colors cursor-pointer group"
+                                    >
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-800">
+                                                    <img src={routine.image_url || "https://via.placeholder.com/100?text=R"} alt="Rutina" className="w-full h-full object-cover opacity-80" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-white group-hover:text-emerald-400 transition-colors">{routine.name}</p>
+                                                    <p className="text-xs text-zinc-500 line-clamp-1 max-w-[200px] md:max-w-xs">{routine.description || 'Sin descripción'}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 hidden md:table-cell">
+                                            <span className="text-xs font-bold px-2 py-1 rounded-full bg-zinc-800 text-zinc-300">
+                                                {routine.level || 'N/A'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 hidden sm:table-cell text-zinc-400">
+                                            <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {routine.days_per_week || '-'}</div>
+                                        </td>
+                                        <td className="px-6 py-4 hidden sm:table-cell text-zinc-400">
+                                            <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {routine.estimated_duration || '-'}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                                                <Edit className="w-4 h-4" />
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
+                                        No se encontraron rutinas.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </div>
     );

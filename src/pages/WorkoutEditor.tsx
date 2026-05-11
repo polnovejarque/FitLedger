@@ -52,6 +52,7 @@ const WorkoutEditor = () => {
     const [customExName, setCustomExName] = useState("");
     const [customExCategory, setCustomExCategory] = useState("General");
     const [customExVideoUrl, setCustomExVideoUrl] = useState("");
+    const [customExVideoFile, setCustomExVideoFile] = useState<File | null>(null); // NUEVO: Estado para archivo en modal
 
     useEffect(() => {
         const loadData = async () => {
@@ -88,6 +89,7 @@ const WorkoutEditor = () => {
                     if (exData) {
                         const formattedExercises = exData.map(e => ({
                             localId: e.id, 
+                            id: e.exercise_id_catalog || null, // Guardamos ID original si lo hubiera
                             name: e.exercise_name,
                             img: e.image_url,
                             day: parseInt(e.day_name.split(' ')[1]),
@@ -177,7 +179,8 @@ const WorkoutEditor = () => {
                     exercise_type: ex.exercise_type || 'reps',
                     time_duration: ex.exercise_type === 'time' ? ex.time_duration : null,
                     rest_time: ex.rest_time || "60s",
-                    notes: ex.notes || null
+                    notes: ex.notes || null,
+                    exercise_id_catalog: ex.id // Guardamos referencia para saber a qué original pertenecía
                 }));
                 await supabase.from('routine_exercises').insert(exercisesToSave);
             }
@@ -189,7 +192,7 @@ const WorkoutEditor = () => {
             }
         }
         setIsSaving(false);
-        navigate('/dashboard/workouts'); // <-- SOLUCIÓN APLICADA
+        navigate('/dashboard/workouts'); 
     };
 
     const handleDelete = async () => {
@@ -198,7 +201,7 @@ const WorkoutEditor = () => {
         setIsDeleting(true);
         const { error } = await supabase.from('routines').delete().eq('id', id);
         if (error) { alert("Error al borrar: " + error.message); setIsDeleting(false); } 
-        else navigate('/dashboard/workouts'); // <-- SOLUCIÓN APLICADA
+        else navigate('/dashboard/workouts');
     };
 
     const toggleClient = (clientId: number) => {
@@ -246,12 +249,26 @@ const WorkoutEditor = () => {
             return;
         }
 
+        let finalVideoUrl = customExVideoUrl;
+
+        // Si el usuario adjuntó un archivo, lo subimos
+        if (customExVideoFile) {
+            const fileName = `${Date.now()}_${Math.random()}.${customExVideoFile.name.split('.').pop()}`;
+            const { error: uploadErr } = await supabase.storage.from('Videos').upload(fileName, customExVideoFile);
+            if (!uploadErr) {
+                const { data: urlData } = supabase.storage.from('Videos').getPublicUrl(fileName);
+                finalVideoUrl = urlData.publicUrl;
+            } else {
+                alert("Hubo un error subiendo el archivo de vídeo, se guardará sin él.");
+            }
+        }
+
         const newExerciseData = {
             coach_id: user.id,
             name: customExName.trim(),
             category: customExCategory,
             image_url: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200",
-            video_url: customExVideoUrl || null
+            video_url: finalVideoUrl || null
         };
 
         const { data, error } = await supabase.from('exercises').insert([newExerciseData]).select().single();
@@ -265,24 +282,52 @@ const WorkoutEditor = () => {
         setCatalog([...catalog, formattedNewExercise]);
         await addExercise(formattedNewExercise);
 
+        // Reseteo
         setCustomExName("");
         setCustomExCategory("General");
         setCustomExVideoUrl("");
+        setCustomExVideoFile(null);
         setIsCreatingExercise(false);
     };
 
     const removeExercise = (localId: number) => setExercises(exercises.filter(e => e.localId !== localId));
     const updateExercise = (localId: number, field: string, value: any) => setExercises(exercises.map(ex => ex.localId === localId ? { ...ex, [field]: value } : ex));
     
-    const handleFileUpload = async (event: any, localId: number) => {
+    // --- LÓGICA DE SUBIDA DE VÍDEOS EN LA RUTINA CON MEMORIA GLOBAL ---
+    const handleFileUpload = async (event: any, localId: number, catalogId: any) => {
         const file = event.target.files[0]; if (!file) return; setUploadingId(localId);
         try {
             const fileName = `${Date.now()}_${Math.random()}.${file.name.split('.').pop()}`;
             const { error } = await supabase.storage.from('Videos').upload(fileName, file);
             if (error) throw error;
             const { data } = supabase.storage.from('Videos').getPublicUrl(fileName);
-            updateExercise(localId, 'video', data.publicUrl); alert("Vídeo subido ✅");
+            
+            // 1. Actualizamos la vista de la rutina
+            updateExercise(localId, 'video', data.publicUrl); 
+            
+            // 2. Si es un ejercicio personalizado, lo guardamos para siempre en el catálogo
+            if (typeof catalogId === 'string' && catalogId.startsWith('custom_')) {
+                const realDbId = catalogId.replace('custom_', '');
+                await supabase.from('exercises').update({ video_url: data.publicUrl }).eq('id', realDbId);
+                
+                // Actualizamos el catálogo en memoria para que no haya que recargar
+                setCatalog(prev => prev.map(c => c.id === catalogId ? { ...c, video: data.publicUrl } : c));
+            }
+
+            alert("Vídeo subido y enlazado al ejercicio ✅");
         } catch (error: any) { alert("Error: " + error.message); } finally { setUploadingId(null); }
+    };
+
+    const handleRemoveVideo = async (localId: number, catalogId: any) => {
+        if(!confirm("¿Quitar vídeo de este ejercicio permanentemente?")) return;
+        
+        updateExercise(localId, 'video', '');
+        
+        if (typeof catalogId === 'string' && catalogId.startsWith('custom_')) {
+            const realDbId = catalogId.replace('custom_', '');
+            await supabase.from('exercises').update({ video_url: null }).eq('id', realDbId);
+            setCatalog(prev => prev.map(c => c.id === catalogId ? { ...c, video: '' } : c));
+        }
     };
 
     const handleCreateBlock = () => {
@@ -373,16 +418,21 @@ const WorkoutEditor = () => {
                 <img src={ex.img} className="w-full h-full object-cover opacity-80" alt={ex.name} />
             </div>
             <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-sm text-white truncate">{ex.name}</h4>
+                {/* --- NUEVO: NOMBRE EDITABLE --- */}
+                <input 
+                    type="text" 
+                    value={ex.name} 
+                    onChange={(e) => updateExercise(ex.localId, 'name', e.target.value)}
+                    className="font-bold text-sm text-white bg-transparent border-b border-transparent focus:border-zinc-700 outline-none w-full truncate transition-colors"
+                    title="Clic para editar el nombre de este ejercicio"
+                />
+
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    
-                    {/* SETS */}
                     <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-white/5">
                         <span className="text-[9px] text-zinc-500 font-bold">SETS</span>
                         <input type="number" value={ex.sets} onChange={(e) => updateExercise(ex.localId, 'sets', Number(e.target.value))} className="w-6 bg-transparent text-white text-xs text-center font-bold outline-none" />
                     </div>
 
-                    {/* SELECTOR: REPS O TIEMPO */}
                     <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-emerald-500/30">
                         <select 
                             value={ex.exercise_type || 'reps'} 
@@ -399,7 +449,6 @@ const WorkoutEditor = () => {
                         )}
                     </div>
 
-                    {/* DESCANSO */}
                     <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-blue-500/30">
                         <Clock className="w-3 h-3 text-blue-500" />
                         <span className="text-[9px] text-blue-400 font-bold uppercase">Descanso</span>
@@ -425,11 +474,20 @@ const WorkoutEditor = () => {
                 </div>
 
             </div>
-            <div className="flex flex-col items-center gap-2">
-                <label className={`cursor-pointer p-2 rounded-lg transition-all ${ex.video ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-600 hover:text-white bg-zinc-800'}`}>
+            
+            <div className="flex flex-col items-center gap-2 relative">
+                <label className={`cursor-pointer p-2 rounded-lg transition-all ${ex.video ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-zinc-600 hover:text-white bg-zinc-800'}`} title={ex.video ? 'Sustituir vídeo' : 'Subir vídeo'}>
                     {uploadingId === ex.localId ? <Loader2 className="w-4 h-4 animate-spin"/> : ex.video ? <Video className="w-4 h-4"/> : <Upload className="w-4 h-4"/>}
-                    <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, ex.localId)} disabled={uploadingId === ex.localId}/>
+                    <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, ex.localId, ex.id)} disabled={uploadingId === ex.localId}/>
                 </label>
+                
+                {/* BOTÓN PARA BORRAR VÍDEO (X) */}
+                {ex.video && (
+                    <button onClick={() => handleRemoveVideo(ex.localId, ex.id)} className="absolute -top-2 -right-2 bg-zinc-900 border border-zinc-700 text-red-500 hover:bg-red-500/20 rounded-full p-0.5" title="Eliminar vídeo">
+                        <X className="w-3 h-3" />
+                    </button>
+                )}
+
                 <button onClick={() => removeExercise(ex.localId)} className="p-2 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4"/></button>
             </div>
         </div>
@@ -572,14 +630,30 @@ const WorkoutEditor = () => {
                         </div>
                         <div className="p-4 bg-[#111] border-b border-zinc-800">
                             <p className="text-xs text-zinc-400 mb-2 font-bold uppercase">¿No está en la lista? Crea uno nuevo:</p>
-                            <div className="grid grid-cols-1 gap-2">
+                            <div className="grid grid-cols-1 gap-3">
                                 <div className="flex gap-2">
                                     <input type="text" placeholder="Nombre (ej: Plancha)" value={customExName} onChange={(e) => setCustomExName(e.target.value)} className="flex-1 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500" />
                                     <select value={customExCategory} onChange={(e) => setCustomExCategory(e.target.value)} className="bg-black border border-zinc-700 rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-emerald-500"><option>General</option><option>Pierna</option><option>Pecho</option><option>Espalda</option><option>Hombro</option><option>Brazo</option><option>Cardio</option></select>
                                 </div>
-                                <input type="url" placeholder="URL del video (ej: https://youtu.be/...)" value={customExVideoUrl} onChange={(e) => setCustomExVideoUrl(e.target.value)} className="w-full bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500" />
-                                <div className="flex justify-end">
-                                    <Button onClick={createCustomExercise} disabled={isCreatingExercise} size="sm" className="bg-emerald-500 text-black font-bold hover:bg-emerald-400 min-w-[70px]">{isCreatingExercise ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Crear y Guardar'}</Button>
+                                
+                                {/* --- NUEVO: OPCIÓN PARA SUBIR VÍDEO O PEGAR URL AL CREAR --- */}
+                                <div className="flex gap-2 items-center">
+                                    <input type="url" placeholder="URL del video (opcional)" value={customExVideoUrl} onChange={(e) => setCustomExVideoUrl(e.target.value)} disabled={!!customExVideoFile} className="flex-1 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500 disabled:opacity-50" />
+                                    <span className="text-zinc-500 text-xs font-bold px-1">O</span>
+                                    <label className={`cursor-pointer border rounded-lg px-3 py-2 text-sm transition-colors flex items-center gap-2 max-w-[160px] ${customExVideoFile ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-800 border-zinc-700 text-white hover:border-emerald-500'}`}>
+                                        <Upload className="w-4 h-4 flex-shrink-0" /> 
+                                        <span className="truncate">{customExVideoFile ? customExVideoFile.name : 'Subir Vídeo'}</span>
+                                        <input type="file" accept="video/*" className="hidden" onChange={(e) => {
+                                            if(e.target.files && e.target.files[0]) setCustomExVideoFile(e.target.files[0]);
+                                        }} />
+                                    </label>
+                                    {customExVideoFile && (
+                                        <button onClick={() => setCustomExVideoFile(null)} className="text-red-500 hover:bg-red-500/10 p-1.5 rounded-full"><X className="w-4 h-4"/></button>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end mt-1">
+                                    <Button onClick={createCustomExercise} disabled={isCreatingExercise} size="sm" className="bg-emerald-500 text-black font-bold hover:bg-emerald-400 min-w-[120px]">{isCreatingExercise ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Crear y Guardar'}</Button>
                                 </div>
                             </div>
                         </div>

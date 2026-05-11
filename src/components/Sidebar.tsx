@@ -5,63 +5,64 @@ import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
 import { supabase } from '../lib/supabase';
 
+// Añadimos "studioOnly: true" a las funciones exclusivas del plan más alto
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-    { icon: Users, label: 'Clientes', path: '/clients' },
-    { icon: Dumbbell, label: 'Entrenamientos', path: '/workouts' },
-    { icon: Calendar, label: 'Agenda', path: '/agenda' },
-    { icon: DollarSign, label: 'Finanzas', path: '/finance', restricted: true },
-    { icon: BarChart3, label: 'Reportes', path: '/reports', restricted: true },
-    { icon: Shield, label: 'Mi Equipo', path: '/team', restricted: true, studioOnly: true },
-    { icon: Box, label: 'Inventario', path: '/inventory', restricted: true, studioOnly: true },
-    { icon: SettingsIcon, label: 'Configuración', path: '/settings', restricted: true },
+    { icon: Users, label: 'Clientes', path: '/dashboard/clients' },
+    { icon: Dumbbell, label: 'Entrenamientos', path: '/dashboard/workouts' },
+    { icon: Calendar, label: 'Agenda', path: '/dashboard/agenda' },
+    { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance', restricted: true },
+    { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports', restricted: true },
+    { icon: Shield, label: 'Mi Equipo', path: '/dashboard/team', restricted: true, studioOnly: true },
+    { icon: Box, label: 'Inventario', path: '/dashboard/inventory', restricted: true, studioOnly: true },
+    { icon: SettingsIcon, label: 'Configuración', path: '/dashboard/settings', restricted: true },
 ];
 
 const Sidebar = () => {
     const navigate = useNavigate();
     
-    const [businessName, setBusinessName] = useState<string | null>(null);
-    const [logoUrl, setLogoUrl] = useState<string | null>(null);
-    const [userRole, setUserRole] = useState('admin');
-    const [userPlan, setUserPlan] = useState('pro');
+    // Estados para la marca blanca
+    const [businessName, setBusinessName] = useState('FitLeader');
+    const [logoUrl, setLogoUrl] = useState('/logo.png');
 
+    // Estado para guardar el rol y el plan
+    const [userRole, setUserRole] = useState('admin');
+    const [userPlan, setUserPlan] = useState('pro'); // Por defecto asumimos que no es studio
+
+    // Cargar los datos del negocio, el ROL y el PLAN al iniciar
     useEffect(() => {
         const loadBusinessData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (user) {
+                // SOLUCIÓN: select('*') para evitar errores si la base de datos cambia
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('*') 
+                    .eq('id', user.id)
+                    .single();
+                
+                if (data) {
+                    setUserRole(data.role || 'admin');
+                    setUserPlan(data.plan || 'pro'); // Guardamos el plan que paga
 
-            // SOLUCIÓN: Usamos select('*') para evitar cuelgues por columnas faltantes
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*') 
-                .eq('id', user.id)
-                .single();
-            
-            if (error) {
-                console.error("Error al cargar el Sidebar:", error.message);
-                return;
-            }
-            
-            if (data) {
-                setUserRole(data.role || 'admin');
-                setUserPlan(data.plan || 'pro');
-
-                if (data.role === 'staff' && data.studio_id) {
-                    // Si es empleado, buscamos a su jefe con select('*') también
-                    const { data: studioData } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', data.studio_id)
-                        .single();
-                        
-                    if (studioData) {
-                        setBusinessName(studioData.business_name);
-                        setLogoUrl(studioData.logo_url);
+                    // LÓGICA DE MARCA BLANCA INTELIGENTE
+                    if (data.role === 'staff' && data.studio_id) {
+                        // Si es empleado, buscamos cómo se llama el centro de su jefe
+                        const { data: studioData } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', data.studio_id)
+                            .single();
+                            
+                        if (studioData) {
+                            setBusinessName(studioData.business_name || 'FitLeader');
+                            setLogoUrl(studioData.logo_url || '/logo.png');
+                        }
+                    } else {
+                        // Si es el dueño, pintamos sus propios datos
+                        if (data.business_name) setBusinessName(data.business_name);
+                        if (data.logo_url) setLogoUrl(data.logo_url);
                     }
-                } else {
-                    // Si es el dueño, pintamos sus datos
-                    setBusinessName(data.business_name);
-                    setLogoUrl(data.logo_url);
                 }
             }
         };
@@ -73,40 +74,38 @@ const Sidebar = () => {
         navigate('/'); 
     };
 
+    // EL PORTERO INTELIGENTE: Filtramos el menú según el ROL y el PLAN
     const visibleNavItems = navItems.filter(item => {
-        if (userRole === 'staff' && item.restricted) return false;
-        if (item.studioOnly && userPlan !== 'studio') return false;
+        // 1. Si es empleado (staff), ocultamos las cosas de dueños (restricted)
+        if (userRole === 'staff' && item.restricted) {
+            return false;
+        }
+        
+        // 2. Si es una función exclusiva de Studio, ocultarla a los demás planes
+        if (item.studioOnly && userPlan !== 'studio') {
+            return false;
+        }
+
         return true;
     });
 
-    const displayName = businessName || 'FitLeader';
-
     return (
-        <aside className="h-screen w-64 bg-black border-r border-zinc-800 flex flex-col">
-            <div className="flex h-full flex-col px-4 py-6">
+        <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
+            <div className="flex h-full flex-col px-3 py-4">
                 
                 {/* --- LOGO Y MARCA DINÁMICOS --- */}
-                <div className="mb-8 px-2 flex items-center">
+                <div className="mb-8 flex items-center px-2">
                     <Link to="/dashboard" className="flex items-center gap-3 w-full">
-                        {logoUrl ? (
-                            <img 
-                                src={logoUrl} 
-                                alt={displayName} 
-                                className="h-8 w-auto max-w-[40px] object-contain rounded" 
-                            />
-                        ) : (
-                            // Recuperamos el logo original de FitLeader por defecto
-                            <img 
-                                src="/logo.png" 
-                                alt="FitLeader" 
-                                className="h-8 w-8 object-contain" 
-                            />
-                        )}
+                        <img 
+                            src={logoUrl} 
+                            alt={businessName} 
+                            className="h-8 w-8 object-contain rounded-md bg-transparent" 
+                        />
                         <span 
-                            className="text-xl font-bold tracking-tight text-white truncate" 
-                            title={displayName}
+                            className="text-xl font-bold tracking-tight text-foreground truncate" 
+                            title={businessName}
                         >
-                            {displayName}
+                            {businessName}
                         </span>
                     </Link>
                 </div>
@@ -116,12 +115,13 @@ const Sidebar = () => {
                         <NavLink
                             key={item.path}
                             to={item.path}
+                            end={item.path === '/dashboard'} /* ¡AQUÍ ESTÁ LA SOLUCIÓN! */
                             className={({ isActive }) =>
                                 cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-200",
+                                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                                     isActive
-                                        ? "bg-zinc-900 text-white"
-                                        : "text-zinc-400 hover:bg-zinc-900/50 hover:text-white"
+                                        ? "bg-accent text-accent-foreground"
+                                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                                 )
                             }
                         >
@@ -131,11 +131,11 @@ const Sidebar = () => {
                     ))}
                 </nav>
 
-                <div className="mt-auto border-t border-zinc-800 pt-4">
+                <div className="mt-auto border-t border-border pt-4">
                     <Button 
                         variant="ghost" 
                         onClick={handleLogout} 
-                        className="w-full justify-start gap-3 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-200"
+                        className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive transition-colors"
                     >
                         <LogOut className="h-5 w-5" />
                         Cerrar Sesión

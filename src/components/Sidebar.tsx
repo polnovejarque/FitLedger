@@ -84,7 +84,7 @@ const Sidebar = () => {
     const displayName = businessName || 'FitLeader';
 
     return (
-        <aside className="h-screen w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col rounded-r-3xl">
+        <aside className="h-screen w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
             <div className="flex h-full flex-col px-6 py-8">
                 
                 {/* --- LOGO Y MARCA DINÁMICOS --- */}
@@ -120,7 +120,7 @@ const Sidebar = () => {
                             to={item.path}
                             className={({ isActive }) =>
                                 cn(
-                                    "flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 backdrop-blur-xl",
+                                    "flex items-center gap-4 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200",
                                     isActive
                                         ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
                                         : "text-zinc-400 hover:bg-zinc-800 hover:text-white border border-transparent hover:border-zinc-700"

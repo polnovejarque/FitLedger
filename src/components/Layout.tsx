@@ -28,7 +28,7 @@ const Layout = () => {
             {/* Mobile Overlay - Only show when sidebar is open */}
             {sidebarOpen && (
                 <div
-                    className="md:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-40"
+                    className="md:hidden fixed inset-0 bg-black/80 z-40"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
@@ -36,7 +36,7 @@ const Layout = () => {
             {/* Sidebar Wrapper - Controls visibility */}
             <aside className={cn(
                 "fixed inset-y-0 left-0 w-64 z-50 transition-transform duration-300 ease-in-out",
-                "bg-zinc-900 border-r border-zinc-800 shadow-2xl rounded-r-3xl",
+                "bg-zinc-900 border-r border-zinc-800",
                 // Mobile: slide in/out
                 sidebarOpen ? "translate-x-0" : "-translate-x-full",
                 // Desktop: always visible

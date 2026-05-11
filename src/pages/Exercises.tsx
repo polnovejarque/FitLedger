@@ -109,7 +109,7 @@ const Exercises = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredExercises.map((exercise) => (
-            <Card key={exercise.id} className="bg-zinc-900 border-zinc-800 rounded-3xl p-6 backdrop-blur-xl">
+            <Card key={exercise.id} className="bg-[#111] border border-zinc-800 rounded-xl p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center">
                   <Dumbbell className="text-emerald-500 mr-3" size={24} />
@@ -154,8 +154,8 @@ const Exercises = () => {
         </div>
 
         {(showCreateModal || editingExercise) && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <Card className="bg-zinc-900 border-zinc-800 rounded-3xl p-8 w-full max-w-md">
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <Card className="bg-[#111] border border-zinc-800 rounded-xl p-8 w-full max-w-md">
               <h2 className="text-2xl font-bold mb-6 text-white">
                 {editingExercise ? 'Editar Ejercicio' : 'Nuevo Ejercicio'}
               </h2>

@@ -224,7 +224,7 @@ const Clients = () => {
             </div>
 
             {/* TABLA DE CLIENTES */}
-            <div className="bg-[#111] border border-zinc-800 rounded-2xl overflow-visible shadow-xl">
+            <div className="bg-[#111] border border-zinc-800 rounded-2xl overflow-visible">
                 <table className="w-full text-left">
                     <thead className="bg-zinc-900/50 text-xs uppercase text-zinc-500 font-medium">
                         <tr>
@@ -302,7 +302,7 @@ const Clients = () => {
                                             </Button>
 
                                             {openMenuId === client.id && (
-                                                <div className="absolute right-0 top-full mt-2 w-48 bg-[#18181b] border border-zinc-700 rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in-95 overflow-hidden">
+                                                <div className="absolute right-0 top-full mt-2 w-48 bg-[#18181b] border border-zinc-700 rounded-lg z-50 animate-in fade-in zoom-in-95 overflow-hidden">
                                                     <div className="p-1">
                                                         <button 
                                                             className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white rounded flex items-center gap-2 transition-colors"
@@ -336,8 +336,8 @@ const Clients = () => {
 
             {/* MODAL NUEVO CLIENTE */}
             {showNewClientModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-[#111] border border-zinc-800 w-full max-w-md rounded-2xl p-6 relative shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
+                    <div className="bg-[#111] border border-zinc-800 w-full max-w-md rounded-2xl p-6 relative shadow animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
                         <button onClick={() => setShowNewClientModal(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white"><X className="w-6 h-6" /></button>
                         <h2 className="text-xl font-bold text-white mb-6">Añadir Nuevo Cliente</h2>
                         <div className="space-y-4">

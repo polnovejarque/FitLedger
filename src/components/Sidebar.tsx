@@ -30,7 +30,7 @@ const Sidebar = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // SOLUCIÓN: Usamos select('*') igual que en Settings para evitar cuelgues por columnas faltantes
+            // SOLUCIÓN: Usamos select('*') para evitar cuelgues por columnas faltantes
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*') 
@@ -79,32 +79,31 @@ const Sidebar = () => {
         return true;
     });
 
-    // Filtro visual
     const displayName = businessName || 'FitLeader';
 
     return (
-        <aside className="h-screen w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col rounded-r-3xl">
-            <div className="flex h-full flex-col px-6 py-8">
+        <aside className="h-screen w-64 bg-black border-r border-zinc-800 flex flex-col">
+            <div className="flex h-full flex-col px-4 py-6">
                 
                 {/* --- LOGO Y MARCA DINÁMICOS --- */}
-                <div className="mb-12 flex items-center">
-                    <Link to="/dashboard" className="flex items-center gap-4 w-full">
+                <div className="mb-8 px-2 flex items-center">
+                    <Link to="/dashboard" className="flex items-center gap-3 w-full">
                         {logoUrl ? (
                             <img 
                                 src={logoUrl} 
                                 alt={displayName} 
-                                className="h-10 w-10 object-cover rounded-xl bg-zinc-800 border border-zinc-700" 
+                                className="h-8 w-auto max-w-[40px] object-contain rounded" 
                             />
                         ) : (
                             // Recuperamos el logo original de FitLeader por defecto
                             <img 
                                 src="/logo.png" 
                                 alt="FitLeader" 
-                                className="h-10 w-10 object-contain" 
+                                className="h-8 w-8 object-contain" 
                             />
                         )}
                         <span 
-                            className="text-2xl font-bold tracking-tight text-white truncate" 
+                            className="text-xl font-bold tracking-tight text-white truncate" 
                             title={displayName}
                         >
                             {displayName}
@@ -112,17 +111,17 @@ const Sidebar = () => {
                     </Link>
                 </div>
 
-                <nav className="flex-1 space-y-2">
+                <nav className="flex-1 space-y-1">
                     {visibleNavItems.map((item) => (
                         <NavLink
                             key={item.path}
                             to={item.path}
                             className={({ isActive }) =>
                                 cn(
-                                    "flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 backdrop-blur-xl",
+                                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-200",
                                     isActive
-                                        ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
-                                        : "text-zinc-400 hover:bg-zinc-800 hover:text-white border border-transparent hover:border-zinc-700"
+                                        ? "bg-zinc-900 text-white"
+                                        : "text-zinc-400 hover:bg-zinc-900/50 hover:text-white"
                                 )
                             }
                         >
@@ -132,11 +131,11 @@ const Sidebar = () => {
                     ))}
                 </nav>
 
-                <div className="mt-auto border-t border-zinc-800 pt-6">
+                <div className="mt-auto border-t border-zinc-800 pt-4">
                     <Button 
                         variant="ghost" 
                         onClick={handleLogout} 
-                        className="w-full justify-start gap-4 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-2xl px-4 py-3 transition-all duration-200"
+                        className="w-full justify-start gap-3 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors duration-200"
                     >
                         <LogOut className="h-5 w-5" />
                         Cerrar Sesión

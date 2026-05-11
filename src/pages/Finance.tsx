@@ -173,7 +173,9 @@ const Finance = () => {
     if (loading && transactions.length === 0) return <div className="flex h-screen items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin"/></div>;
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+        // AÑADIDO: p-8 para dar margen general a toda la pantalla
+        <div className="p-8 space-y-8 animate-in fade-in duration-500 pb-10 max-w-7xl mx-auto">
+            
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -191,8 +193,8 @@ const Finance = () => {
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="bg-emerald-500/10 border-emerald-500/20">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="bg-emerald-500/5 border-emerald-500/20">
                     <CardContent className="p-6">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-emerald-500/20 rounded-full text-emerald-500"><DollarSign className="w-6 h-6" /></div>
@@ -200,7 +202,7 @@ const Finance = () => {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="bg-amber-500/10 border-amber-500/20">
+                <Card className="bg-amber-500/5 border-amber-500/20">
                     <CardContent className="p-6">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-amber-500/20 rounded-full text-amber-500"><Clock className="w-6 h-6" /></div>
@@ -208,7 +210,7 @@ const Finance = () => {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="bg-blue-500/10 border-blue-500/20">
+                <Card className="bg-blue-500/5 border-blue-500/20">
                     <CardContent className="p-6">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-blue-500/20 rounded-full text-blue-500"><ArrowUpRight className="w-6 h-6" /></div>
@@ -219,13 +221,16 @@ const Finance = () => {
             </div>
 
             {/* GRÁFICOS */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-2 bg-[#111] border-zinc-800">
-                    <CardHeader><CardTitle className="text-white">Flujo de Caja</CardTitle><CardDescription>Ingresos vs Gastos reales.</CardDescription></CardHeader>
-                    <CardContent className="pl-0">
+                    <CardHeader className="p-6 pb-2">
+                        <CardTitle className="text-white">Flujo de Caja</CardTitle>
+                        <CardDescription>Ingresos vs Gastos reales.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pl-0 pb-6 pr-6 pt-4">
                         <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={processChartData()} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <AreaChart data={processChartData()} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
                                         <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient>
@@ -243,8 +248,11 @@ const Finance = () => {
                 </Card>
 
                 <Card className="bg-[#111] border-zinc-800">
-                    <CardHeader><CardTitle className="text-white">Gastos</CardTitle><CardDescription>Distribución por concepto.</CardDescription></CardHeader>
-                    <CardContent>
+                    <CardHeader className="p-6 pb-2">
+                        <CardTitle className="text-white">Gastos</CardTitle>
+                        <CardDescription>Distribución por concepto.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-4">
                         <div className="h-[300px] w-full flex justify-center items-center">
                             {transactions.some(t => t.amount < 0) ? (
                                 <ResponsiveContainer width="100%" height="100%">
@@ -265,27 +273,27 @@ const Finance = () => {
             </div>
 
             {/* TABLA */}
-            <Card className="bg-[#111] border-zinc-800">
-                <CardHeader>
+            <Card className="bg-[#111] border-zinc-800 overflow-hidden">
+                <CardHeader className="p-6 border-b border-zinc-800/50">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-white">Movimientos</CardTitle>
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
-                            <Input placeholder="Buscar..." className="pl-9 bg-zinc-900 border-zinc-700 text-white w-64" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            <Input placeholder="Buscar..." className="pl-9 bg-black border-zinc-800 text-white w-64 rounded-lg focus-visible:ring-emerald-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border border-zinc-800 overflow-hidden">
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-zinc-900 text-zinc-400 font-medium">
-                                <tr className="border-b border-zinc-800">
-                                    <th className="p-4">Fecha</th>
-                                    <th className="p-4">Descripción</th>
-                                    <th className="p-4 hidden sm:table-cell">Método</th>
-                                    <th className="p-4">Categoría</th>
-                                    <th className="p-4">Estado</th>
-                                    <th className="p-4 text-right">Monto</th>
+                            <thead className="bg-black/50 text-zinc-400 font-medium">
+                                <tr>
+                                    <th className="p-4 px-6">Fecha</th>
+                                    <th className="p-4 px-6">Descripción</th>
+                                    <th className="p-4 px-6 hidden sm:table-cell">Método</th>
+                                    <th className="p-4 px-6">Categoría</th>
+                                    <th className="p-4 px-6">Estado</th>
+                                    <th className="p-4 px-6 text-right">Monto</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-800 text-zinc-300">
@@ -293,19 +301,19 @@ const Finance = () => {
                                     <tr><td colSpan={6} className="p-8 text-center text-zinc-500">No hay movimientos aún.</td></tr>
                                 ) : (
                                     filteredTransactions.map((t) => (
-                                        <tr key={t.id} className="hover:bg-zinc-900/50">
-                                            <td className="p-4 text-zinc-500">{t.date}</td>
-                                            <td className="p-4 font-medium text-white">{t.description}</td>
-                                            <td className="p-4 hidden sm:table-cell">
+                                        <tr key={t.id} className="hover:bg-zinc-900/50 transition-colors">
+                                            <td className="p-4 px-6 text-zinc-500">{t.date}</td>
+                                            <td className="p-4 px-6 font-medium text-white">{t.description}</td>
+                                            <td className="p-4 px-6 hidden sm:table-cell">
                                                 {t.paymentMethod === 'cash' ? (
                                                     <span className="flex items-center gap-1.5 text-zinc-400"><Banknote className="w-3.5 h-3.5"/> Efectivo</span>
                                                 ) : (
                                                     <span className="flex items-center gap-1.5 text-zinc-400"><CreditCard className="w-3.5 h-3.5"/> Tarjeta</span>
                                                 )}
                                             </td>
-                                            <td className="p-4"><span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs ${t.category === 'Ingreso' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{t.category === 'Ingreso' ? <ArrowUpRight className="w-3 h-3"/> : <ArrowDownRight className="w-3 h-3"/>} {t.category}</span></td>
-                                            <td className="p-4"><span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border ${t.status === 'Completado' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{t.status === 'Completado' ? <CheckCircle2 className="w-3 h-3"/> : <AlertCircle className="w-3 h-3"/>} {t.status}</span></td>
-                                            <td className={`p-4 text-right font-bold ${t.amount > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{t.amount > 0 ? '+' : ''}{t.amount} €</td>
+                                            <td className="p-4 px-6"><span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${t.category === 'Ingreso' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{t.category === 'Ingreso' ? <ArrowUpRight className="w-3 h-3"/> : <ArrowDownRight className="w-3 h-3"/>} {t.category}</span></td>
+                                            <td className="p-4 px-6"><span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${t.status === 'Completado' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{t.status === 'Completado' ? <CheckCircle2 className="w-3 h-3"/> : <AlertCircle className="w-3 h-3"/>} {t.status}</span></td>
+                                            <td className={`p-4 px-6 text-right font-bold ${t.amount > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{t.amount > 0 ? '+' : ''}{t.amount} €</td>
                                         </tr>
                                     ))
                                 )}
@@ -317,7 +325,7 @@ const Finance = () => {
 
             {/* MODAL NUEVO MOVIMIENTO */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-[#111] border border-zinc-800 w-full max-w-md rounded-2xl p-6 relative shadow-2xl animate-in zoom-in-95">
                         <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                         <h2 className="text-xl font-bold text-white mb-6">Registrar Movimiento</h2>
@@ -329,36 +337,36 @@ const Finance = () => {
                             </div>
 
                             <div>
-                                <label className="text-xs text-zinc-500 mb-1 block">Importe (€)</label>
-                                <Input type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="0.00" className="bg-zinc-900 border-zinc-700 text-white" />
+                                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Importe (€)</label>
+                                <Input type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="0.00" className="bg-black border-zinc-800 text-white focus-visible:ring-emerald-500" />
                             </div>
 
                             <div>
-                                <label className="text-xs text-zinc-500 mb-1 block">Concepto</label>
-                                <Input type="text" value={newConcept} onChange={(e) => setNewConcept(e.target.value)} placeholder={newType === 'income' ? "Ej: Mensualidad Febrero" : "Ej: Alquiler Estudio"} className="bg-zinc-900 border-zinc-700 text-white" />
+                                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Concepto</label>
+                                <Input type="text" value={newConcept} onChange={(e) => setNewConcept(e.target.value)} placeholder={newType === 'income' ? "Ej: Mensualidad Febrero" : "Ej: Alquiler Estudio"} className="bg-black border-zinc-800 text-white focus-visible:ring-emerald-500" />
                             </div>
 
                             {newType === 'income' && (
                                 <>
                                     <div>
-                                        <label className="text-xs text-zinc-500 mb-1 block">Cliente (Opcional)</label>
-                                        <select value={newClientId} onChange={(e) => setNewClientId(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-md p-2 text-sm text-white outline-none focus:border-emerald-500">
+                                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Cliente (Opcional)</label>
+                                        <select value={newClientId} onChange={(e) => setNewClientId(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-md p-2.5 text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
                                             <option value="">-- Seleccionar Cliente --</option>
                                             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-zinc-500 mb-1 block">Método de Pago</label>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Método de Pago</label>
+                                        <div className="grid grid-cols-2 gap-3">
                                             <button 
                                                 onClick={() => setNewPaymentMethod('card')} 
-                                                className={`py-2 px-3 flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-all ${newPaymentMethod === 'card' ? 'bg-blue-500/10 border-blue-500 text-blue-400' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}
+                                                className={`py-2 px-3 flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-all ${newPaymentMethod === 'card' ? 'bg-blue-500/10 border-blue-500 text-blue-400' : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-500'}`}
                                             >
                                                 <CreditCard className="w-4 h-4" /> Tarjeta / Trans.
                                             </button>
                                             <button 
                                                 onClick={() => setNewPaymentMethod('cash')} 
-                                                className={`py-2 px-3 flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-all ${newPaymentMethod === 'cash' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}
+                                                className={`py-2 px-3 flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-all ${newPaymentMethod === 'cash' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-500'}`}
                                             >
                                                 <Banknote className="w-4 h-4" /> Efectivo
                                             </button>
@@ -368,14 +376,14 @@ const Finance = () => {
                             )}
 
                             <div>
-                                <label className="text-xs text-zinc-500 mb-1 block">Fecha</label>
+                                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Fecha</label>
                                 <div className="relative">
                                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"/>
-                                    <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="pl-9 bg-zinc-900 border-zinc-700 text-white" />
+                                    <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="pl-9 bg-black border-zinc-800 text-white focus-visible:ring-emerald-500" />
                                 </div>
                             </div>
 
-                            <Button onClick={handleSaveTransaction} disabled={isSaving} className="w-full bg-white text-black font-bold hover:bg-zinc-200 mt-2">
+                            <Button onClick={handleSaveTransaction} disabled={isSaving} className="w-full bg-white text-black font-bold hover:bg-zinc-200 mt-4 h-11">
                                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : "Guardar Movimiento"}
                             </Button>
                         </div>

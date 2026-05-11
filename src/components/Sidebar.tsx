@@ -7,14 +7,14 @@ import { supabase } from '../lib/supabase';
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-    { icon: Users, label: 'Clientes', path: '/dashboard/clients' },
-    { icon: Dumbbell, label: 'Entrenamientos', path: '/dashboard/workouts' },
-    { icon: Calendar, label: 'Agenda', path: '/dashboard/agenda' },
-    { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance', restricted: true },
-    { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports', restricted: true },
-    { icon: Shield, label: 'Mi Equipo', path: '/dashboard/team', restricted: true, studioOnly: true },
-    { icon: Box, label: 'Inventario', path: '/dashboard/inventory', restricted: true, studioOnly: true },
-    { icon: SettingsIcon, label: 'Configuración', path: '/dashboard/settings', restricted: true },
+    { icon: Users, label: 'Clientes', path: '/clients' },
+    { icon: Dumbbell, label: 'Entrenamientos', path: '/workouts' },
+    { icon: Calendar, label: 'Agenda', path: '/agenda' },
+    { icon: DollarSign, label: 'Finanzas', path: '/finance', restricted: true },
+    { icon: BarChart3, label: 'Reportes', path: '/reports', restricted: true },
+    { icon: Shield, label: 'Mi Equipo', path: '/team', restricted: true, studioOnly: true },
+    { icon: Box, label: 'Inventario', path: '/inventory', restricted: true, studioOnly: true },
+    { icon: SettingsIcon, label: 'Configuración', path: '/settings', restricted: true },
 ];
 
 const Sidebar = () => {

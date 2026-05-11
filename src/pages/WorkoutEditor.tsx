@@ -5,7 +5,7 @@ import {
     Save, X, Plus, Trash2, Dumbbell, 
     ChevronLeft, Layout, Calendar, Clock,
     Search, Loader2, Upload, Video, Users, CheckCircle, Signal,
-    ChevronDown, ChevronUp, Layers, User, GripVertical
+    ChevronDown, ChevronUp, Layers, User, GripVertical, AlignLeft
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -98,7 +98,8 @@ const WorkoutEditor = () => {
                             block_name: e.block_name || null,
                             exercise_type: e.exercise_type || 'reps',
                             time_duration: e.time_duration || "",
-                            rest_time: e.rest_time || "60s"
+                            rest_time: e.rest_time || "60s",
+                            notes: e.notes || "" // RECUPERAMOS LA NOTA
                         }));
                         setExercises(formattedExercises);
                         
@@ -175,7 +176,8 @@ const WorkoutEditor = () => {
                     block_name: ex.block_name,
                     exercise_type: ex.exercise_type || 'reps',
                     time_duration: ex.exercise_type === 'time' ? ex.time_duration : null,
-                    rest_time: ex.rest_time || "60s"
+                    rest_time: ex.rest_time || "60s",
+                    notes: ex.notes || null // GUARDAMOS LA NOTA
                 }));
                 await supabase.from('routine_exercises').insert(exercisesToSave);
             }
@@ -187,7 +189,7 @@ const WorkoutEditor = () => {
             }
         }
         setIsSaving(false);
-        navigate('/dashboard/workouts'); 
+        navigate('/workouts'); 
     };
 
     const handleDelete = async () => {
@@ -196,7 +198,7 @@ const WorkoutEditor = () => {
         setIsDeleting(true);
         const { error } = await supabase.from('routines').delete().eq('id', id);
         if (error) { alert("Error al borrar: " + error.message); setIsDeleting(false); } 
-        else navigate('/dashboard/workouts');
+        else navigate('/workouts');
     };
 
     const toggleClient = (clientId: number) => {
@@ -228,7 +230,8 @@ const WorkoutEditor = () => {
             block_name: targetBlockName,
             exercise_type: 'reps',
             time_duration: "",
-            rest_time: "60s"
+            rest_time: "60s",
+            notes: "" // ESTADO INICIAL DE LA NOTA
         }]);
         setShowCatalog(false);
         setTargetBlockName(null);
@@ -396,7 +399,7 @@ const WorkoutEditor = () => {
                         )}
                     </div>
 
-                    {/* DESCANSO ENTRE SERIES AHORA CON TEXTO EXPLÍCITO */}
+                    {/* DESCANSO */}
                     <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-blue-500/30">
                         <Clock className="w-3 h-3 text-blue-500" />
                         <span className="text-[9px] text-blue-400 font-bold uppercase">Descanso</span>
@@ -409,8 +412,21 @@ const WorkoutEditor = () => {
                         <input type="text" value={ex.rir} onChange={(e) => updateExercise(ex.localId, 'rir', e.target.value)} className="w-6 bg-transparent text-white text-xs text-center font-bold outline-none" />
                     </div>
                 </div>
+
+                {/* --- NUEVO CAMPO DE NOTAS DEL COACH --- */}
+                <div className="w-full mt-2 bg-black/20 rounded border border-zinc-800 flex items-center px-2 py-1.5 focus-within:border-emerald-500 transition-colors">
+                    <AlignLeft className="w-3.5 h-3.5 text-zinc-500 mr-2 flex-shrink-0" />
+                    <input 
+                        type="text" 
+                        placeholder="Añadir nota al atleta (opcional)..." 
+                        value={ex.notes || ''} 
+                        onChange={(e) => updateExercise(ex.localId, 'notes', e.target.value)}
+                        className="bg-transparent text-[11px] text-zinc-300 w-full outline-none placeholder:text-zinc-600"
+                    />
+                </div>
+
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center gap-2">
                 <label className={`cursor-pointer p-2 rounded-lg transition-all ${ex.video ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-600 hover:text-white bg-zinc-800'}`}>
                     {uploadingId === ex.localId ? <Loader2 className="w-4 h-4 animate-spin"/> : ex.video ? <Video className="w-4 h-4"/> : <Upload className="w-4 h-4"/>}
                     <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, ex.localId)} disabled={uploadingId === ex.localId}/>
@@ -436,7 +452,7 @@ const WorkoutEditor = () => {
         <div className="p-8 w-full max-w-7xl mx-auto min-h-screen text-white font-sans">
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" onClick={() => navigate('/dashboard/workouts')}><ChevronLeft className="w-5 h-5 text-zinc-500" /></Button>
+                    <Button variant="ghost" onClick={() => navigate('/workouts')}><ChevronLeft className="w-5 h-5 text-zinc-500" /></Button>
                     <div>
                         <h1 className="text-2xl font-bold text-white">{id ? "Editar Rutina" : "Nueva Rutina"}</h1>
                         <p className="text-zinc-400 text-sm">{id ? "Modifica los detalles existentes." : "Configura los detalles y asigna atletas."}</p>
@@ -448,7 +464,7 @@ const WorkoutEditor = () => {
                             {isDeleting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Trash2 className="w-4 h-4"/>}
                         </Button>
                     )}
-                    <Button variant="outline" onClick={() => navigate('/dashboard/workouts')} className="border-zinc-800 text-zinc-400 hover:text-white">Cancelar</Button>
+                    <Button variant="outline" onClick={() => navigate('/workouts')} className="border-zinc-800 text-zinc-400 hover:text-white">Cancelar</Button>
                     <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-500 text-black font-bold hover:bg-emerald-600 min-w-[140px]">
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <Save className="w-4 h-4 mr-2" />} Guardar Rutina
                     </Button>

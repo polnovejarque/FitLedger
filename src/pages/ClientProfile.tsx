@@ -46,8 +46,10 @@ const ClientProfile = () => {
     
     // --- NUEVOS ESTADOS: PLANIFICACIÓN SEMANAL ---
     const [coachRoutines, setCoachRoutines] = useState<any[]>([]);
+    const [assignedRoutines, setAssignedRoutines] = useState<any[]>([]);
     const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
     const [assigningDay, setAssigningDay] = useState<number | null>(null); // Controla el modal de asignar rutina
+    const [assignRoutinesModalOpen, setAssignRoutinesModalOpen] = useState(false);
 
     // UI
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -136,7 +138,24 @@ const ClientProfile = () => {
                     if (routinesData) setCoachRoutines(routinesData);
                 }
 
-                // 4. Cargar la Planificación Semanal actual del cliente
+                // 4. Cargar las rutinas ya permitidas para este cliente
+                const { data: assignedData } = await supabase
+                    .from('client_assigned_routines')
+                    .select('routine_id')
+                    .eq('client_id', id);
+
+                const assignedRoutineIds = assignedData?.map((item: any) => item.routine_id) || [];
+                if (assignedRoutineIds.length > 0) {
+                    const { data: assignedRoutinesData } = await supabase
+                        .from('routines')
+                        .select('id, name, level')
+                        .in('id', assignedRoutineIds);
+                    if (assignedRoutinesData) setAssignedRoutines(assignedRoutinesData);
+                } else {
+                    setAssignedRoutines([]);
+                }
+
+                // 5. Cargar la Planificación Semanal actual del cliente
                 const { data: planData } = await supabase
                     .from('client_weekly_plan')
                     .select('id, day_of_week, routine_id, routines(name)')
@@ -170,6 +189,36 @@ const ClientProfile = () => {
             setWeeklyPlan([...weeklyPlan, data]);
             setAssigningDay(null); // Cerramos el modal
             addToast('Rutina asignada al plan', 'success');
+        }
+    };
+
+    const handleAssignRoutineToClient = async (routineId: number) => {
+        if (!id) return;
+        if (assignedRoutines.some(r => r.id === routineId)) return;
+
+        const routine = coachRoutines.find(r => r.id === routineId);
+        const { error } = await supabase.from('client_assigned_routines').insert([{ client_id: id, routine_id: routineId }]);
+
+        if (error) {
+            addToast('Error al asignar rutina al cliente', 'error');
+            console.error(error);
+            return;
+        }
+
+        if (routine) {
+            setAssignedRoutines([...assignedRoutines, routine]);
+        }
+
+        addToast('Rutina permitida guardada', 'success');
+    };
+
+    const handleRemoveAssignedRoutine = async (routineId: number) => {
+        const { error } = await supabase.from('client_assigned_routines').delete().eq('client_id', id).eq('routine_id', routineId);
+        if (!error) {
+            setAssignedRoutines(assignedRoutines.filter(r => r.id !== routineId));
+            addToast('Rutina removida del cliente', 'info');
+        } else {
+            addToast('Error al eliminar la rutina permitida', 'error');
         }
     };
 
@@ -406,12 +455,52 @@ const ClientProfile = () => {
                 {/* PESTAÑA 2: PLANIFICACIÓN SEMANAL (NUEVO) */}
                 {activeTab === 'workouts' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                    <CalendarDays className="w-6 h-6 text-emerald-500" /> Planificación Semanal
-                                </h2>
-                                <p className="text-zinc-400 text-sm mt-1">Organiza qué rutinas debe hacer el atleta cada día.</p>
+                        <div className="flex flex-col gap-4">
+                            <div className="flex justify-between items-end gap-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                        <CalendarDays className="w-6 h-6 text-emerald-500" /> Planificación Semanal
+                                    </h2>
+                                    <p className="text-zinc-400 text-sm mt-1">Organiza qué rutinas debe hacer el atleta cada día.</p>
+                                </div>
+                                <Button onClick={() => setAssignRoutinesModalOpen(true)} variant="outline" className="border-zinc-700 text-zinc-300 hover:text-white">
+                                    <Plus className="w-4 h-4" /> Asignar Rutina al Cliente
+                                </Button>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
+                                <div className="bg-[#111] border border-zinc-800 rounded-3xl p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <p className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">Rutinas permitidas</p>
+                                            <p className="text-xs text-zinc-400">Estas son las rutinas que el cliente puede programar en su plan semanal.</p>
+                                        </div>
+                                        <span className="text-xs text-zinc-500">{assignedRoutines.length} asignadas</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {assignedRoutines.length > 0 ? assignedRoutines.map(routine => (
+                                            <div key={routine.id} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900 border border-zinc-800">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-white truncate">{routine.name}</p>
+                                                    <p className="text-[11px] text-zinc-500">{routine.level}</p>
+                                                </div>
+                                                <button onClick={() => handleRemoveAssignedRoutine(routine.id)} className="text-zinc-500 hover:text-red-400 text-xs font-bold">Eliminar</button>
+                                            </div>
+                                        )) : (
+                                            <div className="rounded-2xl border border-dashed border-zinc-800 p-4 text-zinc-500 text-sm text-center">
+                                                No hay rutinas permitidas para este cliente. Pulsa el botón de arriba para asignar una.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="bg-zinc-950/70 border border-zinc-800 rounded-3xl p-5 flex flex-col justify-center items-start gap-4">
+                                    <p className="text-sm font-semibold text-zinc-300 uppercase tracking-[0.2em]">Guía rápida</p>
+                                    <p className="text-sm text-zinc-400">Solo las rutinas permitidas aparecerán en el selector cuando programes una rutina para el cliente.</p>
+                                    <Button onClick={() => setAssignRoutinesModalOpen(true)} className="w-full bg-emerald-500 text-black hover:bg-emerald-600">
+                                        Gestionar permisos
+                                    </Button>
+                                </div>
                             </div>
                         </div>
 
@@ -592,8 +681,8 @@ const ClientProfile = () => {
                             <button onClick={() => setAssigningDay(null)} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                            {coachRoutines.length > 0 ? (
-                                coachRoutines.map(routine => (
+                            {assignedRoutines.length > 0 ? (
+                                assignedRoutines.map(routine => (
                                     <button 
                                         key={routine.id} 
                                         onClick={() => handleAssignRoutine(routine.id)}
@@ -609,7 +698,39 @@ const ClientProfile = () => {
                             ) : (
                                 <div className="p-6 text-center text-sm text-zinc-500">
                                     <Dumbbell className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                                    No tienes rutinas creadas en tu catálogo. Ve a la pestaña de Entrenamientos para crear la primera.
+                                    No hay rutinas permitidas para este cliente. Asigna primero rutinas desde el panel de arriba.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {assignRoutinesModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-[#111] border border-zinc-800 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
+                        <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900">
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Asignar Rutina Permitida</h3>
+                                <p className="text-xs text-zinc-400">Selecciona rutinas que este cliente puede usar en su plan semanal.</p>
+                            </div>
+                            <button onClick={() => setAssignRoutinesModalOpen(false)} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="p-4 max-h-[65vh] overflow-y-auto custom-scrollbar space-y-3">
+                            {coachRoutines.filter(r => !assignedRoutines.some(ar => ar.id === r.id)).length > 0 ? (
+                                coachRoutines.filter(r => !assignedRoutines.some(ar => ar.id === r.id)).map(routine => (
+                                    <div key={routine.id} className="flex items-center justify-between gap-4 p-3 rounded-2xl bg-zinc-900 border border-zinc-800">
+                                        <div>
+                                            <p className="text-sm font-semibold text-white">{routine.name}</p>
+                                            <p className="text-[11px] text-zinc-500">{routine.level}</p>
+                                        </div>
+                                        <Button onClick={() => handleAssignRoutineToClient(routine.id)} className="bg-emerald-500 text-black hover:bg-emerald-600 text-xs px-3 py-2">Permitir</Button>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="p-6 text-center text-sm text-zinc-500">
+                                    <Dumbbell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                                    Todas las rutinas disponibles ya están asignadas a este cliente.
                                 </div>
                             )}
                         </div>

@@ -51,6 +51,7 @@ const WorkoutEditor = () => {
 
     const [customExName, setCustomExName] = useState("");
     const [customExCategory, setCustomExCategory] = useState("General");
+    const [customExVideoUrl, setCustomExVideoUrl] = useState("");
 
     useEffect(() => {
         const loadData = async () => {
@@ -67,7 +68,8 @@ const WorkoutEditor = () => {
                         id: `custom_${ex.id}`,
                         name: ex.name,
                         category: ex.category,
-                        img: ex.image_url
+                        img: ex.image_url,
+                        video: ex.video_url || ''
                     }));
                     setCatalog([...EXERCISE_CATALOG_BASE, ...formattedCustom]);
                 }
@@ -108,8 +110,8 @@ const WorkoutEditor = () => {
                         setCustomBlocks(uniqueBlocks);
                     }
 
-                    const { data: assignData } = await supabase.from('routine_assignments').select('client_id').eq('routine_id', id);
-                    if (assignData) setSelectedClients(assignData.map(a => a.client_id));
+                    const { data: assignData } = await supabase.from('client_assigned_routines').select('client_id').eq('routine_id', id);
+                    if (assignData) setSelectedClients(assignData.map((a: any) => a.client_id));
                 }
             }
             setIsLoading(false);
@@ -178,10 +180,10 @@ const WorkoutEditor = () => {
                 await supabase.from('routine_exercises').insert(exercisesToSave);
             }
             
-            await supabase.from('routine_assignments').delete().eq('routine_id', routineId);
+            await supabase.from('client_assigned_routines').delete().eq('routine_id', routineId);
             if (selectedClients.length > 0) {
                 const assignments = selectedClients.map(clientId => ({ routine_id: routineId, client_id: clientId }));
-                await supabase.from('routine_assignments').insert(assignments);
+                await supabase.from('client_assigned_routines').insert(assignments);
             }
         }
         setIsSaving(false);
@@ -207,7 +209,14 @@ const WorkoutEditor = () => {
         setShowCatalog(true);
     };
 
-    const addExercise = (catalogItem: any) => {
+    const addExercise = async (catalogItem: any) => {
+        let videoUrl = catalogItem.video || "";
+
+        if (!videoUrl && typeof catalogItem.id === 'number') {
+            const { data: exerciseData } = await supabase.from('exercises').select('video_url').eq('name', catalogItem.name).maybeSingle();
+            videoUrl = exerciseData?.video_url || "";
+        }
+
         setExercises([...exercises, { 
             ...catalogItem, 
             localId: Date.now(), 
@@ -215,7 +224,7 @@ const WorkoutEditor = () => {
             sets: 3, 
             reps: "10-12", 
             rir: "", 
-            video: "",
+            video: videoUrl,
             block_name: targetBlockName,
             exercise_type: 'reps',
             time_duration: "",
@@ -229,23 +238,34 @@ const WorkoutEditor = () => {
         if (!customExName) return alert("Escribe un nombre para el ejercicio");
         setIsCreatingExercise(true);
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+            setIsCreatingExercise(false);
+            return;
+        }
 
         const newExerciseData = {
             coach_id: user.id,
             name: customExName.trim(),
             category: customExCategory,
-            image_url: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200"
+            image_url: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200",
+            video_url: customExVideoUrl || null
         };
 
         const { data, error } = await supabase.from('exercises').insert([newExerciseData]).select().single();
-        if (error) { alert("Error al guardar: " + error.message); setIsCreatingExercise(false); return; }
+        if (error || !data) {
+            alert(error?.message || "Error creando ejercicio");
+            setIsCreatingExercise(false);
+            return;
+        }
 
-        const formattedNewExercise = { id: `custom_${data.id}`, name: data.name, category: data.category, img: data.image_url };
+        const formattedNewExercise = { id: `custom_${data.id}`, name: data.name, category: data.category, img: data.image_url, video: data.video_url || '' };
         setCatalog([...catalog, formattedNewExercise]);
-        addExercise(formattedNewExercise);
+        await addExercise(formattedNewExercise);
 
-        setCustomExName(""); setCustomExCategory("General"); setIsCreatingExercise(false);
+        setCustomExName("");
+        setCustomExCategory("General");
+        setCustomExVideoUrl("");
+        setIsCreatingExercise(false);
     };
 
     const removeExercise = (localId: number) => setExercises(exercises.filter(e => e.localId !== localId));
@@ -537,15 +557,20 @@ const WorkoutEditor = () => {
                         </div>
                         <div className="p-4 bg-zinc-900/50 border-b border-zinc-800">
                             <p className="text-xs text-zinc-400 mb-2 font-bold uppercase">¿No está en la lista? Crea uno nuevo:</p>
-                            <div className="flex gap-2">
-                                <input type="text" placeholder="Nombre (ej: Plancha)" value={customExName} onChange={(e) => setCustomExName(e.target.value)} className="flex-1 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500" />
-                                <select value={customExCategory} onChange={(e) => setCustomExCategory(e.target.value)} className="bg-black border border-zinc-700 rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-emerald-500"><option>General</option><option>Pierna</option><option>Pecho</option><option>Espalda</option><option>Hombro</option><option>Brazo</option><option>Cardio</option></select>
-                                <Button onClick={createCustomExercise} disabled={isCreatingExercise} size="sm" className="bg-emerald-500 text-black font-bold hover:bg-emerald-400 min-w-[70px]">{isCreatingExercise ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Crear y Guardar'}</Button>
+                            <div className="grid grid-cols-1 gap-2">
+                                <div className="flex gap-2">
+                                    <input type="text" placeholder="Nombre (ej: Plancha)" value={customExName} onChange={(e) => setCustomExName(e.target.value)} className="flex-1 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500" />
+                                    <select value={customExCategory} onChange={(e) => setCustomExCategory(e.target.value)} className="bg-black border border-zinc-700 rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-emerald-500"><option>General</option><option>Pierna</option><option>Pecho</option><option>Espalda</option><option>Hombro</option><option>Brazo</option><option>Cardio</option></select>
+                                </div>
+                                <input type="url" placeholder="URL del video (ej: https://youtu.be/...)" value={customExVideoUrl} onChange={(e) => setCustomExVideoUrl(e.target.value)} className="w-full bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500" />
+                                <div className="flex justify-end">
+                                    <Button onClick={createCustomExercise} disabled={isCreatingExercise} size="sm" className="bg-emerald-500 text-black font-bold hover:bg-emerald-400 min-w-[70px]">{isCreatingExercise ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Crear y Guardar'}</Button>
+                                </div>
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
                             {catalog.map((ex) => (
-                                <button key={ex.id} onClick={() => addExercise(ex)} className="w-full flex items-center gap-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-emerald-500 hover:bg-zinc-800 transition-all text-left group">
+                                <button key={ex.id} onClick={() => void addExercise(ex)} className="w-full flex items-center gap-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-emerald-500 hover:bg-zinc-800 transition-all text-left group">
                                     <img src={ex.img} className="w-12 h-12 rounded-lg object-cover" />
                                     <div className="flex-1"><h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">{ex.name}</h4><span className="text-xs text-zinc-500">{ex.category}</span></div>
                                     <Plus className="w-5 h-5 text-zinc-600 group-hover:text-emerald-500" />

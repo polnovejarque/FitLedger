@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut, Shield, Box } from 'lucide-react';
+import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut, Shield, Box, BookOpen } from 'lucide-react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
@@ -9,6 +9,7 @@ const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Clientes', path: '/dashboard/clients' },
     { icon: Dumbbell, label: 'Entrenamientos', path: '/dashboard/workouts' },
+    { icon: BookOpen, label: 'Ejercicios', path: '/dashboard/exercises' },
     { icon: Calendar, label: 'Agenda', path: '/dashboard/agenda' },
     { icon: DollarSign, label: 'Finanzas', path: '/dashboard/finance', restricted: true },
     { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports', restricted: true },
@@ -83,28 +84,28 @@ const Sidebar = () => {
     const displayName = businessName || 'FitLeader';
 
     return (
-        <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
-            <div className="flex h-full flex-col px-3 py-4">
+        <aside className="h-screen w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col rounded-r-3xl">
+            <div className="flex h-full flex-col px-6 py-8">
                 
                 {/* --- LOGO Y MARCA DINÁMICOS --- */}
-                <div className="mb-8 flex items-center px-2">
-                    <Link to="/dashboard" className="flex items-center gap-3 w-full">
+                <div className="mb-12 flex items-center">
+                    <Link to="/dashboard" className="flex items-center gap-4 w-full">
                         {logoUrl ? (
                             <img 
                                 src={logoUrl} 
                                 alt={displayName} 
-                                className="h-8 w-8 object-cover rounded-md bg-zinc-900 border border-zinc-800" 
+                                className="h-10 w-10 object-cover rounded-xl bg-zinc-800 border border-zinc-700" 
                             />
                         ) : (
                             // Recuperamos el logo original de FitLeader por defecto
                             <img 
                                 src="/logo.png" 
                                 alt="FitLeader" 
-                                className="h-8 w-8 object-contain" 
+                                className="h-10 w-10 object-contain" 
                             />
                         )}
                         <span 
-                            className="text-xl font-bold tracking-tight text-white truncate" 
+                            className="text-2xl font-bold tracking-tight text-white truncate" 
                             title={displayName}
                         >
                             {displayName}
@@ -112,17 +113,17 @@ const Sidebar = () => {
                     </Link>
                 </div>
 
-                <nav className="flex-1 space-y-1">
+                <nav className="flex-1 space-y-2">
                     {visibleNavItems.map((item) => (
                         <NavLink
                             key={item.path}
                             to={item.path}
                             className={({ isActive }) =>
                                 cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                                    "flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 backdrop-blur-xl",
                                     isActive
-                                        ? "bg-accent text-accent-foreground"
-                                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                        ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
+                                        : "text-zinc-400 hover:bg-zinc-800 hover:text-white border border-transparent hover:border-zinc-700"
                                 )
                             }
                         >
@@ -132,11 +133,11 @@ const Sidebar = () => {
                     ))}
                 </nav>
 
-                <div className="mt-auto border-t border-border pt-4">
+                <div className="mt-auto border-t border-zinc-800 pt-6">
                     <Button 
                         variant="ghost" 
                         onClick={handleLogout} 
-                        className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive transition-colors"
+                        className="w-full justify-start gap-4 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-2xl px-4 py-3 transition-all duration-200"
                     >
                         <LogOut className="h-5 w-5" />
                         Cerrar Sesión

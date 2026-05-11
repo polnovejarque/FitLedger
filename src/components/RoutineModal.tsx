@@ -54,6 +54,7 @@ const RoutineModal = ({ isOpen, onClose, onSave, initialData }: RoutineModalProp
     
     // Estado para el archivo de video
     const [newExerciseVideo, setNewExerciseVideo] = useState('');
+    const [newExerciseVideoUrl, setNewExerciseVideoUrl] = useState('');
     const [videoFileName, setVideoFileName] = useState(''); 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,7 +156,7 @@ const RoutineModal = ({ isOpen, onClose, onSave, initialData }: RoutineModalProp
             // EDITAR
             setLibrary(prev => prev.map(ex => 
                 ex.id === editingExerciseId 
-                    ? { ...ex, name: newExerciseName, category: newExerciseCategory, video: newExerciseVideo } 
+                    ? { ...ex, name: newExerciseName, category: newExerciseCategory, video: newExerciseVideoUrl || newExerciseVideo } 
                     : ex
             ));
             setEditingExerciseId(null);
@@ -165,7 +166,7 @@ const RoutineModal = ({ isOpen, onClose, onSave, initialData }: RoutineModalProp
                 id: `custom-${Date.now()}`,
                 name: newExerciseName,
                 category: newExerciseCategory,
-                video: newExerciseVideo
+                video: newExerciseVideoUrl || newExerciseVideo
             };
             setLibrary([newEx, ...library]);
             addExerciseToDay(newEx); 
@@ -176,6 +177,7 @@ const RoutineModal = ({ isOpen, onClose, onSave, initialData }: RoutineModalProp
         setNewExerciseName('');
         setNewExerciseCategory('Pecho');
         setNewExerciseVideo('');
+        setNewExerciseVideoUrl('');
         setVideoFileName('');
     };
 
@@ -184,6 +186,7 @@ const RoutineModal = ({ isOpen, onClose, onSave, initialData }: RoutineModalProp
         setNewExerciseName(exercise.name);
         setNewExerciseCategory(exercise.category);
         setNewExerciseVideo(exercise.video || '');
+        setNewExerciseVideoUrl(exercise.video || '');
         setVideoFileName(exercise.video ? 'Video cargado' : '');
         setEditingExerciseId(exercise.id);
         setIsCreatingExercise(true);
@@ -201,6 +204,7 @@ const RoutineModal = ({ isOpen, onClose, onSave, initialData }: RoutineModalProp
         setEditingExerciseId(null);
         setNewExerciseName('');
         setNewExerciseVideo('');
+        setNewExerciseVideoUrl('');
         setVideoFileName('');
     };
 
@@ -317,6 +321,14 @@ const RoutineModal = ({ isOpen, onClose, onSave, initialData }: RoutineModalProp
                                             )}
                                         </div>
                                     </div>
+
+                                    <input
+                                        type="url"
+                                        placeholder="URL del video"
+                                        value={newExerciseVideoUrl}
+                                        onChange={(e) => setNewExerciseVideoUrl(e.target.value)}
+                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
+                                    />
 
                                     <select 
                                         className="w-full h-9 rounded-md border border-input bg-zinc-900 text-white px-3 py-1 text-sm shadow-sm focus:ring-2 focus:ring-accent outline-none"

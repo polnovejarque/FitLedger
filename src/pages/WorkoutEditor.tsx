@@ -99,7 +99,7 @@ const WorkoutEditor = () => {
                             exercise_type: e.exercise_type || 'reps',
                             time_duration: e.time_duration || "",
                             rest_time: e.rest_time || "60s",
-                            notes: e.notes || "" // RECUPERAMOS LA NOTA
+                            notes: e.notes || ""
                         }));
                         setExercises(formattedExercises);
                         
@@ -177,7 +177,7 @@ const WorkoutEditor = () => {
                     exercise_type: ex.exercise_type || 'reps',
                     time_duration: ex.exercise_type === 'time' ? ex.time_duration : null,
                     rest_time: ex.rest_time || "60s",
-                    notes: ex.notes || null // GUARDAMOS LA NOTA
+                    notes: ex.notes || null
                 }));
                 await supabase.from('routine_exercises').insert(exercisesToSave);
             }
@@ -189,7 +189,7 @@ const WorkoutEditor = () => {
             }
         }
         setIsSaving(false);
-        navigate('/workouts'); 
+        navigate('/dashboard/workouts'); // <-- SOLUCIÓN APLICADA
     };
 
     const handleDelete = async () => {
@@ -198,7 +198,7 @@ const WorkoutEditor = () => {
         setIsDeleting(true);
         const { error } = await supabase.from('routines').delete().eq('id', id);
         if (error) { alert("Error al borrar: " + error.message); setIsDeleting(false); } 
-        else navigate('/workouts');
+        else navigate('/dashboard/workouts'); // <-- SOLUCIÓN APLICADA
     };
 
     const toggleClient = (clientId: number) => {
@@ -231,7 +231,7 @@ const WorkoutEditor = () => {
             exercise_type: 'reps',
             time_duration: "",
             rest_time: "60s",
-            notes: "" // ESTADO INICIAL DE LA NOTA
+            notes: ""
         }]);
         setShowCatalog(false);
         setTargetBlockName(null);
@@ -413,7 +413,6 @@ const WorkoutEditor = () => {
                     </div>
                 </div>
 
-                {/* --- NUEVO CAMPO DE NOTAS DEL COACH --- */}
                 <div className="w-full mt-2 bg-black/20 rounded border border-zinc-800 flex items-center px-2 py-1.5 focus-within:border-emerald-500 transition-colors">
                     <AlignLeft className="w-3.5 h-3.5 text-zinc-500 mr-2 flex-shrink-0" />
                     <input 
@@ -452,7 +451,7 @@ const WorkoutEditor = () => {
         <div className="p-8 w-full max-w-7xl mx-auto min-h-screen text-white font-sans">
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" onClick={() => navigate('/workouts')}><ChevronLeft className="w-5 h-5 text-zinc-500" /></Button>
+                    <Button variant="ghost" onClick={() => navigate('/dashboard/workouts')}><ChevronLeft className="w-5 h-5 text-zinc-500" /></Button>
                     <div>
                         <h1 className="text-2xl font-bold text-white">{id ? "Editar Rutina" : "Nueva Rutina"}</h1>
                         <p className="text-zinc-400 text-sm">{id ? "Modifica los detalles existentes." : "Configura los detalles y asigna atletas."}</p>
@@ -464,7 +463,7 @@ const WorkoutEditor = () => {
                             {isDeleting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Trash2 className="w-4 h-4"/>}
                         </Button>
                     )}
-                    <Button variant="outline" onClick={() => navigate('/workouts')} className="border-zinc-800 text-zinc-400 hover:text-white">Cancelar</Button>
+                    <Button variant="outline" onClick={() => navigate('/dashboard/workouts')} className="border-zinc-800 text-zinc-400 hover:text-white">Cancelar</Button>
                     <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-500 text-black font-bold hover:bg-emerald-600 min-w-[140px]">
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <Save className="w-4 h-4 mr-2" />} Guardar Rutina
                     </Button>

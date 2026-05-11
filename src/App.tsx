@@ -19,7 +19,6 @@ import Finance from './pages/Finance';
 import Settings from './pages/Settings';
 import Workouts from './pages/Workouts';
 import WorkoutEditor from './pages/WorkoutEditor';
-import Exercises from './pages/Exercises';
 import Reports from './pages/Reports';
 // ✅ NUEVO: Importamos la página de Mi Equipo
 import Team from './pages/Team';
@@ -65,7 +64,6 @@ function App() {
               <Route path="client/:id" element={<ClientProfile />} />
               
               <Route path="workouts" element={<Workouts />} />
-              <Route path="exercises" element={<Exercises />} />
               <Route path="workouts/create" element={<WorkoutEditor />} />
               <Route path="workouts/edit/:id" element={<WorkoutEditor />} />
               <Route path="agenda" element={<Agenda />} />

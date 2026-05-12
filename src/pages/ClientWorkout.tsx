@@ -19,7 +19,7 @@ const ClientWorkout = () => {
     const [clientPhoto, setClientPhoto] = useState<string | null>(null);
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     
-    // --- NUEVO ESTADO: LISTA DE ENTRENAMIENTOS DE HOY ---
+    // --- NUEVOS ESTADOS: LISTA DE ENTRENAMIENTOS ---
     const [todayPlans, setTodayPlans] = useState<any[]>([]); 
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
     
@@ -59,7 +59,7 @@ const ClientWorkout = () => {
     const [statsDiff, setStatsDiff] = useState({ weight: 0, waist: 0, arm: 0, leg: 0 });
     const [monthlyWorkouts, setMonthlyWorkouts] = useState(0);
     const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
-    const [weeklyGoal] = useState(4); // Linter fix: eliminado el setter que no se usaba
+    const [weeklyGoal, setWeeklyGoal] = useState(4); 
 
     // Fotos
     const [viewAngle, setViewAngle] = useState<'front' | 'back' | 'side'>('front');
@@ -109,7 +109,7 @@ const ClientWorkout = () => {
         return () => clearInterval(interval);
     }, [timerActive, timerTime]);
 
-    // --- FUNCIÓN DE CARGA PRINCIPAL ---
+    // --- CARGA DE DATOS (CON AUTO-REFRESCO) ---
     const fetchClientData = useCallback(async (showSpinners = true) => {
         if (showSpinners) setLoading(true);
         const storedEmail = localStorage.getItem('fit_client_email');
@@ -143,34 +143,40 @@ const ClientWorkout = () => {
                         if (coachProfile.business_name) setCoachBusinessName(coachProfile.business_name);
                     }
                     
-                    fetchClasses(clientData.user_id);
+                    fetchClasses(clientData.user_id, clientData.id);
                 }
 
+                // --- LECTURA DE LA PLANIFICACIÓN SEMANAL ---
                 const currentDayOfWeek = new Date().getDay() === 0 ? 7 : new Date().getDay();
                 setTodayDayId(currentDayOfWeek);
 
-                // LÓGICA DE ORDENAMIENTO ASCENDENTE
-                const { data: planData } = await supabase
+                const { data: planData, error: planError } = await supabase
                     .from('client_weekly_plan')
                     .select('id, day_of_week, routine_id, routines(*)')
                     .eq('client_id', clientData.id)
-                    .order('created_at', { ascending: true });
+                    .order('id', { ascending: true });
+
+                if (planError) {
+                    console.error("Error al cargar plan semanal:", planError);
+                }
 
                 if (planData && planData.length > 0) {
-                    const normalizedPlan = planData.map(p => {
+                    const normalizedPlans = planData.map(p => {
                         let routineObj = Array.isArray(p.routines) ? p.routines[0] : p.routines;
                         if (!routineObj) {
                             routineObj = { id: p.routine_id, name: "⚠️ Sincronizando rutina..." };
                         }
                         return { ...p, routines: routineObj };
                     });
-
-                    setWeeklyPlan(normalizedPlan);
                     
-                    const currentDayPlans = normalizedPlan.filter(p => p.day_of_week === currentDayOfWeek);
+                    setWeeklyPlan(normalizedPlans);
+                    
+                    const currentDayPlans = normalizedPlans.filter(p => p.day_of_week === currentDayOfWeek);
                     setTodayPlans(currentDayPlans);
-                    
-                    fetchWorkoutStats(normalizedPlan[0].id.toString());
+
+                    if (normalizedPlans.length > 0) {
+                        fetchWorkoutStats(normalizedPlans[0].id.toString());
+                    }
                 } else {
                     const { data: assignment } = await supabase
                         .from('routine_assignments')
@@ -181,7 +187,9 @@ const ClientWorkout = () => {
                         .maybeSingle();
 
                     if (assignment && assignment.routine) {
-                        setTodayPlans([{ id: assignment.id, routines: assignment.routine }]);
+                        const legacyRoutine = { ...assignment.routine, is_completed_today: false };
+                        setTodayPlans([{ id: assignment.id, routines: legacyRoutine }]);
+                        if (assignment.routine.days_per_week) setWeeklyGoal(assignment.routine.days_per_week);
                         fetchWorkoutStats(assignment.id.toString());
                     } else {
                         setTodayPlans([]);
@@ -217,10 +225,60 @@ const ClientWorkout = () => {
     };
 
     // --- FUNCIONES SECUNDARIAS (Reservas, Stats, Progreso) ---
-    const fetchClasses = async (studioId: string) => {
+    // ¡AQUÍ ESTABA EL FALLO! Restaurada la función completa que utiliza el clientId
+    const fetchClasses = async (studioId: string, clientId: string) => {
         const today = new Date().toISOString();
         const { data: events } = await supabase.from('calendar_events').select('*').eq('studio_id', studioId).eq('type', 'group').gte('date', today).order('date', { ascending: true });
-        if (events) setGroupClasses(events);
+
+        if (events && events.length > 0) {
+            const staffIds = Array.from(new Set(events.map(e => e.assigned_staff_id).filter(Boolean)));
+            const { data: staffProfiles } = await supabase.from('profiles').select('id, business_name').in('id', staffIds);
+            const eventIds = events.map(e => e.id);
+            const { data: bookings } = await supabase.from('class_bookings').select('*').in('event_id', eventIds);
+
+            const classesWithBookingData = events.map(ev => {
+                const coach = staffProfiles?.find(p => p.id === ev.assigned_staff_id);
+                const evBookings = bookings?.filter(b => b.event_id === ev.id) || [];
+                const isBooked = evBookings.some(b => b.client_id === clientId && b.status === 'booked');
+                const isWaitlisted = evBookings.some(b => b.client_id === clientId && b.status === 'waitlist');
+                const bookedCount = evBookings.filter(b => b.status === 'booked').length;
+                
+                return {
+                    ...ev,
+                    coach_name: coach?.business_name || 'Staff',
+                    bookedCount,
+                    spotsLeft: (ev.max_capacity || 1) - bookedCount,
+                    isBooked,
+                    isWaitlisted
+                };
+            });
+            setGroupClasses(classesWithBookingData);
+        } else {
+            setGroupClasses([]);
+        }
+    };
+
+    const handleBookClass = async (eventId: number, status: 'booked' | 'waitlist') => {
+        if (!clientId || !studioId) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('class_bookings').insert({ event_id: eventId, client_id: clientId, status: status });
+            if (error) throw error;
+            alert(status === 'booked' ? "¡Plaza reservada! 🎉" : "Añadido a lista de espera.");
+            fetchClasses(studioId, clientId);
+        } catch (err: any) { alert("Error al reservar: " + err.message); } finally { setLoading(false); }
+    };
+
+    const handleCancelBooking = async (eventId: number) => {
+        if (!clientId || !studioId) return;
+        if (!confirm("¿Seguro que quieres cancelar tu reserva?")) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('class_bookings').delete().eq('event_id', eventId).eq('client_id', clientId);
+            if (error) throw error;
+            alert("Reserva cancelada.");
+            fetchClasses(studioId, clientId);
+        } catch (err: any) { alert("Error al cancelar: " + err.message); } finally { setLoading(false); }
     };
 
     const getWeekRange = () => {
@@ -273,29 +331,6 @@ const ClientWorkout = () => {
             const findPhotos = (angleKey: any) => { const valid = history.filter(h => h[angleKey]); if (!valid.length) return { before: null, now: null, beforeId: null }; return { before: valid[0][angleKey], beforeId: valid[0].id, now: valid.length > 1 ? valid[valid.length - 1][angleKey] : null }; };
             setPhotos({ front: findPhotos('front_photo'), back: findPhotos('back_photo'), side: findPhotos('side_photo') });
         }
-    };
-
-    const handleBookClass = async (eventId: number, status: 'booked' | 'waitlist') => {
-        if (!clientId || !studioId) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('class_bookings').insert({ event_id: eventId, client_id: clientId, status: status });
-            if (error) throw error;
-            alert(status === 'booked' ? "¡Plaza reservada! 🎉" : "Añadido a lista de espera.");
-            fetchClasses(studioId);
-        } catch (err: any) { alert("Error al reservar: " + err.message); } finally { setLoading(false); }
-    };
-
-    const handleCancelBooking = async (eventId: number) => {
-        if (!clientId || !studioId) return;
-        if (!confirm("¿Seguro que quieres cancelar tu reserva?")) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('class_bookings').delete().eq('event_id', eventId).eq('client_id', clientId);
-            if (error) throw error;
-            alert("Reserva cancelada.");
-            fetchClasses(studioId);
-        } catch (err: any) { alert("Error al cancelar: " + err.message); } finally { setLoading(false); }
     };
 
     // --- ACCIÓN: INICIAR UN ENTRENAMIENTO ---
@@ -408,7 +443,7 @@ const ClientWorkout = () => {
     };
     
     const handleDeleteBefore = async () => { alert("Borrado en mantenimiento"); };
-    const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/"; } };
+    const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/client-app"; } };
     const handleDeleteAccount = async () => { alert("Borrar cuenta en mantenimiento"); };
     const handleProfileFileSelect = async () => { alert("Cambio foto perfil en mantenimiento"); };
     const handleDeleteProfilePic = async () => { alert("Borrado foto perfil en mantenimiento"); };
@@ -463,6 +498,7 @@ const ClientWorkout = () => {
                                                 <div className="flex-1 py-1">
                                                     <h3 className="text-white font-bold text-lg leading-tight mb-2">{ex.exercise_name}</h3>
                                                     
+                                                    {/* --- VISOR DE NOTAS DEL COACH --- */}
                                                     {ex.notes && (
                                                         <div className="bg-zinc-800/80 rounded-md p-2 mb-3 border-l-2 border-emerald-500">
                                                             <p className="text-[11px] text-zinc-300 italic leading-relaxed">

@@ -19,11 +19,9 @@ const ClientWorkout = () => {
     const [clientPhoto, setClientPhoto] = useState<string | null>(null);
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     
-    // --- NUEVOS ESTADOS: LISTA DE ENTRENAMIENTOS ---
+    // --- LISTAS DE ENTRENAMIENTO ---
     const [todayPlans, setTodayPlans] = useState<any[]>([]); 
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
-    
-    // --- ESTADOS PLANIFICACIÓN SEMANAL ---
     const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
     const [todayDayId, setTodayDayId] = useState<number>(1);
     
@@ -96,7 +94,7 @@ const ClientWorkout = () => {
     const profileInputRef = useRef<HTMLInputElement>(null);
     const [uploadingProfile] = useState(false);
 
-    // Temporizador Logic
+    // Temporizador
     useEffect(() => {
         let interval: any;
         if (timerActive && timerTime > 0) {
@@ -109,7 +107,7 @@ const ClientWorkout = () => {
         return () => clearInterval(interval);
     }, [timerActive, timerTime]);
 
-    // --- CARGA DE DATOS (CON AUTO-REFRESCO) ---
+    // --- CARGA DE DATOS PRINCIPAL CON TRUCO DE LOS 2 PASOS ---
     const fetchClientData = useCallback(async (showSpinners = true) => {
         if (showSpinners) setLoading(true);
         const storedEmail = localStorage.getItem('fit_client_email');
@@ -146,27 +144,33 @@ const ClientWorkout = () => {
                     fetchClasses(clientData.user_id, clientData.id);
                 }
 
-                // --- LECTURA DE LA PLANIFICACIÓN SEMANAL ---
                 const currentDayOfWeek = new Date().getDay() === 0 ? 7 : new Date().getDay();
                 setTodayDayId(currentDayOfWeek);
 
-                const { data: planData, error: planError } = await supabase
+                // PASO 1: Obtenemos solo el plan (sin Joins conflictivos de Supabase)
+                const { data: planData } = await supabase
                     .from('client_weekly_plan')
-                    .select('id, day_of_week, routine_id, routines(*)')
+                    .select('*')
                     .eq('client_id', clientData.id)
                     .order('id', { ascending: true });
 
-                if (planError) {
-                    console.error("Error al cargar plan semanal:", planError);
-                }
-
                 if (planData && planData.length > 0) {
+                    // PASO 2: Extraemos los IDs de las rutinas y las pedimos a la fuerza
+                    const routineIds = planData.map(p => p.routine_id);
+                    
+                    const { data: routinesData } = await supabase
+                        .from('routines')
+                        .select('*')
+                        .in('id', routineIds);
+
+                    // Unimos ambas tablas manualmente
                     const normalizedPlans = planData.map(p => {
-                        let routineObj = Array.isArray(p.routines) ? p.routines[0] : p.routines;
-                        if (!routineObj) {
-                            routineObj = { id: p.routine_id, name: "⚠️ Sincronizando rutina..." };
-                        }
-                        return { ...p, routines: routineObj };
+                        const routineObj = routinesData?.find(r => r.id === p.routine_id);
+                        return { 
+                            ...p, 
+                            // Si Supabase la bloquea, saldrá este mensaje clave:
+                            routines: routineObj || { id: p.routine_id, name: "⚠️ Rutina Bloqueada (Permisos)" } 
+                        };
                     });
                     
                     setWeeklyPlan(normalizedPlans);
@@ -178,6 +182,7 @@ const ClientWorkout = () => {
                         fetchWorkoutStats(normalizedPlans[0].id.toString());
                     }
                 } else {
+                    // Fallback antiguo
                     const { data: assignment } = await supabase
                         .from('routine_assignments')
                         .select(`*, routine:routines!fk_routine (*)`) 
@@ -204,7 +209,7 @@ const ClientWorkout = () => {
         setIsRefreshing(false);
     }, []);
 
-    // AUTO-REFRESCO AL ENTRAR A LA APP
+    // AUTO-REFRESCO
     useEffect(() => {
         fetchClientData();
 
@@ -225,7 +230,6 @@ const ClientWorkout = () => {
     };
 
     // --- FUNCIONES SECUNDARIAS (Reservas, Stats, Progreso) ---
-    // ¡AQUÍ ESTABA EL FALLO! Restaurada la función completa que utiliza el clientId
     const fetchClasses = async (studioId: string, clientId: string) => {
         const today = new Date().toISOString();
         const { data: events } = await supabase.from('calendar_events').select('*').eq('studio_id', studioId).eq('type', 'group').gte('date', today).order('date', { ascending: true });
@@ -335,7 +339,7 @@ const ClientWorkout = () => {
 
     // --- ACCIÓN: INICIAR UN ENTRENAMIENTO ---
     const startWorkout = async (routine: any, planOrAssignmentId: string) => {
-        if(routine?.name?.includes("Sincronizando")) {
+        if(routine?.name?.includes("Bloqueada")) {
             alert("El Coach está editando esta rutina o no tienes permisos. Refresca la app en unos minutos.");
             return;
         }
@@ -579,7 +583,7 @@ const ClientWorkout = () => {
                         <div className="space-y-3">
                             {todayPlans.map(plan => {
                                 const routine = plan.routines;
-                                const isError = routine?.name?.includes('Sincronizando');
+                                const isError = routine?.name?.includes('Bloqueada');
                                 return (
                                     <div key={plan.id} onClick={() => !isError && startWorkout(routine, plan.id.toString())} className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between cursor-pointer group ${isError ? 'border-orange-500/30 opacity-70 cursor-not-allowed' : 'hover:border-emerald-500/30'}`}>
                                         <div className="flex items-center gap-4">
@@ -635,7 +639,7 @@ const ClientWorkout = () => {
                                 {dayPlans.length > 0 ? (
                                     <div className="space-y-2 mt-2">
                                         {dayPlans.map(plan => {
-                                            const isError = plan.routines?.name?.includes("Sincronizando");
+                                            const isError = plan.routines?.name?.includes("Bloqueada");
                                             
                                             return (
                                                 <button 

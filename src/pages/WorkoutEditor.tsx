@@ -52,7 +52,7 @@ const WorkoutEditor = () => {
     const [customExName, setCustomExName] = useState("");
     const [customExCategory, setCustomExCategory] = useState("General");
     const [customExVideoUrl, setCustomExVideoUrl] = useState("");
-    const [customExVideoFile, setCustomExVideoFile] = useState<File | null>(null); // NUEVO: Estado para archivo en modal
+    const [customExVideoFile, setCustomExVideoFile] = useState<File | null>(null);
 
     useEffect(() => {
         const loadData = async () => {
@@ -89,7 +89,6 @@ const WorkoutEditor = () => {
                     if (exData) {
                         const formattedExercises = exData.map(e => ({
                             localId: e.id, 
-                            id: e.exercise_id_catalog || null, // Guardamos ID original si lo hubiera
                             name: e.exercise_name,
                             img: e.image_url,
                             day: parseInt(e.day_name.split(' ')[1]),
@@ -166,6 +165,7 @@ const WorkoutEditor = () => {
                     });
                 }
 
+                // ¡FALLO CORREGIDO AQUÍ! Eliminado exercise_id_catalog
                 const exercisesToSave = orderedExercises.map(ex => ({
                     routine_id: routineId, 
                     day_name: `Día ${ex.day}`, 
@@ -179,10 +179,15 @@ const WorkoutEditor = () => {
                     exercise_type: ex.exercise_type || 'reps',
                     time_duration: ex.exercise_type === 'time' ? ex.time_duration : null,
                     rest_time: ex.rest_time || "60s",
-                    notes: ex.notes || null,
-                    exercise_id_catalog: ex.id // Guardamos referencia para saber a qué original pertenecía
+                    notes: ex.notes || null
                 }));
-                await supabase.from('routine_exercises').insert(exercisesToSave);
+                
+                const { error: insertError } = await supabase.from('routine_exercises').insert(exercisesToSave);
+                if (insertError) {
+                    alert("Error al guardar los ejercicios: " + insertError.message);
+                    setIsSaving(false);
+                    return;
+                }
             }
             
             await supabase.from('client_assigned_routines').delete().eq('routine_id', routineId);
@@ -251,7 +256,6 @@ const WorkoutEditor = () => {
 
         let finalVideoUrl = customExVideoUrl;
 
-        // Si el usuario adjuntó un archivo, lo subimos
         if (customExVideoFile) {
             const fileName = `${Date.now()}_${Math.random()}.${customExVideoFile.name.split('.').pop()}`;
             const { error: uploadErr } = await supabase.storage.from('Videos').upload(fileName, customExVideoFile);
@@ -282,7 +286,6 @@ const WorkoutEditor = () => {
         setCatalog([...catalog, formattedNewExercise]);
         await addExercise(formattedNewExercise);
 
-        // Reseteo
         setCustomExName("");
         setCustomExCategory("General");
         setCustomExVideoUrl("");
@@ -293,7 +296,6 @@ const WorkoutEditor = () => {
     const removeExercise = (localId: number) => setExercises(exercises.filter(e => e.localId !== localId));
     const updateExercise = (localId: number, field: string, value: any) => setExercises(exercises.map(ex => ex.localId === localId ? { ...ex, [field]: value } : ex));
     
-    // --- LÓGICA DE SUBIDA DE VÍDEOS EN LA RUTINA CON MEMORIA GLOBAL ---
     const handleFileUpload = async (event: any, localId: number, catalogId: any) => {
         const file = event.target.files[0]; if (!file) return; setUploadingId(localId);
         try {
@@ -302,15 +304,11 @@ const WorkoutEditor = () => {
             if (error) throw error;
             const { data } = supabase.storage.from('Videos').getPublicUrl(fileName);
             
-            // 1. Actualizamos la vista de la rutina
             updateExercise(localId, 'video', data.publicUrl); 
             
-            // 2. Si es un ejercicio personalizado, lo guardamos para siempre en el catálogo
             if (typeof catalogId === 'string' && catalogId.startsWith('custom_')) {
                 const realDbId = catalogId.replace('custom_', '');
                 await supabase.from('exercises').update({ video_url: data.publicUrl }).eq('id', realDbId);
-                
-                // Actualizamos el catálogo en memoria para que no haya que recargar
                 setCatalog(prev => prev.map(c => c.id === catalogId ? { ...c, video: data.publicUrl } : c));
             }
 
@@ -418,7 +416,6 @@ const WorkoutEditor = () => {
                 <img src={ex.img} className="w-full h-full object-cover opacity-80" alt={ex.name} />
             </div>
             <div className="flex-1 min-w-0">
-                {/* --- NUEVO: NOMBRE EDITABLE --- */}
                 <input 
                     type="text" 
                     value={ex.name} 
@@ -481,7 +478,6 @@ const WorkoutEditor = () => {
                     <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, ex.localId, ex.id)} disabled={uploadingId === ex.localId}/>
                 </label>
                 
-                {/* BOTÓN PARA BORRAR VÍDEO (X) */}
                 {ex.video && (
                     <button onClick={() => handleRemoveVideo(ex.localId, ex.id)} className="absolute -top-2 -right-2 bg-zinc-900 border border-zinc-700 text-red-500 hover:bg-red-500/20 rounded-full p-0.5" title="Eliminar vídeo">
                         <X className="w-3 h-3" />
@@ -636,7 +632,6 @@ const WorkoutEditor = () => {
                                     <select value={customExCategory} onChange={(e) => setCustomExCategory(e.target.value)} className="bg-black border border-zinc-700 rounded-lg px-2 py-2 text-sm text-white outline-none focus:border-emerald-500"><option>General</option><option>Pierna</option><option>Pecho</option><option>Espalda</option><option>Hombro</option><option>Brazo</option><option>Cardio</option></select>
                                 </div>
                                 
-                                {/* --- NUEVO: OPCIÓN PARA SUBIR VÍDEO O PEGAR URL AL CREAR --- */}
                                 <div className="flex gap-2 items-center">
                                     <input type="url" placeholder="URL del video (opcional)" value={customExVideoUrl} onChange={(e) => setCustomExVideoUrl(e.target.value)} disabled={!!customExVideoFile} className="flex-1 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500 disabled:opacity-50" />
                                     <span className="text-zinc-500 text-xs font-bold px-1">O</span>

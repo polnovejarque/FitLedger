@@ -19,9 +19,11 @@ const ClientWorkout = () => {
     const [clientPhoto, setClientPhoto] = useState<string | null>(null);
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     
-    // --- LISTAS DE ENTRENAMIENTO ---
+    // --- NUEVOS ESTADOS: LISTA DE ENTRENAMIENTOS ---
     const [todayPlans, setTodayPlans] = useState<any[]>([]); 
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
+    
+    // --- ESTADOS PLANIFICACIÓN SEMANAL ---
     const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
     const [todayDayId, setTodayDayId] = useState<number>(1);
     
@@ -107,7 +109,7 @@ const ClientWorkout = () => {
         return () => clearInterval(interval);
     }, [timerActive, timerTime]);
 
-    // --- CARGA DE DATOS PRINCIPAL CON TRUCO DE LOS 2 PASOS ---
+    // --- CARGA DE DATOS PRINCIPAL ---
     const fetchClientData = useCallback(async (showSpinners = true) => {
         if (showSpinners) setLoading(true);
         const storedEmail = localStorage.getItem('fit_client_email');
@@ -147,30 +149,23 @@ const ClientWorkout = () => {
                 const currentDayOfWeek = new Date().getDay() === 0 ? 7 : new Date().getDay();
                 setTodayDayId(currentDayOfWeek);
 
-                // PASO 1: Obtenemos solo el plan (sin Joins conflictivos de Supabase)
-                const { data: planData } = await supabase
+                // Consulta limpia y directa
+                const { data: planData, error: planError } = await supabase
                     .from('client_weekly_plan')
-                    .select('*')
+                    .select('id, day_of_week, routine_id, routines(*)')
                     .eq('client_id', clientData.id)
                     .order('id', { ascending: true });
 
-                if (planData && planData.length > 0) {
-                    // PASO 2: Extraemos los IDs de las rutinas y las pedimos a la fuerza
-                    const routineIds = planData.map(p => p.routine_id);
-                    
-                    const { data: routinesData } = await supabase
-                        .from('routines')
-                        .select('*')
-                        .in('id', routineIds);
+                if (planError) console.error("Error al cargar plan semanal:", planError);
 
-                    // Unimos ambas tablas manualmente
+                if (planData && planData.length > 0) {
                     const normalizedPlans = planData.map(p => {
-                        const routineObj = routinesData?.find(r => r.id === p.routine_id);
-                        return { 
-                            ...p, 
-                            // Si Supabase la bloquea, saldrá este mensaje clave:
-                            routines: routineObj || { id: p.routine_id, name: "⚠️ Rutina Bloqueada (Permisos)" } 
-                        };
+                        let routineObj = Array.isArray(p.routines) ? p.routines[0] : p.routines;
+                        // Si Supabase la bloquea por RLS, avisamos temporalmente
+                        if (!routineObj) {
+                            routineObj = { id: p.routine_id, name: "⚠️ Rutina Bloqueada (Permisos)" };
+                        }
+                        return { ...p, routines: routineObj };
                     });
                     
                     setWeeklyPlan(normalizedPlans);
@@ -182,7 +177,6 @@ const ClientWorkout = () => {
                         fetchWorkoutStats(normalizedPlans[0].id.toString());
                     }
                 } else {
-                    // Fallback antiguo
                     const { data: assignment } = await supabase
                         .from('routine_assignments')
                         .select(`*, routine:routines!fk_routine (*)`) 
@@ -209,7 +203,7 @@ const ClientWorkout = () => {
         setIsRefreshing(false);
     }, []);
 
-    // AUTO-REFRESCO
+    // AUTO-REFRESCO AL ENTRAR A LA APP
     useEffect(() => {
         fetchClientData();
 
@@ -230,9 +224,9 @@ const ClientWorkout = () => {
     };
 
     // --- FUNCIONES SECUNDARIAS (Reservas, Stats, Progreso) ---
-    const fetchClasses = async (studioId: string, clientId: string) => {
+    const fetchClasses = async (currentStudioId: string, currentClientId: string) => {
         const today = new Date().toISOString();
-        const { data: events } = await supabase.from('calendar_events').select('*').eq('studio_id', studioId).eq('type', 'group').gte('date', today).order('date', { ascending: true });
+        const { data: events } = await supabase.from('calendar_events').select('*').eq('studio_id', currentStudioId).eq('type', 'group').gte('date', today).order('date', { ascending: true });
 
         if (events && events.length > 0) {
             const staffIds = Array.from(new Set(events.map(e => e.assigned_staff_id).filter(Boolean)));
@@ -243,8 +237,8 @@ const ClientWorkout = () => {
             const classesWithBookingData = events.map(ev => {
                 const coach = staffProfiles?.find(p => p.id === ev.assigned_staff_id);
                 const evBookings = bookings?.filter(b => b.event_id === ev.id) || [];
-                const isBooked = evBookings.some(b => b.client_id === clientId && b.status === 'booked');
-                const isWaitlisted = evBookings.some(b => b.client_id === clientId && b.status === 'waitlist');
+                const isBooked = evBookings.some(b => b.client_id === currentClientId && b.status === 'booked');
+                const isWaitlisted = evBookings.some(b => b.client_id === currentClientId && b.status === 'waitlist');
                 const bookedCount = evBookings.filter(b => b.status === 'booked').length;
                 
                 return {
@@ -339,8 +333,8 @@ const ClientWorkout = () => {
 
     // --- ACCIÓN: INICIAR UN ENTRENAMIENTO ---
     const startWorkout = async (routine: any, planOrAssignmentId: string) => {
-        if(routine?.name?.includes("Bloqueada")) {
-            alert("El Coach está editando esta rutina o no tienes permisos. Refresca la app en unos minutos.");
+        if(routine?.name?.includes("Bloqueada") || routine?.name?.includes("Sincronizando")) {
+            alert("⚠️ Supabase está bloqueando esta rutina. Ejecuta el código SQL en tu panel para solucionarlo.");
             return;
         }
 

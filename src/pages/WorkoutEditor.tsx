@@ -54,6 +54,9 @@ const WorkoutEditor = () => {
     const [customExVideoUrl, setCustomExVideoUrl] = useState("");
     const [customExVideoFile, setCustomExVideoFile] = useState<File | null>(null);
 
+    // NUEVO: Estado para el buscador del catálogo
+    const [searchExerciseTerm, setSearchExerciseTerm] = useState("");
+
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
@@ -165,7 +168,6 @@ const WorkoutEditor = () => {
                     });
                 }
 
-                // ¡FALLO CORREGIDO AQUÍ! Eliminado exercise_id_catalog
                 const exercisesToSave = orderedExercises.map(ex => ({
                     routine_id: routineId, 
                     day_name: `Día ${ex.day}`, 
@@ -243,6 +245,7 @@ const WorkoutEditor = () => {
         }]);
         setShowCatalog(false);
         setTargetBlockName(null);
+        setSearchExerciseTerm(""); // Limpiamos el buscador al añadir
     };
 
     const createCustomExercise = async () => {
@@ -499,6 +502,12 @@ const WorkoutEditor = () => {
 
     const filteredClients = clients.filter(c => c.name.toLowerCase().includes(searchClient.toLowerCase()));
 
+    // LÓGICA DEL BUSCADOR
+    const filteredCatalog = catalog.filter(ex => 
+        ex.name.toLowerCase().includes(searchExerciseTerm.toLowerCase()) || 
+        ex.category.toLowerCase().includes(searchExerciseTerm.toLowerCase())
+    );
+
     if (isLoading) return <div className="min-h-screen flex items-center justify-center text-white"><Loader2 className="animate-spin w-8 h-8"/></div>;
 
     return (
@@ -619,10 +628,24 @@ const WorkoutEditor = () => {
                     <div className="bg-[#111] border border-zinc-800 w-full max-w-lg rounded-2xl relative shadow animate-in zoom-in-95 flex flex-col max-h-[80vh] overflow-hidden">
                         <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
                             <div><h2 className="text-xl font-bold text-white">Seleccionar Ejercicio</h2><p className="text-xs text-emerald-500 mt-1 font-medium">Añadiendo a: {targetBlockName || 'Lista General'}</p></div>
-                            <button onClick={() => {setShowCatalog(false); setTargetBlockName(null);}} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
+                            <button onClick={() => {
+                                setShowCatalog(false); 
+                                setTargetBlockName(null);
+                                setSearchExerciseTerm(""); // Limpiar buscador al cerrar
+                            }} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="p-4 border-b border-zinc-800">
-                            <div className="relative"><Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" /><input type="text" placeholder="Buscar en catálogo..." className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-emerald-500 outline-none" /></div>
+                            <div className="relative">
+                                <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                {/* --- AQUÍ ESTÁ EL BUSCADOR FUNCIONANDO --- */}
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar en catálogo..." 
+                                    value={searchExerciseTerm}
+                                    onChange={(e) => setSearchExerciseTerm(e.target.value)}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-emerald-500 outline-none" 
+                                />
+                            </div>
                         </div>
                         <div className="p-4 bg-[#111] border-b border-zinc-800">
                             <p className="text-xs text-zinc-400 mb-2 font-bold uppercase">¿No está en la lista? Crea uno nuevo:</p>
@@ -653,13 +676,19 @@ const WorkoutEditor = () => {
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
-                            {catalog.map((ex) => (
-                                <button key={ex.id} onClick={() => void addExercise(ex)} className="w-full flex items-center gap-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-emerald-500 hover:bg-zinc-800 transition-all text-left group">
-                                    <img src={ex.img} className="w-12 h-12 rounded-lg object-cover" />
-                                    <div className="flex-1"><h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">{ex.name}</h4><span className="text-xs text-zinc-500">{ex.category}</span></div>
-                                    <Plus className="w-5 h-5 text-zinc-600 group-hover:text-emerald-500" />
-                                </button>
-                            ))}
+                            {filteredCatalog.length > 0 ? (
+                                filteredCatalog.map((ex) => (
+                                    <button key={ex.id} onClick={() => void addExercise(ex)} className="w-full flex items-center gap-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-emerald-500 hover:bg-zinc-800 transition-all text-left group">
+                                        <img src={ex.img} className="w-12 h-12 rounded-lg object-cover" />
+                                        <div className="flex-1"><h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">{ex.name}</h4><span className="text-xs text-zinc-500">{ex.category}</span></div>
+                                        <Plus className="w-5 h-5 text-zinc-600 group-hover:text-emerald-500" />
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="text-center py-6 text-zinc-500 text-sm">
+                                    No se encontraron ejercicios con "{searchExerciseTerm}"
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -54,7 +54,7 @@ const WorkoutEditor = () => {
     const [customExVideoUrl, setCustomExVideoUrl] = useState("");
     const [customExVideoFile, setCustomExVideoFile] = useState<File | null>(null);
 
-    // NUEVO: Estado para el buscador del catálogo
+    // Estado para el buscador del catálogo
     const [searchExerciseTerm, setSearchExerciseTerm] = useState("");
 
     useEffect(() => {
@@ -234,7 +234,7 @@ const WorkoutEditor = () => {
             localId: Date.now(), 
             day: activeDay, 
             sets: 3, 
-            reps: "10-12", 
+            reps: "8-10", // AQUI: Cambiado de "10-12" a "8-10"
             rir: "", 
             video: videoUrl,
             block_name: targetBlockName,
@@ -245,7 +245,7 @@ const WorkoutEditor = () => {
         }]);
         setShowCatalog(false);
         setTargetBlockName(null);
-        setSearchExerciseTerm(""); // Limpiamos el buscador al añadir
+        setSearchExerciseTerm(""); 
     };
 
     const createCustomExercise = async () => {
@@ -445,7 +445,7 @@ const WorkoutEditor = () => {
                         {ex.exercise_type === 'time' ? (
                             <input type="text" placeholder="ej: 45s" value={ex.time_duration || ''} onChange={(e) => updateExercise(ex.localId, 'time_duration', e.target.value)} className="w-10 bg-transparent text-white text-xs text-center font-bold outline-none" />
                         ) : (
-                            <input type="text" placeholder="ej: 10-12" value={ex.reps || ''} onChange={(e) => updateExercise(ex.localId, 'reps', e.target.value)} className="w-10 bg-transparent text-white text-xs text-center font-bold outline-none" />
+                            <input type="text" placeholder="ej: 8-10" value={ex.reps || ''} onChange={(e) => updateExercise(ex.localId, 'reps', e.target.value)} className="w-10 bg-transparent text-white text-xs text-center font-bold outline-none" />
                         )}
                     </div>
 
@@ -502,7 +502,6 @@ const WorkoutEditor = () => {
 
     const filteredClients = clients.filter(c => c.name.toLowerCase().includes(searchClient.toLowerCase()));
 
-    // LÓGICA DEL BUSCADOR
     const filteredCatalog = catalog.filter(ex => 
         ex.name.toLowerCase().includes(searchExerciseTerm.toLowerCase()) || 
         ex.category.toLowerCase().includes(searchExerciseTerm.toLowerCase())
@@ -631,13 +630,12 @@ const WorkoutEditor = () => {
                             <button onClick={() => {
                                 setShowCatalog(false); 
                                 setTargetBlockName(null);
-                                setSearchExerciseTerm(""); // Limpiar buscador al cerrar
+                                setSearchExerciseTerm(""); 
                             }} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="p-4 border-b border-zinc-800">
                             <div className="relative">
                                 <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                                {/* --- AQUÍ ESTÁ EL BUSCADOR FUNCIONANDO --- */}
                                 <input 
                                     type="text" 
                                     placeholder="Buscar en catálogo..." 

@@ -282,7 +282,8 @@ const ClientProfile = () => {
     const displayImage = client.image_url; 
 
     return (
-        <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+        // AÑADIDO: p-8 w-full max-w-7xl mx-auto min-h-screen para alinear con el resto del dashboard
+        <div className="p-8 w-full max-w-7xl mx-auto min-h-screen text-white font-sans space-y-6 pb-20 animate-in fade-in duration-500">
             
             {/* --- HEADER --- */}
             <div className="space-y-4">

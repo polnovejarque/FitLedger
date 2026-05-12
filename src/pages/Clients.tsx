@@ -54,14 +54,14 @@ const Clients = () => {
                 .eq('id', user.id)
                 .single();
 
-            // LÓGICA CORREGIDA: Si tiene studio_id es empleado. Si no lo tiene, es su propio jefe (independiente).
             const currentStudioId = profile?.studio_id || user.id;
             setStudioId(currentStudioId);
 
+            // ¡SOLUCIÓN AQUÍ! Usamos .or() para recuperar clientes antiguos (user_id) y nuevos (studio_id)
             const { data, error } = await supabase
                 .from('clients')
                 .select('*')
-                .eq('studio_id', currentStudioId)
+                .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id}`)
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -85,7 +85,6 @@ const Clients = () => {
 
         const { data: { user } } = await supabase.auth.getUser();
 
-        // LÓGICA CORREGIDA: Solo falla si no hay usuario logueado en absoluto.
         if (!user) {
             alert("Error de sesión. Recarga la página.");
             setIsSaving(false);

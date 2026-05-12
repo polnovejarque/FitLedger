@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
     Home, ClipboardList, TrendingUp, User, LogOut, Flame, 
     Calendar as CalendarIcon, Trophy, Activity, Dumbbell,
     Bell, Settings, ChevronRight, Plus, Scale, X, Camera, Ruler, Trash2, RefreshCw,
     ArrowLeft, Check, Clock, Play, SkipForward, Lightbulb, Upload,
-    CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers
+    CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers, RefreshCcw
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -18,9 +18,12 @@ const ClientWorkout = () => {
     const [email, setEmail] = useState("");
     const [clientPhoto, setClientPhoto] = useState<string | null>(null);
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
+    
+    // --- NUEVO ESTADO: LISTA DE ENTRENAMIENTOS DE HOY ---
+    const [todayPlans, setTodayPlans] = useState<any[]>([]); 
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
     
-    // --- NUEVOS ESTADOS PLANIFICACIÓN SEMANAL ---
+    // --- ESTADOS PLANIFICACIÓN SEMANAL ---
     const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
     const [todayDayId, setTodayDayId] = useState<number>(1);
     
@@ -32,6 +35,7 @@ const ClientWorkout = () => {
 
     const [currentAssignmentId, setCurrentAssignmentId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // --- ESTADOS PARA LOS EJERCICIOS ---
     const [exercises, setExercises] = useState<any[]>([]);
@@ -55,7 +59,7 @@ const ClientWorkout = () => {
     const [statsDiff, setStatsDiff] = useState({ weight: 0, waist: 0, arm: 0, leg: 0 });
     const [monthlyWorkouts, setMonthlyWorkouts] = useState(0);
     const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
-    const [weeklyGoal, setWeeklyGoal] = useState(4); 
+    const [weeklyGoal] = useState(4); // Linter fix: eliminado el setter que no se usaba
 
     // Fotos
     const [viewAngle, setViewAngle] = useState<'front' | 'back' | 'side'>('front');
@@ -73,8 +77,6 @@ const ClientWorkout = () => {
     const [activeTab, setActiveTab] = useState<'inicio' | 'reservas' | 'plan' | 'progreso' | 'perfil'>('inicio');
     const [activeProfileModal, setActiveProfileModal] = useState<'notifications' | 'settings' | null>(null);
     const [showCheckinModal, setShowCheckinModal] = useState(false);
-    
-    // ESTADO PARA EL MODAL DE FOTOS
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [fileToUpload, setFileToUpload] = useState<File | null>(null);
@@ -107,155 +109,118 @@ const ClientWorkout = () => {
         return () => clearInterval(interval);
     }, [timerActive, timerTime]);
 
-    // --- CARGAR DATOS PRINCIPALES ---
-    useEffect(() => {
-        const fetchClientData = async () => {
-            setLoading(true);
-            const storedEmail = localStorage.getItem('fit_client_email');
+    // --- FUNCIÓN DE CARGA PRINCIPAL ---
+    const fetchClientData = useCallback(async (showSpinners = true) => {
+        if (showSpinners) setLoading(true);
+        const storedEmail = localStorage.getItem('fit_client_email');
+        
+        if (storedEmail) {
+            const { data: clientData } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('email', storedEmail) 
+                .single();
             
-            if (storedEmail) {
-                const { data: clientData } = await supabase
-                    .from('clients')
-                    .select('*')
-                    .eq('email', storedEmail) 
-                    .single();
-                
-                if (clientData) {
-                    setClientId(clientData.id);
-                    const nameParts = clientData.name.split(' ');
-                    setClientName(nameParts[0]);
-                    setClientLastName(nameParts.length > 1 ? nameParts[1] : "");
-                    setEmail(clientData.email);
-                    setClientPhoto(clientData.image_url);
-                    setPaymentLink(clientData.stripe_link);
+            if (clientData) {
+                setClientId(clientData.id);
+                const nameParts = clientData.name.split(' ');
+                setClientName(nameParts[0]);
+                setClientLastName(nameParts.length > 1 ? nameParts[1] : "");
+                setEmail(clientData.email);
+                setClientPhoto(clientData.image_url);
+                setPaymentLink(clientData.stripe_link);
 
-                    if (clientData.user_id) { 
-                        setStudioId(clientData.user_id);
-                        const { data: coachProfile } = await supabase
-                            .from('profiles')
-                            .select('logo_url, business_name')
-                            .eq('id', clientData.user_id) 
-                            .single();
+                if (clientData.user_id) { 
+                    setStudioId(clientData.user_id);
+                    const { data: coachProfile } = await supabase
+                        .from('profiles')
+                        .select('logo_url, business_name')
+                        .eq('id', clientData.user_id) 
+                        .single();
 
-                        if (coachProfile) {
-                            if (coachProfile.logo_url) setCoachLogo(coachProfile.logo_url);
-                            if (coachProfile.business_name) setCoachBusinessName(coachProfile.business_name);
-                        }
-                        
-                        fetchClasses(clientData.user_id, clientData.id);
+                    if (coachProfile) {
+                        if (coachProfile.logo_url) setCoachLogo(coachProfile.logo_url);
+                        if (coachProfile.business_name) setCoachBusinessName(coachProfile.business_name);
                     }
-
-                    // --- LECTURA DE LA PLANIFICACIÓN SEMANAL ---
-                    const currentDayOfWeek = new Date().getDay() === 0 ? 7 : new Date().getDay();
-                    setTodayDayId(currentDayOfWeek);
-
-                    const { data: planData } = await supabase
-                        .from('client_weekly_plan')
-                        .select('id, day_of_week, routine_id, routines(*)')
-                        .eq('client_id', clientData.id);
-
-                    if (planData && planData.length > 0) {
-                        // SOLUCIÓN AL BUG DE SUPABASE: Normalizamos la lista de rutinas para que no se queden cajas vacías
-                        const normalizedPlans = planData.map(p => ({
-                            ...p,
-                            routines: Array.isArray(p.routines) ? p.routines[0] : p.routines
-                        })).filter(p => p.routines); // Filtramos fantasmas si la rutina fue borrada
-                        
-                        setWeeklyPlan(normalizedPlans);
-                        
-                        const todayPlans = normalizedPlans.filter(p => p.day_of_week === currentDayOfWeek);
-                        if (todayPlans.length > 0) {
-                            setTodayWorkout({ ...todayPlans[0].routines, plan_id: todayPlans[0].id });
-                            setCurrentAssignmentId(todayPlans[0].id.toString());
-                        } else {
-                            setTodayWorkout(null);
-                        }
-                        
-                        if (normalizedPlans.length > 0) {
-                            fetchWorkoutStats(normalizedPlans[0].id.toString());
-                        }
-                    } else {
-                        // LEGACY: Por si el coach aún no le ha creado un plan semanal
-                        const { data: assignment } = await supabase
-                            .from('routine_assignments')
-                            .select(`*, routine:routines!fk_routine (*)`) 
-                            .eq('client_id', clientData.id)
-                            .order('created_at', { ascending: false })
-                            .limit(1)
-                            .maybeSingle();
-
-                        if (assignment && assignment.routine) {
-                            setTodayWorkout({ ...assignment.routine, is_completed_today: false });
-                            setCurrentAssignmentId(assignment.id.toString());
-                            if (assignment.routine.days_per_week) setWeeklyGoal(assignment.routine.days_per_week);
-                            fetchWorkoutStats(assignment.id.toString());
-                        } else {
-                            setTodayWorkout(null);
-                        }
-                    }
-
-                    fetchProgress(clientData.id);
+                    
+                    fetchClasses(clientData.user_id);
                 }
+
+                const currentDayOfWeek = new Date().getDay() === 0 ? 7 : new Date().getDay();
+                setTodayDayId(currentDayOfWeek);
+
+                // LÓGICA DE ORDENAMIENTO ASCENDENTE
+                const { data: planData } = await supabase
+                    .from('client_weekly_plan')
+                    .select('id, day_of_week, routine_id, routines(*)')
+                    .eq('client_id', clientData.id)
+                    .order('created_at', { ascending: true });
+
+                if (planData && planData.length > 0) {
+                    const normalizedPlan = planData.map(p => {
+                        let routineObj = Array.isArray(p.routines) ? p.routines[0] : p.routines;
+                        if (!routineObj) {
+                            routineObj = { id: p.routine_id, name: "⚠️ Sincronizando rutina..." };
+                        }
+                        return { ...p, routines: routineObj };
+                    });
+
+                    setWeeklyPlan(normalizedPlan);
+                    
+                    const currentDayPlans = normalizedPlan.filter(p => p.day_of_week === currentDayOfWeek);
+                    setTodayPlans(currentDayPlans);
+                    
+                    fetchWorkoutStats(normalizedPlan[0].id.toString());
+                } else {
+                    const { data: assignment } = await supabase
+                        .from('routine_assignments')
+                        .select(`*, routine:routines!fk_routine (*)`) 
+                        .eq('client_id', clientData.id)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (assignment && assignment.routine) {
+                        setTodayPlans([{ id: assignment.id, routines: assignment.routine }]);
+                        fetchWorkoutStats(assignment.id.toString());
+                    } else {
+                        setTodayPlans([]);
+                        setWeeklyPlan([]);
+                    }
+                }
+
+                fetchProgress(clientData.id);
             }
-            setLoading(false);
-        };
-        fetchClientData();
+        }
+        setLoading(false);
+        setIsRefreshing(false);
     }, []);
 
+    // AUTO-REFRESCO AL ENTRAR A LA APP
+    useEffect(() => {
+        fetchClientData();
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                setIsRefreshing(true);
+                fetchClientData(false);
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [fetchClientData]);
+
+    const handleManualRefresh = () => {
+        setIsRefreshing(true);
+        fetchClientData(false);
+    };
+
     // --- FUNCIONES SECUNDARIAS (Reservas, Stats, Progreso) ---
-    const fetchClasses = async (studioId: string, clientId: string) => {
+    const fetchClasses = async (studioId: string) => {
         const today = new Date().toISOString();
         const { data: events } = await supabase.from('calendar_events').select('*').eq('studio_id', studioId).eq('type', 'group').gte('date', today).order('date', { ascending: true });
-
-        if (events && events.length > 0) {
-            const staffIds = Array.from(new Set(events.map(e => e.assigned_staff_id).filter(Boolean)));
-            const { data: staffProfiles } = await supabase.from('profiles').select('id, business_name').in('id', staffIds);
-            const eventIds = events.map(e => e.id);
-            const { data: bookings } = await supabase.from('class_bookings').select('*').in('event_id', eventIds);
-
-            const classesWithBookingData = events.map(ev => {
-                const coach = staffProfiles?.find(p => p.id === ev.assigned_staff_id);
-                const evBookings = bookings?.filter(b => b.event_id === ev.id) || [];
-                const isBooked = evBookings.some(b => b.client_id === clientId && b.status === 'booked');
-                const isWaitlisted = evBookings.some(b => b.client_id === clientId && b.status === 'waitlist');
-                const bookedCount = evBookings.filter(b => b.status === 'booked').length;
-                
-                return {
-                    ...ev,
-                    coach_name: coach?.business_name || 'Staff',
-                    bookedCount,
-                    spotsLeft: (ev.max_capacity || 1) - bookedCount,
-                    isBooked,
-                    isWaitlisted
-                };
-            });
-            setGroupClasses(classesWithBookingData);
-        } else {
-            setGroupClasses([]);
-        }
-    };
-
-    const handleBookClass = async (eventId: number, status: 'booked' | 'waitlist') => {
-        if (!clientId || !studioId) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('class_bookings').insert({ event_id: eventId, client_id: clientId, status: status });
-            if (error) throw error;
-            alert(status === 'booked' ? "¡Plaza reservada! 🎉" : "Añadido a lista de espera.");
-            fetchClasses(studioId, clientId);
-        } catch (err: any) { alert("Error al reservar: " + err.message); } finally { setLoading(false); }
-    };
-
-    const handleCancelBooking = async (eventId: number) => {
-        if (!clientId || !studioId) return;
-        if (!confirm("¿Seguro que quieres cancelar tu reserva?")) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('class_bookings').delete().eq('event_id', eventId).eq('client_id', clientId);
-            if (error) throw error;
-            alert("Reserva cancelada.");
-            fetchClasses(studioId, clientId);
-        } catch (err: any) { alert("Error al cancelar: " + err.message); } finally { setLoading(false); }
+        if (events) setGroupClasses(events);
     };
 
     const getWeekRange = () => {
@@ -310,8 +275,36 @@ const ClientWorkout = () => {
         }
     };
 
+    const handleBookClass = async (eventId: number, status: 'booked' | 'waitlist') => {
+        if (!clientId || !studioId) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('class_bookings').insert({ event_id: eventId, client_id: clientId, status: status });
+            if (error) throw error;
+            alert(status === 'booked' ? "¡Plaza reservada! 🎉" : "Añadido a lista de espera.");
+            fetchClasses(studioId);
+        } catch (err: any) { alert("Error al reservar: " + err.message); } finally { setLoading(false); }
+    };
+
+    const handleCancelBooking = async (eventId: number) => {
+        if (!clientId || !studioId) return;
+        if (!confirm("¿Seguro que quieres cancelar tu reserva?")) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('class_bookings').delete().eq('event_id', eventId).eq('client_id', clientId);
+            if (error) throw error;
+            alert("Reserva cancelada.");
+            fetchClasses(studioId);
+        } catch (err: any) { alert("Error al cancelar: " + err.message); } finally { setLoading(false); }
+    };
+
     // --- ACCIÓN: INICIAR UN ENTRENAMIENTO ---
     const startWorkout = async (routine: any, planOrAssignmentId: string) => {
+        if(routine?.name?.includes("Sincronizando")) {
+            alert("El Coach está editando esta rutina o no tienes permisos. Refresca la app en unos minutos.");
+            return;
+        }
+
         setLoading(true);
         setTodayWorkout(routine);
         setCurrentAssignmentId(planOrAssignmentId);
@@ -328,7 +321,7 @@ const ClientWorkout = () => {
         if (uniqueDays.length > 0) setCurrentDayFilter(uniqueDays[0] as string);
 
         setViewingExercises(true);
-        setActiveTab('plan'); // Mantenemos la pestaña activa
+        setActiveTab('plan'); 
         setLoading(false);
     };
 
@@ -381,7 +374,7 @@ const ClientWorkout = () => {
                 await fetchWorkoutStats(currentAssignmentId);
 
                 alert(`¡Sesión Completada! 🎉 Sigue así.`);
-                setActiveTab('inicio'); // Volver al inicio tras terminar
+                setActiveTab('inicio'); 
                 setViewingExercises(false);
                 setTimerActive(false);
                 
@@ -415,7 +408,7 @@ const ClientWorkout = () => {
     };
     
     const handleDeleteBefore = async () => { alert("Borrado en mantenimiento"); };
-    const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/client-app"; } };
+    const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/"; } };
     const handleDeleteAccount = async () => { alert("Borrar cuenta en mantenimiento"); };
     const handleProfileFileSelect = async () => { alert("Cambio foto perfil en mantenimiento"); };
     const handleDeleteProfilePic = async () => { alert("Borrado foto perfil en mantenimiento"); };
@@ -470,7 +463,6 @@ const ClientWorkout = () => {
                                                 <div className="flex-1 py-1">
                                                     <h3 className="text-white font-bold text-lg leading-tight mb-2">{ex.exercise_name}</h3>
                                                     
-                                                    {/* --- VISOR DE NOTAS DEL COACH --- */}
                                                     {ex.notes && (
                                                         <div className="bg-zinc-800/80 rounded-md p-2 mb-3 border-l-2 border-emerald-500">
                                                             <p className="text-[11px] text-zinc-300 italic leading-relaxed">
@@ -547,13 +539,24 @@ const ClientWorkout = () => {
                 
                 <div>
                     <h3 className="text-white font-bold text-lg mb-3">Tu plan de hoy:</h3>
-                    {todayWorkout ? (
-                        <div onClick={() => { setActiveTab('plan'); setViewingExercises(false); }} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:border-emerald-500/30 group">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-zinc-800 text-emerald-500 rounded-lg flex items-center justify-center group-hover:bg-emerald-500/10"><ClipboardList className="w-6 h-6" /></div>
-                                <div><h3 className="text-white font-bold text-base group-hover:text-emerald-400 transition-colors">{todayWorkout.name}</h3><p className="text-xs flex items-center gap-1 text-zinc-500"><Clock className="w-3 h-3"/> Toca empezar</p></div>
-                            </div>
-                            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black"><ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-black" /></div>
+                    {todayPlans.length > 0 ? (
+                        <div className="space-y-3">
+                            {todayPlans.map(plan => {
+                                const routine = plan.routines;
+                                const isError = routine?.name?.includes('Sincronizando');
+                                return (
+                                    <div key={plan.id} onClick={() => !isError && startWorkout(routine, plan.id.toString())} className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between cursor-pointer group ${isError ? 'border-orange-500/30 opacity-70 cursor-not-allowed' : 'hover:border-emerald-500/30'}`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 bg-zinc-800 rounded-lg flex items-center justify-center ${isError ? 'text-orange-500' : 'text-emerald-500 group-hover:bg-emerald-500/10'}`}><ClipboardList className="w-6 h-6" /></div>
+                                            <div>
+                                                <h3 className="text-white font-bold text-base group-hover:text-emerald-400 transition-colors">{routine?.name}</h3>
+                                                <p className="text-xs flex items-center gap-1 text-zinc-500"><Clock className="w-3 h-3"/> {isError ? 'Consulta con tu Coach' : 'Toca empezar'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black"><ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-black" /></div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
@@ -594,25 +597,29 @@ const ClientWorkout = () => {
                                 </div>
 
                                 {dayPlans.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {dayPlans.map(plan => (
-                                            <button 
-                                                key={plan.id} 
-                                                onClick={() => startWorkout(plan.routines, plan.id.toString())} 
-                                                className="w-full flex items-center justify-between bg-zinc-800 border border-zinc-700 p-3 rounded-lg hover:border-emerald-500 group text-left"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="bg-zinc-700 p-2 rounded group-hover:bg-emerald-500/10">
-                                                        <Dumbbell className="w-4 h-4 text-emerald-500" />
+                                    <div className="space-y-2 mt-2">
+                                        {dayPlans.map(plan => {
+                                            const isError = plan.routines?.name?.includes("Sincronizando");
+                                            
+                                            return (
+                                                <button 
+                                                    key={plan.id} 
+                                                    onClick={() => !isError && startWorkout(plan.routines, plan.id.toString())} 
+                                                    className={`w-full flex items-center justify-between bg-zinc-800 border border-zinc-700 p-3 rounded-lg group text-left ${isError ? 'opacity-60 border-orange-500/30 cursor-not-allowed' : 'hover:border-emerald-500'}`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`bg-zinc-700 p-2 rounded ${isError ? '' : 'group-hover:bg-emerald-500/10'}`}>
+                                                            <Dumbbell className={`w-4 h-4 ${isError ? 'text-orange-500' : 'text-emerald-500'}`} />
+                                                        </div>
+                                                        <div>
+                                                            <span className={`text-white font-bold text-sm block leading-tight ${isError ? 'text-orange-400' : ''}`}>{plan.routines?.name}</span>
+                                                            <span className="text-[10px] text-zinc-400 font-medium">{isError ? 'Consulta con tu Coach' : 'Haz clic para empezar'}</span>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <span className="text-white font-bold text-sm block leading-tight">{plan.routines?.name}</span>
-                                                        <span className="text-[10px] text-zinc-400 font-medium">Haz clic para empezar</span>
-                                                    </div>
-                                                </div>
-                                                <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-emerald-500" />
-                                            </button>
-                                        ))}
+                                                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-emerald-500" />
+                                                </button>
+                                            )
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="bg-zinc-800/50 rounded-lg p-3 border border-dashed border-zinc-700 text-center">
@@ -625,8 +632,8 @@ const ClientWorkout = () => {
                         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
                             <CalendarIcon className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
                             <p className="text-zinc-400 text-sm mb-4">No tienes una planificación semanal asignada.</p>
-                            {todayWorkout && (
-                                <button onClick={() => startWorkout(todayWorkout, currentAssignmentId!)} className="bg-emerald-500 text-black font-bold text-sm px-6 py-2 rounded-lg">
+                            {todayPlans.length > 0 && (
+                                <button onClick={() => startWorkout(todayPlans[0].routines, todayPlans[0].id.toString())} className="bg-emerald-500 text-black font-bold text-sm px-6 py-2 rounded-lg">
                                     Ver Mi Rutina Base
                                 </button>
                             )}
@@ -845,6 +852,14 @@ const ClientWorkout = () => {
                             {coachBusinessName}
                         </span>
                     </div>
+                    {/* --- BOTÓN DE RECARGA MANUAL --- */}
+                    <button 
+                        onClick={handleManualRefresh}
+                        className={`p-2 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors ${isRefreshing ? 'animate-spin text-emerald-500' : ''}`}
+                        title="Sincronizar cambios"
+                    >
+                        <RefreshCcw className="w-4 h-4" />
+                    </button>
                 </div>
             )}
 

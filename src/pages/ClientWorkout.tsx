@@ -11,7 +11,6 @@ import { Button } from '../components/ui/Button';
 
 // --- COMPONENTE PRINCIPAL APP CLIENTE ---
 const ClientWorkout = () => {
-    // --- ESTADOS DE DATOS ---
     const [clientId, setClientId] = useState<string | null>(null);
     const [clientName, setClientName] = useState("Atleta");
     const [clientLastName, setClientLastName] = useState("");
@@ -19,15 +18,14 @@ const ClientWorkout = () => {
     const [clientPhoto, setClientPhoto] = useState<string | null>(null);
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     
-    // --- NUEVOS ESTADOS: LISTA DE ENTRENAMIENTOS ---
     const [todayPlans, setTodayPlans] = useState<any[]>([]); 
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
-    
-    // --- ESTADOS PLANIFICACIÓN SEMANAL ---
     const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
     const [todayDayId, setTodayDayId] = useState<number>(1);
     
-    // --- ESTADOS DE MARCA BLANCA Y RESERVAS ---
+    // --- ESTADO NUEVO: RUTINAS COMPLETADAS HOY ---
+    const [completedToday, setCompletedToday] = useState<Set<number>>(new Set());
+
     const [coachLogo, setCoachLogo] = useState<string>('/logo.png');
     const [coachBusinessName, setCoachBusinessName] = useState<string>('FitLeader');
     const [studioId, setStudioId] = useState<string | null>(null);
@@ -37,31 +35,26 @@ const ClientWorkout = () => {
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // --- ESTADOS PARA LOS EJERCICIOS ---
     const [exercises, setExercises] = useState<any[]>([]);
     const [currentDayFilter, setCurrentDayFilter] = useState("Día 1"); 
     const [viewingExercises, setViewingExercises] = useState(false);
     const [workoutLogs, setWorkoutLogs] = useState<any>({}); 
 
-    // --- ESTADOS DEL TEMPORIZADOR ---
     const [timerActive, setTimerActive] = useState(false);
     const [timerTime, setTimerTime] = useState(90); 
     const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
-    // Estado del Progreso
     const [currentWeight, setCurrentWeight] = useState<string>("--");
     const [currentWaist, setCurrentWaist] = useState<string>("--");
     const [currentArm, setCurrentArm] = useState<string>("--");
     const [currentLeg, setCurrentLeg] = useState<string>("--"); 
     const [progressHistory, setProgressHistory] = useState<any[]>([]);
     
-    // Stats
     const [statsDiff, setStatsDiff] = useState({ weight: 0, waist: 0, arm: 0, leg: 0 });
     const [monthlyWorkouts, setMonthlyWorkouts] = useState(0);
     const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
-    const [weeklyGoal, setWeeklyGoal] = useState(4); 
+    const [weeklyGoal] = useState(4); 
 
-    // Fotos
     const [viewAngle, setViewAngle] = useState<'front' | 'back' | 'side'>('front');
     const [photos, setPhotos] = useState<{
         front: { before: string | null; now: string | null; beforeId: string | null };
@@ -73,7 +66,6 @@ const ClientWorkout = () => {
         side: { before: null, now: null, beforeId: null }
     });
 
-    // UI State
     const [activeTab, setActiveTab] = useState<'inicio' | 'reservas' | 'plan' | 'progreso' | 'perfil'>('inicio');
     const [activeProfileModal, setActiveProfileModal] = useState<'notifications' | 'settings' | null>(null);
     const [showCheckinModal, setShowCheckinModal] = useState(false);
@@ -81,7 +73,6 @@ const ClientWorkout = () => {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
-    // --- CONFIGURACIÓN PERSISTENTE ---
     const [notifSettings, setNotifSettings] = useState(() => {
         const saved = localStorage.getItem('fit_client_notifs');
         return saved ? JSON.parse(saved) : { workouts: true, messages: true, tips: false };
@@ -89,14 +80,16 @@ const ClientWorkout = () => {
 
     useEffect(() => { localStorage.setItem('fit_client_notifs', JSON.stringify(notifSettings)); }, [notifSettings]);
 
-    // Check-in Form
+    // --- FORMULARIO DE CHECK-IN AMPLIADO ---
     const [formWeight, setFormWeight] = useState("");
+    const [formWaist, setFormWaist] = useState("");
+    const [formArm, setFormArm] = useState("");
+    const [formLeg, setFormLeg] = useState("");
     const [saving, setSaving] = useState(false);
 
     const profileInputRef = useRef<HTMLInputElement>(null);
     const [uploadingProfile] = useState(false);
 
-    // Temporizador
     useEffect(() => {
         let interval: any;
         if (timerActive && timerTime > 0) {
@@ -149,23 +142,25 @@ const ClientWorkout = () => {
                 const currentDayOfWeek = new Date().getDay() === 0 ? 7 : new Date().getDay();
                 setTodayDayId(currentDayOfWeek);
 
-                // Consulta limpia y directa
-                const { data: planData, error: planError } = await supabase
+                const { data: planData } = await supabase
                     .from('client_weekly_plan')
-                    .select('id, day_of_week, routine_id, routines(*)')
+                    .select('*')
                     .eq('client_id', clientData.id)
                     .order('id', { ascending: true });
 
-                if (planError) console.error("Error al cargar plan semanal:", planError);
-
                 if (planData && planData.length > 0) {
+                    const routineIds = planData.map(p => p.routine_id);
+                    const { data: routinesData } = await supabase
+                        .from('routines')
+                        .select('*')
+                        .in('id', routineIds);
+
                     const normalizedPlans = planData.map(p => {
-                        let routineObj = Array.isArray(p.routines) ? p.routines[0] : p.routines;
-                        // Si Supabase la bloquea por RLS, avisamos temporalmente
-                        if (!routineObj) {
-                            routineObj = { id: p.routine_id, name: "⚠️ Rutina Bloqueada (Permisos)" };
-                        }
-                        return { ...p, routines: routineObj };
+                        const routineObj = routinesData?.find(r => r.id === p.routine_id);
+                        return { 
+                            ...p, 
+                            routines: routineObj || { id: p.routine_id, name: "⚠️ Rutina Bloqueada (Permisos)" } 
+                        };
                     });
                     
                     setWeeklyPlan(normalizedPlans);
@@ -173,8 +168,10 @@ const ClientWorkout = () => {
                     const currentDayPlans = normalizedPlans.filter(p => p.day_of_week === currentDayOfWeek);
                     setTodayPlans(currentDayPlans);
 
+                    // Nueva lógica de stats pasando TODOS los IDs
                     if (normalizedPlans.length > 0) {
-                        fetchWorkoutStats(normalizedPlans[0].id.toString());
+                        const allPlanIds = normalizedPlans.map(p => p.id);
+                        fetchWorkoutStats(allPlanIds);
                     }
                 } else {
                     const { data: assignment } = await supabase
@@ -188,11 +185,11 @@ const ClientWorkout = () => {
                     if (assignment && assignment.routine) {
                         const legacyRoutine = { ...assignment.routine, is_completed_today: false };
                         setTodayPlans([{ id: assignment.id, routines: legacyRoutine }]);
-                        if (assignment.routine.days_per_week) setWeeklyGoal(assignment.routine.days_per_week);
-                        fetchWorkoutStats(assignment.id.toString());
+                        fetchWorkoutStats([assignment.id]);
                     } else {
                         setTodayPlans([]);
                         setWeeklyPlan([]);
+                        fetchWorkoutStats([]);
                     }
                 }
 
@@ -203,7 +200,6 @@ const ClientWorkout = () => {
         setIsRefreshing(false);
     }, []);
 
-    // AUTO-REFRESCO AL ENTRAR A LA APP
     useEffect(() => {
         fetchClientData();
 
@@ -223,10 +219,9 @@ const ClientWorkout = () => {
         fetchClientData(false);
     };
 
-    // --- FUNCIONES SECUNDARIAS (Reservas, Stats, Progreso) ---
-    const fetchClasses = async (currentStudioId: string, currentClientId: string) => {
+    const fetchClasses = async (studioId: string, clientId: string) => {
         const today = new Date().toISOString();
-        const { data: events } = await supabase.from('calendar_events').select('*').eq('studio_id', currentStudioId).eq('type', 'group').gte('date', today).order('date', { ascending: true });
+        const { data: events } = await supabase.from('calendar_events').select('*').eq('studio_id', studioId).eq('type', 'group').gte('date', today).order('date', { ascending: true });
 
         if (events && events.length > 0) {
             const staffIds = Array.from(new Set(events.map(e => e.assigned_staff_id).filter(Boolean)));
@@ -237,8 +232,8 @@ const ClientWorkout = () => {
             const classesWithBookingData = events.map(ev => {
                 const coach = staffProfiles?.find(p => p.id === ev.assigned_staff_id);
                 const evBookings = bookings?.filter(b => b.event_id === ev.id) || [];
-                const isBooked = evBookings.some(b => b.client_id === currentClientId && b.status === 'booked');
-                const isWaitlisted = evBookings.some(b => b.client_id === currentClientId && b.status === 'waitlist');
+                const isBooked = evBookings.some(b => b.client_id === clientId && b.status === 'booked');
+                const isWaitlisted = evBookings.some(b => b.client_id === clientId && b.status === 'waitlist');
                 const bookedCount = evBookings.filter(b => b.status === 'booked').length;
                 
                 return {
@@ -292,23 +287,40 @@ const ClientWorkout = () => {
         return { start: monday.toISOString(), end: sunday.toISOString() };
     };
 
-    const fetchWorkoutStats = async (assignmentId: string) => {
+    // --- NUEVA LÓGICA DE STATS Y COMPLETADOS ---
+    const fetchWorkoutStats = async (planIds: number[]) => {
+        if (!planIds || planIds.length === 0) {
+            setMonthlyWorkouts(0); setWeeklyWorkouts(0); setCompletedToday(new Set()); return;
+        }
+
         try {
             const now = new Date();
             const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
             const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
             const { start: startWeek, end: endWeek } = getWeekRange();
 
-            const { data: results } = await supabase.from('workout_results').select('created_at').eq('assignment_id', assignmentId).gte('created_at', firstDayMonth).lte('created_at', lastDayMonth);
+            const { data: results } = await supabase.from('workout_results')
+                .select('created_at, assignment_id')
+                .in('assignment_id', planIds)
+                .gte('created_at', firstDayMonth)
+                .lte('created_at', lastDayMonth);
 
             if (results && results.length > 0) {
                 const weeklyResults = results.filter((r: any) => r.created_at >= startWeek && r.created_at <= endWeek);
                 const uniqueMonthlyDays = new Set(results.map((r: any) => r.created_at.split('T')[0]));
                 setMonthlyWorkouts(uniqueMonthlyDays.size);
+                
                 const uniqueWeeklyDays = new Set(weeklyResults.map((r: any) => r.created_at.split('T')[0]));
                 setWeeklyWorkouts(uniqueWeeklyDays.size);
+
+                // Comprobar cuáles se han completado hoy
+                const todayStr = now.toISOString().split('T')[0];
+                const completed = new Set<number>(
+                    results.filter((r:any) => r.created_at.startsWith(todayStr)).map((r:any) => r.assignment_id)
+                );
+                setCompletedToday(completed);
             } else {
-                setMonthlyWorkouts(0); setWeeklyWorkouts(0);
+                setMonthlyWorkouts(0); setWeeklyWorkouts(0); setCompletedToday(new Set());
             }
         } catch (error) { console.error("Error estadísticas:", error); }
     };
@@ -331,10 +343,9 @@ const ClientWorkout = () => {
         }
     };
 
-    // --- ACCIÓN: INICIAR UN ENTRENAMIENTO ---
     const startWorkout = async (routine: any, planOrAssignmentId: string) => {
         if(routine?.name?.includes("Bloqueada") || routine?.name?.includes("Sincronizando")) {
-            alert("⚠️ Supabase está bloqueando esta rutina. Ejecuta el código SQL en tu panel para solucionarlo.");
+            alert("⚠️ Supabase está bloqueando esta rutina. El Coach debe ejecutar el SQL en su panel para arreglarlo.");
             return;
         }
 
@@ -358,7 +369,6 @@ const ClientWorkout = () => {
         setLoading(false);
     };
 
-    // --- FUNCIONES DE EJECUCIÓN DEL ENTRENAMIENTO ---
     const handleLogChange = (exerciseId: number, setIndex: number, field: 'weight' | 'reps', value: string) => {
         setWorkoutLogs((prev: any) => ({ ...prev, [exerciseId]: { ...prev[exerciseId], [setIndex]: { ...prev[exerciseId]?.[setIndex], [field]: value } } }));
     };
@@ -404,9 +414,11 @@ const ClientWorkout = () => {
                 }
 
                 setWorkoutLogs({});
-                await fetchWorkoutStats(currentAssignmentId);
-
                 alert(`¡Sesión Completada! 🎉 Sigue así.`);
+                
+                // Recargamos silenciosamente los datos para que actualice la barra y ponga el Check Verde
+                await fetchClientData(false);
+                
                 setActiveTab('inicio'); 
                 setViewingExercises(false);
                 setTimerActive(false);
@@ -419,22 +431,28 @@ const ClientWorkout = () => {
         }
     };
 
-    // --- UTILIDADES ---
+    // --- NUEVO: GUARDAR CHECKIN CON TODAS LAS MÉTRICAS ---
     const handleSaveCheckin = async () => { 
         if(!clientId) return;
         setSaving(true);
         try {
             const payload: any = { client_id: clientId, date: new Date().toISOString() };
             if(formWeight) payload.weight = parseFloat(formWeight);
+            if(formWaist) payload.waist = parseFloat(formWaist);
+            if(formArm) payload.arm = parseFloat(formArm);
+            if(formLeg) payload.leg = parseFloat(formLeg);
             
             const { error } = await supabase.from('client_progress').insert([payload]);
             if(error) throw error;
             
             alert("Progreso guardado correctamente.");
             setShowCheckinModal(false);
+            
+            // Limpiamos formulario
+            setFormWeight(""); setFormWaist(""); setFormArm(""); setFormLeg("");
             fetchProgress(clientId);
         } catch (error: any) {
-            alert("Error al guardar: " + error.message);
+            alert("Error al guardar en Supabase. Asegúrate de ejecutar el código SQL: " + error.message);
         } finally {
             setSaving(false);
         }
@@ -448,7 +466,6 @@ const ClientWorkout = () => {
 
     if (loading && !clientId) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500"><Activity className="w-10 h-10 animate-spin" /></div>;
 
-    // --- VISTAS DE PESTAÑAS ---
     const renderWorkoutView = () => {
         if (!todayWorkout) { setViewingExercises(false); setActiveTab('plan'); return null; }
         
@@ -496,7 +513,6 @@ const ClientWorkout = () => {
                                                 <div className="flex-1 py-1">
                                                     <h3 className="text-white font-bold text-lg leading-tight mb-2">{ex.exercise_name}</h3>
                                                     
-                                                    {/* --- VISOR DE NOTAS DEL COACH --- */}
                                                     {ex.notes && (
                                                         <div className="bg-zinc-800/80 rounded-md p-2 mb-3 border-l-2 border-emerald-500">
                                                             <p className="text-[11px] text-zinc-300 italic leading-relaxed">
@@ -578,16 +594,24 @@ const ClientWorkout = () => {
                             {todayPlans.map(plan => {
                                 const routine = plan.routines;
                                 const isError = routine?.name?.includes('Bloqueada');
+                                const isDone = completedToday.has(plan.id);
+
                                 return (
-                                    <div key={plan.id} onClick={() => !isError && startWorkout(routine, plan.id.toString())} className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between cursor-pointer group ${isError ? 'border-orange-500/30 opacity-70 cursor-not-allowed' : 'hover:border-emerald-500/30'}`}>
+                                    <div key={plan.id} onClick={() => !isError && !isDone && startWorkout(routine, plan.id.toString())} className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between transition-colors ${isError ? 'border-orange-500/30 opacity-70 cursor-not-allowed' : isDone ? 'border-emerald-500/50 opacity-80 cursor-default' : 'cursor-pointer hover:border-emerald-500/30 group'}`}>
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 bg-zinc-800 rounded-lg flex items-center justify-center ${isError ? 'text-orange-500' : 'text-emerald-500 group-hover:bg-emerald-500/10'}`}><ClipboardList className="w-6 h-6" /></div>
+                                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isError ? 'text-orange-500 bg-zinc-800' : isDone ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-emerald-500 group-hover:bg-emerald-500/10'}`}>
+                                                {isDone ? <Check className="w-6 h-6" /> : <ClipboardList className="w-6 h-6" />}
+                                            </div>
                                             <div>
-                                                <h3 className="text-white font-bold text-base group-hover:text-emerald-400 transition-colors">{routine?.name}</h3>
-                                                <p className="text-xs flex items-center gap-1 text-zinc-500"><Clock className="w-3 h-3"/> {isError ? 'Consulta con tu Coach' : 'Toca empezar'}</p>
+                                                <h3 className={`font-bold text-base transition-colors ${isDone ? 'text-emerald-500' : 'text-white group-hover:text-emerald-400'}`}>{routine?.name}</h3>
+                                                <p className={`text-xs flex items-center gap-1 ${isDone ? 'text-emerald-500/70' : 'text-zinc-500'}`}>
+                                                    {isError ? <><Clock className="w-3 h-3"/> Consulta con tu Coach</> : isDone ? <><Check className="w-3 h-3"/> Completado</> : <><Clock className="w-3 h-3"/> Toca empezar</>}
+                                                </p>
                                             </div>
                                         </div>
-                                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black"><ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-black" /></div>
+                                        {!isDone && (
+                                            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black"><ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-black" /></div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -634,23 +658,24 @@ const ClientWorkout = () => {
                                     <div className="space-y-2 mt-2">
                                         {dayPlans.map(plan => {
                                             const isError = plan.routines?.name?.includes("Bloqueada");
+                                            const isDone = completedToday.has(plan.id);
                                             
                                             return (
                                                 <button 
                                                     key={plan.id} 
-                                                    onClick={() => !isError && startWorkout(plan.routines, plan.id.toString())} 
-                                                    className={`w-full flex items-center justify-between bg-zinc-800 border border-zinc-700 p-3 rounded-lg group text-left ${isError ? 'opacity-60 border-orange-500/30 cursor-not-allowed' : 'hover:border-emerald-500'}`}
+                                                    onClick={() => !isError && !isDone && startWorkout(plan.routines, plan.id.toString())} 
+                                                    className={`w-full flex items-center justify-between border p-3 rounded-lg text-left transition-all ${isError ? 'opacity-60 border-orange-500/30 bg-zinc-800 cursor-not-allowed' : isDone ? 'border-emerald-500/50 bg-zinc-900/50 cursor-default' : 'bg-zinc-800 border-zinc-700 hover:border-emerald-500 group'}`}
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`bg-zinc-700 p-2 rounded ${isError ? '' : 'group-hover:bg-emerald-500/10'}`}>
-                                                            <Dumbbell className={`w-4 h-4 ${isError ? 'text-orange-500' : 'text-emerald-500'}`} />
+                                                        <div className={`p-2 rounded ${isError ? 'bg-zinc-700' : isDone ? 'bg-emerald-500/20' : 'bg-zinc-700 group-hover:bg-emerald-500/10'}`}>
+                                                            {isDone ? <Check className="w-4 h-4 text-emerald-500" /> : <Dumbbell className={`w-4 h-4 ${isError ? 'text-orange-500' : 'text-emerald-500'}`} />}
                                                         </div>
                                                         <div>
-                                                            <span className={`text-white font-bold text-sm block leading-tight ${isError ? 'text-orange-400' : ''}`}>{plan.routines?.name}</span>
-                                                            <span className="text-[10px] text-zinc-400 font-medium">{isError ? 'Consulta con tu Coach' : 'Haz clic para empezar'}</span>
+                                                            <span className={`font-bold text-sm block leading-tight transition-colors ${isError ? 'text-orange-400' : isDone ? 'text-emerald-500' : 'text-white'}`}>{plan.routines?.name}</span>
+                                                            <span className="text-[10px] text-zinc-400 font-medium">{isError ? 'Consulta con tu Coach' : isDone ? 'Completado' : 'Haz clic para empezar'}</span>
                                                         </div>
                                                     </div>
-                                                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-emerald-500" />
+                                                    {!isDone && <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-emerald-500" />}
                                                 </button>
                                             )
                                         })}
@@ -904,13 +929,34 @@ const ClientWorkout = () => {
                 {activeTab === 'progreso' && !viewingExercises && renderProgreso()}
                 {activeTab === 'perfil' && !viewingExercises && renderPerfil()}
 
+                {/* MODAL DE CHECKIN COMPLETADO */}
                 {showCheckinModal && (
                     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
                          <div className="bg-zinc-900 w-full max-w-sm rounded-xl border border-zinc-800 overflow-hidden relative max-h-[90vh] overflow-y-auto p-6">
                              <button onClick={() => setShowCheckinModal(false)} className="absolute top-4 right-4 text-zinc-500"><X className="w-6 h-6"/></button>
                              <h3 className="text-xl font-bold text-white mb-4">Actualizar Datos</h3>
-                             <label className="text-xs text-zinc-500 mb-1 block">Peso (kg)</label>
-                             <input type="number" value={formWeight} onChange={e=>setFormWeight(e.target.value)} placeholder="0.0" className="w-full bg-black border border-zinc-800 rounded-lg p-4 text-white font-bold text-xl mb-4 focus:outline-none focus:border-emerald-500"/>
+                             
+                             <div className="space-y-4 mb-6">
+                                 <div>
+                                    <label className="text-xs text-zinc-500 mb-1 block">Peso (kg)</label>
+                                    <input type="number" value={formWeight} onChange={e=>setFormWeight(e.target.value)} placeholder="0.0" className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white font-bold focus:outline-none focus:border-emerald-500"/>
+                                 </div>
+                                 <div className="grid grid-cols-2 gap-4">
+                                     <div>
+                                        <label className="text-xs text-zinc-500 mb-1 block">Cintura (cm)</label>
+                                        <input type="number" value={formWaist} onChange={e=>setFormWaist(e.target.value)} placeholder="0" className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white font-bold focus:outline-none focus:border-emerald-500"/>
+                                     </div>
+                                     <div>
+                                        <label className="text-xs text-zinc-500 mb-1 block">Brazo (cm)</label>
+                                        <input type="number" value={formArm} onChange={e=>setFormArm(e.target.value)} placeholder="0" className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white font-bold focus:outline-none focus:border-emerald-500"/>
+                                     </div>
+                                 </div>
+                                 <div>
+                                    <label className="text-xs text-zinc-500 mb-1 block">Muslo (cm)</label>
+                                    <input type="number" value={formLeg} onChange={e=>setFormLeg(e.target.value)} placeholder="0" className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white font-bold focus:outline-none focus:border-emerald-500"/>
+                                 </div>
+                             </div>
+
                              <Button onClick={handleSaveCheckin} disabled={saving} className="w-full bg-emerald-500 text-black font-bold h-12 rounded-lg">
                                 {saving ? <Activity className="w-5 h-5 animate-spin mx-auto"/> : "Guardar Progreso"}
                              </Button>

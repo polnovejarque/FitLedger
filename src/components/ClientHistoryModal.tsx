@@ -13,61 +13,90 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-    // 1. Cargar y agrupar TODOS los resultados del atleta
+    // 1. Cargar y agrupar TODOS los resultados del atleta con el "Camino Inverso"
     useEffect(() => {
         const fetchHistory = async () => {
             setLoading(true);
             
-            // Traemos TODOS los registros de este atleta, ordenados de más reciente a más antiguo
-            const { data, error } = await supabase
-                .from('workout_results')
-                .select(`
-                    id,
-                    weight,
-                    reps,
-                    set_number,
-                    created_at,
-                    exercise:routine_exercises (exercise_name)
-                `)
-                .eq('client_id', clientId)
-                .order('created_at', { ascending: false });
+            try {
+                // PASO 1: Conseguir todos los IDs del plan semanal de este cliente
+                const { data: weeklyPlans } = await supabase
+                    .from('client_weekly_plan')
+                    .select('id')
+                    .eq('client_id', clientId);
 
-            if (!error && data && data.length > 0) {
-                // Agrupamos los registros por DÍA para crear el concepto de "Sesión"
-                const groupedByDate = data.reduce((acc: any, curr: any) => {
-                    const dateStr = curr.created_at.split('T')[0]; // Ejemplo: "2026-05-13"
-                    
-                    if (!acc[dateStr]) {
-                        acc[dateStr] = {
-                            date: dateStr,
-                            exercises: {}
-                        };
-                    }
+                // PASO 2: Conseguir todos los IDs de rutinas antiguas (por si acaso)
+                const { data: legacyAssignments } = await supabase
+                    .from('routine_assignments')
+                    .select('id')
+                    .eq('client_id', clientId);
 
-                    // Dentro de cada día, agrupamos por ejercicio
-                    const exerciseName = curr.exercise?.exercise_name || "Ejercicio Borrado";
-                    if (!acc[dateStr].exercises[exerciseName]) {
-                        acc[dateStr].exercises[exerciseName] = [];
-                    }
-                    
-                    acc[dateStr].exercises[exerciseName].push(curr);
-                    return acc;
-                }, {});
+                // Juntamos todos los IDs de asignación en una lista
+                const allAssignmentIds = [
+                    ...(weeklyPlans?.map(p => p.id) || []),
+                    ...(legacyAssignments?.map(a => a.id) || [])
+                ];
 
-                // Convertimos el objeto a un array y ordenamos internamente las series
-                const finalGroups = Object.values(groupedByDate).map((group: any) => {
-                    // Ordenar las series dentro de cada ejercicio
-                    Object.keys(group.exercises).forEach(exName => {
-                        group.exercises[exName].sort((a: any, b: any) => a.set_number - b.set_number);
+                // Si el cliente no tiene ninguna rutina asignada jamás, cortamos aquí
+                if (allAssignmentIds.length === 0) {
+                    setHistoryGroups([]);
+                    setLoading(false);
+                    return;
+                }
+
+                // PASO 3: Traemos TODAS las series que coincidan con esos IDs
+                const { data, error } = await supabase
+                    .from('workout_results')
+                    .select(`
+                        id,
+                        weight,
+                        reps,
+                        set_number,
+                        created_at,
+                        exercise:routine_exercises (exercise_name)
+                    `)
+                    .in('assignment_id', allAssignmentIds) // Usamos la lista de IDs directamente
+                    .order('created_at', { ascending: false });
+
+                if (!error && data && data.length > 0) {
+                    // Agrupamos los registros por DÍA para crear el concepto de "Sesión"
+                    const groupedByDate = data.reduce((acc: any, curr: any) => {
+                        const dateStr = curr.created_at.split('T')[0]; // Cortamos la fecha: "2026-05-13"
+                        
+                        if (!acc[dateStr]) {
+                            acc[dateStr] = {
+                                date: dateStr,
+                                exercises: {}
+                            };
+                        }
+
+                        // Dentro de cada día, agrupamos por ejercicio
+                        const exerciseName = curr.exercise?.exercise_name || "Ejercicio Borrado";
+                        if (!acc[dateStr].exercises[exerciseName]) {
+                            acc[dateStr].exercises[exerciseName] = [];
+                        }
+                        
+                        acc[dateStr].exercises[exerciseName].push(curr);
+                        return acc;
+                    }, {});
+
+                    // Convertimos el objeto a un array y ordenamos internamente las series (Set 1, Set 2...)
+                    const finalGroups = Object.values(groupedByDate).map((group: any) => {
+                        Object.keys(group.exercises).forEach(exName => {
+                            group.exercises[exName].sort((a: any, b: any) => a.set_number - b.set_number);
+                        });
+                        return group;
                     });
-                    return group;
-                });
 
-                // Ordenamos las fechas de más reciente a más antigua
-                finalGroups.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                
-                setHistoryGroups(finalGroups);
+                    // Ordenamos las fechas de más reciente a más antigua
+                    finalGroups.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    
+                    setHistoryGroups(finalGroups);
+                }
+            } catch (e) {
+                console.error("Error obteniendo historial:", e);
             }
+
             setLoading(false);
         };
         fetchHistory();

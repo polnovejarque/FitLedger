@@ -9,69 +9,76 @@ interface ClientHistoryModalProps {
 }
 
 const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModalProps) => {
-    const [history, setHistory] = useState<any[]>([]);
+    const [historyGroups, setHistoryGroups] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedSession, setSelectedSession] = useState<string | null>(null);
-    const [sessionDetails, setSessionDetails] = useState<any[]>([]);
-    const [loadingDetails, setLoadingDetails] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-    // 1. Cargar lista de sesiones completadas
+    // 1. Cargar y agrupar TODOS los resultados del atleta
     useEffect(() => {
         const fetchHistory = async () => {
+            setLoading(true);
+            
+            // Traemos TODOS los registros de este atleta, ordenados de más reciente a más antiguo
             const { data, error } = await supabase
-                .from('routine_assignments')
+                .from('workout_results')
                 .select(`
                     id,
-                    scheduled_date,
+                    weight,
+                    reps,
+                    set_number,
                     created_at,
-                    routine:routines (name)
+                    exercise:routine_exercises (exercise_name)
                 `)
                 .eq('client_id', clientId)
-                .eq('completed', true)
-                .order('scheduled_date', { ascending: false });
+                .order('created_at', { ascending: false });
 
-            if (!error && data) {
-                setHistory(data);
+            if (!error && data && data.length > 0) {
+                // Agrupamos los registros por DÍA para crear el concepto de "Sesión"
+                const groupedByDate = data.reduce((acc: any, curr: any) => {
+                    const dateStr = curr.created_at.split('T')[0]; // Ejemplo: "2026-05-13"
+                    
+                    if (!acc[dateStr]) {
+                        acc[dateStr] = {
+                            date: dateStr,
+                            exercises: {}
+                        };
+                    }
+
+                    // Dentro de cada día, agrupamos por ejercicio
+                    const exerciseName = curr.exercise?.exercise_name || "Ejercicio Borrado";
+                    if (!acc[dateStr].exercises[exerciseName]) {
+                        acc[dateStr].exercises[exerciseName] = [];
+                    }
+                    
+                    acc[dateStr].exercises[exerciseName].push(curr);
+                    return acc;
+                }, {});
+
+                // Convertimos el objeto a un array y ordenamos internamente las series
+                const finalGroups = Object.values(groupedByDate).map((group: any) => {
+                    // Ordenar las series dentro de cada ejercicio
+                    Object.keys(group.exercises).forEach(exName => {
+                        group.exercises[exName].sort((a: any, b: any) => a.set_number - b.set_number);
+                    });
+                    return group;
+                });
+
+                // Ordenamos las fechas de más reciente a más antigua
+                finalGroups.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                
+                setHistoryGroups(finalGroups);
             }
             setLoading(false);
         };
         fetchHistory();
     }, [clientId]);
 
-    // 2. Cargar los pesos y reps de una sesión específica
-    const handleSelectSession = async (assignmentId: string) => {
-        if (selectedSession === assignmentId) {
-            setSelectedSession(null); // Colapsar si ya estaba abierto
-            return;
+    const handleSelectDate = (date: string) => {
+        if (selectedDate === date) {
+            setSelectedDate(null);
+        } else {
+            setSelectedDate(date);
         }
-
-        setSelectedSession(assignmentId);
-        setLoadingDetails(true);
-
-        const { data, error } = await supabase
-            .from('workout_results')
-            .select(`
-                id,
-                weight,
-                reps,
-                set_number,
-                exercise:routine_exercises (exercise_name)
-            `)
-            .eq('assignment_id', assignmentId)
-            .order('exercise_id', { ascending: true })
-            .order('set_number', { ascending: true });
-
-        if (!error && data) {
-            // Agrupar por ejercicio para visualizar mejor
-            const grouped = data.reduce((acc: any, curr: any) => {
-                const name = curr.exercise?.exercise_name || "Ejercicio";
-                if (!acc[name]) acc[name] = [];
-                acc[name].push(curr);
-                return acc;
-            }, {});
-            setSessionDetails(Object.entries(grouped));
-        }
-        setLoadingDetails(false);
     };
 
     return (
@@ -85,7 +92,7 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                             <Trophy className="w-5 h-5 text-emerald-500" />
                             Historial de {clientName}
                         </h2>
-                        <p className="text-zinc-500 text-sm">Registro de entrenamientos completados</p>
+                        <p className="text-zinc-500 text-sm">Registro de marcas de entrenamientos</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-full transition-colors text-zinc-400 hover:text-white">
                         <X className="w-6 h-6" />
@@ -96,17 +103,17 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                     {loading ? (
                         <div className="text-center py-10 text-zinc-500">Cargando historial...</div>
-                    ) : history.length === 0 ? (
+                    ) : historyGroups.length === 0 ? (
                         <div className="text-center py-10 bg-zinc-900 rounded-xl border border-zinc-800 border-dashed">
                             <Dumbbell className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
                             <p className="text-zinc-400">Este atleta aún no ha completado ningún entrenamiento.</p>
                         </div>
                     ) : (
-                        history.map((session) => (
-                            <div key={session.id} className="border border-zinc-800 rounded-xl bg-zinc-900/30 overflow-hidden transition-all hover:border-zinc-700">
+                        historyGroups.map((sessionGroup) => (
+                            <div key={sessionGroup.date} className="border border-zinc-800 rounded-xl bg-zinc-900/30 overflow-hidden transition-all hover:border-zinc-700">
                                 {/* CARD HEADER (Clickable) */}
                                 <div 
-                                    onClick={() => handleSelectSession(session.id)}
+                                    onClick={() => handleSelectDate(sessionGroup.date)}
                                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-800/50 transition-colors"
                                 >
                                     <div className="flex items-center gap-4">
@@ -114,42 +121,38 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                                             <Calendar className="w-5 h-5 text-emerald-500" />
                                         </div>
                                         <div>
-                                            <h3 className="text-white font-bold">{session.routine?.name || "Entrenamiento"}</h3>
+                                            <h3 className="text-white font-bold">
+                                                Sesión del {new Date(sessionGroup.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                            </h3>
                                             <p className="text-zinc-500 text-xs">
-                                                {new Date(session.scheduled_date || session.created_at).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                                {Object.keys(sessionGroup.exercises).length} ejercicios registrados
                                             </p>
                                         </div>
                                     </div>
-                                    <ChevronRight className={`w-5 h-5 text-zinc-500 transition-transform ${selectedSession === session.id ? 'rotate-90' : ''}`} />
+                                    <ChevronRight className={`w-5 h-5 text-zinc-500 transition-transform ${selectedDate === sessionGroup.date ? 'rotate-90' : ''}`} />
                                 </div>
 
                                 {/* CARD DETAILS (Expansible) */}
-                                {selectedSession === session.id && (
+                                {selectedDate === sessionGroup.date && (
                                     <div className="border-t border-zinc-800 bg-black/40 p-4 animate-in slide-in-from-top-2">
-                                        {loadingDetails ? (
-                                            <p className="text-zinc-500 text-xs text-center">Cargando datos...</p>
-                                        ) : sessionDetails.length === 0 ? (
-                                            <p className="text-zinc-500 text-xs text-center">Sin datos registrados.</p>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {sessionDetails.map(([exerciseName, sets]: any) => (
-                                                    <div key={exerciseName}>
-                                                        <h4 className="text-emerald-400 text-xs font-bold uppercase mb-2 flex items-center gap-2">
-                                                            <Dumbbell className="w-3 h-3" /> {exerciseName}
-                                                        </h4>
-                                                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                                                            {sets.map((set: any) => (
-                                                                <div key={set.id} className="bg-zinc-800 rounded-lg p-2 text-center border border-zinc-700">
-                                                                    <div className="text-[10px] text-zinc-500 font-bold mb-1">SET {set.set_number}</div>
-                                                                    <div className="text-white font-bold text-sm">{set.weight}<span className="text-[10px] text-zinc-500 font-normal">kg</span></div>
-                                                                    <div className="text-zinc-400 text-xs">{set.reps} <span className="text-[9px]">reps</span></div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
+                                        <div className="space-y-4">
+                                            {Object.entries(sessionGroup.exercises).map(([exerciseName, sets]: any) => (
+                                                <div key={exerciseName}>
+                                                    <h4 className="text-emerald-400 text-xs font-bold uppercase mb-2 flex items-center gap-2">
+                                                        <Dumbbell className="w-3 h-3" /> {exerciseName}
+                                                    </h4>
+                                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                                                        {sets.map((set: any) => (
+                                                            <div key={set.id} className="bg-zinc-800 rounded-lg p-2 text-center border border-zinc-700">
+                                                                <div className="text-[10px] text-zinc-500 font-bold mb-1">SET {set.set_number}</div>
+                                                                <div className="text-white font-bold text-sm">{set.weight}<span className="text-[10px] text-zinc-500 font-normal">kg</span></div>
+                                                                <div className="text-zinc-400 text-xs">{set.reps} <span className="text-[9px]">reps</span></div>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>

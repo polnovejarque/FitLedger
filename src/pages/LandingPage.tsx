@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { 
     CheckCircle2, ArrowRight, BarChart3, 
     Calendar, Users, LayoutDashboard, Dumbbell, UserPlus,
-    Star, HelpCircle, Smartphone, DollarSign, Check, X, Menu, ChevronDown
+    Star, Smartphone, DollarSign, Check, X, Menu, ChevronDown
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 

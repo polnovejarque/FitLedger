@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
     Home, ClipboardList, TrendingUp, User, LogOut, Flame, 
     Calendar as CalendarIcon, Trophy, Activity, Dumbbell,
-    Bell, Settings, ChevronRight, Plus, Scale, X, Camera, Ruler, Trash2, RefreshCw,
+    Bell, Settings, ChevronRight, Plus, Scale, X, Camera, Ruler, RefreshCw,
     ArrowLeft, Check, Clock, Play, SkipForward, Lightbulb, Upload,
     CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers, RefreshCcw
 } from 'lucide-react';
@@ -93,7 +93,7 @@ const ClientWorkout = () => {
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+    const [_fileToUpload, setFileToUpload] = useState<File | null>(null);
 
     const [notifSettings, setNotifSettings] = useState(() => {
         const saved = localStorage.getItem('fit_client_notifs');
@@ -109,7 +109,7 @@ const ClientWorkout = () => {
     const [formLeg, setFormLeg] = useState("");
     const [saving, setSaving] = useState(false);
 
-    const profileInputRef = useRef<HTMLInputElement>(null);
+    // const profileInputRef = useRef<HTMLInputElement>(null);
     const [uploadingProfile] = useState(false);
 
     useEffect(() => {
@@ -221,6 +221,7 @@ const ClientWorkout = () => {
                 }
 
                 fetchProgress(clientData.id);
+            } // Fin if (clientData)
             } catch (error) {
                 console.error("Error al cargar datos del cliente:", error);
                 // Si hay un error, dejamos que la interfaz al menos cargue para no quedarse en blanco

@@ -8,8 +8,7 @@ import {
     BarChart3,
     Bell,
     Calendar as CalendarIcon,
-    ArrowUpRight,
-    Loader2
+    ArrowUpRight
 } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis } from 'recharts';
 

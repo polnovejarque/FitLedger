@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
@@ -16,94 +16,107 @@ import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis } from 'recharts';
 const Dashboard = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [userRole, setUserRole] = useState('admin');
     const [kpi, setKpi] = useState({
         monthlyRevenue: 0,
         activeClients: 0,
         totalClients: 0,
-        sessionsToday: 0
+        sessionsToday: 0,
+        sessionsThisMonth: 0,
     });
     const [cashFlowData, setCashFlowData] = useState<any[]>([]);
     const [todayEvents, setTodayEvents] = useState<any[]>([]);
 
     useEffect(() => {
         const loadDashboardData = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            try {
+                setError(null);
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                if (userError || !user) { setError('No se pudo verificar la sesión. Recarga la página.'); setLoading(false); return; }
 
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('id', user.id)
-                .single();
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('role, plan, business_name, logo_url')
+                    .eq('id', user.id)
+                    .single();
 
-            if (profile?.role) {
-                setUserRole(profile.role);
-            }
+                if (profileError) console.warn('Error cargando perfil:', profileError.message);
+                if (profile?.role) setUserRole(profile.role);
 
-            const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
 
-            let currentMonthRevenue = 0;
-            if (profile?.role !== 'staff') {
-                const { data: payments } = await supabase
-                    .from('payments')
-                    .select('amount, date')
-                    .eq('coach_id', user.id);
+                let currentMonthRevenue = 0;
+                if (profile?.role !== 'staff') {
+                    const { data: payments, error: paymentsError } = await supabase
+                        .from('payments')
+                        .select('amount, date')
+                        .eq('coach_id', user.id);
 
-                currentMonthRevenue = payments
-                    ?.filter(p => p.date >= startOfMonth && p.date <= endOfMonth && p.amount > 0)
-                    .reduce((acc, curr) => acc + curr.amount, 0) || 0;
+                    if (paymentsError) console.warn('Error cargando pagos:', paymentsError.message);
 
-                const monthsMap: any = {};
-                for (let i = 5; i >= 0; i--) {
-                    const d = new Date();
-                    d.setMonth(d.getMonth() - i);
-                    const key = d.toLocaleString('es-ES', { month: 'short' });
-                    monthsMap[key] = { month: key, value: 0, sort: d.getTime() };
+                    currentMonthRevenue = payments
+                        ?.filter(p => p.date >= startOfMonth && p.date <= endOfMonth && p.amount > 0)
+                        .reduce((acc, curr) => acc + curr.amount, 0) || 0;
+
+                    const monthsMap: any = {};
+                    for (let i = 5; i >= 0; i--) {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() - i);
+                        const key = d.toLocaleString('es-ES', { month: 'short' });
+                        monthsMap[key] = { month: key, value: 0, sort: d.getTime() };
+                    }
+
+                    payments?.forEach(p => {
+                        if (p.amount > 0) {
+                            const d = new Date(p.date);
+                            const key = d.toLocaleString('es-ES', { month: 'short' });
+                            if (monthsMap[key]) monthsMap[key].value += p.amount;
+                        }
+                    });
+
+                    setCashFlowData(Object.values(monthsMap).sort((a: any, b: any) => a.sort - b.sort));
                 }
 
-                payments?.forEach(p => {
-                    if (p.amount > 0) {
-                        const d = new Date(p.date);
-                        const key = d.toLocaleString('es-ES', { month: 'short' });
-                        if (monthsMap[key]) {
-                            monthsMap[key].value += p.amount;
-                        }
-                    }
+                const { data: clients } = await supabase.from('clients').select('id');
+                const totalClients = clients?.length || 0;
+
+                const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+                const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+                const { data: events } = await supabase
+                    .from('calendar_events')
+                    .select('*')
+                    .eq('coach_id', user.id)
+                    .gte('date', todayStart.toISOString())
+                    .lt('date', todayEnd.toISOString())
+                    .order('date', { ascending: true });
+
+                setTodayEvents(events || []);
+
+                // Sesiones del mes completo
+                const { data: monthEvents } = await supabase
+                    .from('calendar_events')
+                    .select('id')
+                    .eq('coach_id', user.id)
+                    .gte('date', startOfMonth)
+                    .lte('date', endOfMonth);
+
+                setKpi({ 
+                    monthlyRevenue: currentMonthRevenue, 
+                    activeClients: totalClients, 
+                    totalClients, 
+                    sessionsToday: events?.length || 0,
+                    sessionsThisMonth: monthEvents?.length || 0,
                 });
-
-                const graphData = Object.values(monthsMap).sort((a: any, b: any) => a.sort - b.sort);
-                setCashFlowData(graphData);
+            } catch (err: any) {
+                console.error('Error en Dashboard:', err);
+                setError('No se pudieron cargar los datos. Comprueba tu conexión y recarga.');
+            } finally {
+                setLoading(false);
             }
-
-            const { data: clients } = await supabase.from('clients').select('id');
-            const totalClients = clients?.length || 0;
-
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            const todayEnd = new Date();
-            todayEnd.setHours(23, 59, 59, 999);
-
-            const { data: events } = await supabase
-                .from('calendar_events')
-                .select('*')
-                .eq('coach_id', user.id)
-                .gte('date', todayStart.toISOString())
-                .lt('date', todayEnd.toISOString())
-                .order('date', { ascending: true });
-
-            const sessionsTodayCount = events?.length || 0;
-            setTodayEvents(events || []);
-
-            setKpi({
-                monthlyRevenue: currentMonthRevenue,
-                activeClients: totalClients,
-                totalClients: totalClients,
-                sessionsToday: sessionsTodayCount
-            });
-            setLoading(false);
         };
 
         loadDashboardData();
@@ -140,12 +153,13 @@ const Dashboard = () => {
                     <h3 className="text-3xl font-bold text-white mt-1">{kpi.sessionsToday}</h3>
                 </div>
 
-                <div className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-orange-500/30 transition-colors">
+                <div onClick={() => navigate('/dashboard/agenda')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-emerald-500/30 transition-colors cursor-pointer">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500"><BarChart3 className="w-5 h-5" /></div>
+                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500"><BarChart3 className="w-5 h-5" /></div>
+                        <span className="text-xs font-bold text-zinc-400 bg-zinc-800 px-2 py-1 rounded-full">Mes</span>
                     </div>
-                    <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Efectividad</p>
-                    <h3 className="text-3xl font-bold text-white mt-1">100%</h3>
+                    <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Sesiones del Mes</p>
+                    <h3 className="text-3xl font-bold text-white mt-1">{kpi.sessionsThisMonth}</h3>
                 </div>
             </div>
 
@@ -227,7 +241,52 @@ const Dashboard = () => {
         </div>
     );
 
-    if (loading) return <div className="h-screen flex items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin"/></div>;
+    const renderSkeleton = () => (
+        <div className="p-8 w-full max-w-7xl mx-auto animate-pulse">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <div className="w-full">
+                    <div className="h-8 w-64 bg-[#111] border border-zinc-800 rounded-lg mb-2"></div>
+                    <div className="h-4 w-48 bg-[#111] border border-zinc-800 rounded-lg"></div>
+                </div>
+                <div className="hidden md:block h-10 w-10 bg-[#111] border border-zinc-800 rounded-lg"></div>
+            </div>
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                        <div key={i} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 h-[120px]">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="h-10 w-10 bg-zinc-800/50 rounded-lg"></div>
+                            </div>
+                            <div className="h-3 w-24 bg-zinc-800/50 rounded mt-2"></div>
+                            <div className="h-8 w-16 bg-zinc-800/50 rounded mt-2"></div>
+                        </div>
+                    ))}
+                </div>
+                <div className="grid lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 bg-[#111] p-6 rounded-2xl border border-zinc-800 h-[350px]"></div>
+                    <div className="bg-[#111] p-6 rounded-2xl border border-zinc-800 h-[350px]"></div>
+                </div>
+            </div>
+        </div>
+    );
+
+    if (loading) return renderSkeleton();
+
+    if (error) return (
+        <div className="h-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
+            <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center">
+                <span className="text-red-400 text-xl">!</span>
+            </div>
+            <p className="text-white font-bold text-lg">Error al cargar el dashboard</p>
+            <p className="text-zinc-400 text-sm max-w-sm">{error}</p>
+            <button
+                onClick={() => { setLoading(true); setError(null); }}
+                className="mt-2 px-6 py-2.5 bg-emerald-500 text-black font-bold rounded-lg hover:bg-emerald-400 transition-colors text-sm"
+            >
+                Reintentar
+            </button>
+        </div>
+    );
 
     return (
         <div className="p-8 w-full max-w-7xl mx-auto">

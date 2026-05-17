@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
 import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 const Auth = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [isLogin, setIsLogin] = useState(true);
-    const [isResetting, setIsResetting] = useState(false); // ✅ Nuevo estado para recuperar contraseña
+    const [isResetting, setIsResetting] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [message, setMessage] = useState<string | null>(null); // ✅ Nuevo estado para el mensaje de éxito
+    const [message, setMessage] = useState<string | null>(null);
+
+    // Si llega con ?mode=register (desde CTAs de la landing), abre directamente en registro
+    useEffect(() => {
+        if (searchParams.get('mode') === 'register') {
+            setIsLogin(false);
+        }
+    }, [searchParams]);
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

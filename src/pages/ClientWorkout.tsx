@@ -8,6 +8,18 @@ import {
     CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers, RefreshCcw
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import ToastContainer from '../components/ui/ToastContainer';
+import type { ToastProps } from '../components/ui/Toast';
+
+const DAILY_TIPS = [
+    "El descanso es tan importante como el entrenamiento. Duerme al menos 7-8 horas. 😴",
+    "Mantén una buena hidratación durante todo el día, no solo al entrenar. 💧",
+    "Concéntrate en la técnica. ¡La calidad supera a la cantidad! ⚖️",
+    "La constancia es la clave del éxito. No te saltes el calentamiento. 🔥",
+    "Anota tus progresos. Ver tu evolución te mantendrá motivado. 📈",
+    "No compares tu capítulo 1 con el capítulo 20 de otra persona. 🌱",
+    "La proteína es esencial para la recuperación muscular. Asegura tu ingesta. 🍗"
+];
 
 // --- COMPONENTE PRINCIPAL APP CLIENTE ---
 const ClientWorkout = () => {
@@ -22,6 +34,16 @@ const ClientWorkout = () => {
     const [todayWorkout, setTodayWorkout] = useState<any>(null);
     const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
     const [todayDayId, setTodayDayId] = useState<number>(1);
+    
+    // --- ESTADOS DE UI (Toasts y Confirms) ---
+    const [toasts, setToasts] = useState<ToastProps[]>([]);
+    const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+        const id = `toast-${Date.now()}-${Math.random()}`;
+        setToasts(prev => [...prev, { id, message, type, onClose: (tId) => setToasts(p => p.filter(t => t.id !== tId)) }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+    };
     
     // --- ESTADO NUEVO: RUTINAS COMPLETADAS HOY ---
     const [completedToday, setCompletedToday] = useState<Set<number>>(new Set());
@@ -53,7 +75,7 @@ const ClientWorkout = () => {
     const [statsDiff, setStatsDiff] = useState({ weight: 0, waist: 0, arm: 0, leg: 0 });
     const [monthlyWorkouts, setMonthlyWorkouts] = useState(0);
     const [weeklyWorkouts, setWeeklyWorkouts] = useState(0);
-    const [weeklyGoal] = useState(4); 
+    const weeklyGoal = weeklyPlan.length > 0 ? new Set(weeklyPlan.map(p => p.day_of_week)).size : 4;
 
     const [viewAngle, setViewAngle] = useState<'front' | 'back' | 'side'>('front');
     const [photos, setPhotos] = useState<{
@@ -108,11 +130,14 @@ const ClientWorkout = () => {
         const storedEmail = localStorage.getItem('fit_client_email');
         
         if (storedEmail) {
-            const { data: clientData } = await supabase
-                .from('clients')
-                .select('*')
-                .eq('email', storedEmail) 
-                .single();
+            try {
+                const { data: clientData, error: clientError } = await supabase
+                    .from('clients')
+                    .select('id, name, email, image_url, stripe_link, user_id')
+                    .eq('email', storedEmail) 
+                    .single();
+                
+                if (clientError) throw clientError;
             
             if (clientData) {
                 setClientId(clientData.id);
@@ -150,10 +175,12 @@ const ClientWorkout = () => {
 
                 if (planData && planData.length > 0) {
                     const routineIds = planData.map(p => p.routine_id);
-                    const { data: routinesData } = await supabase
+                    const { data: routinesData, error: routinesError } = await supabase
                         .from('routines')
-                        .select('*')
+                        .select('id, name')
                         .in('id', routineIds);
+                        
+                    if (routinesError) console.error("Error cargando rutinas:", routinesError);
 
                     const normalizedPlans = planData.map(p => {
                         const routineObj = routinesData?.find(r => r.id === p.routine_id);
@@ -194,6 +221,9 @@ const ClientWorkout = () => {
                 }
 
                 fetchProgress(clientData.id);
+            } catch (error) {
+                console.error("Error al cargar datos del cliente:", error);
+                // Si hay un error, dejamos que la interfaz al menos cargue para no quedarse en blanco
             }
         }
         setLoading(false);
@@ -257,21 +287,28 @@ const ClientWorkout = () => {
         try {
             const { error } = await supabase.from('class_bookings').insert({ event_id: eventId, client_id: clientId, status: status });
             if (error) throw error;
-            alert(status === 'booked' ? "¡Plaza reservada! 🎉" : "Añadido a lista de espera.");
+            showToast(status === 'booked' ? "¡Plaza reservada! 🎉" : "Añadido a lista de espera.", 'success');
             fetchClasses(studioId, clientId);
-        } catch (err: any) { alert("Error al reservar: " + err.message); } finally { setLoading(false); }
+        } catch (err: any) { showToast("Error al reservar: " + err.message, 'error'); } finally { setLoading(false); }
     };
 
     const handleCancelBooking = async (eventId: number) => {
         if (!clientId || !studioId) return;
-        if (!confirm("¿Seguro que quieres cancelar tu reserva?")) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase.from('class_bookings').delete().eq('event_id', eventId).eq('client_id', clientId);
-            if (error) throw error;
-            alert("Reserva cancelada.");
-            fetchClasses(studioId, clientId);
-        } catch (err: any) { alert("Error al cancelar: " + err.message); } finally { setLoading(false); }
+        setConfirmDialog({
+            isOpen: true,
+            title: "Cancelar Reserva",
+            message: "¿Seguro que quieres cancelar tu reserva?",
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                setLoading(true);
+                try {
+                    const { error } = await supabase.from('class_bookings').delete().eq('event_id', eventId).eq('client_id', clientId);
+                    if (error) throw error;
+                    showToast("Reserva cancelada.", 'info');
+                    fetchClasses(studioId, clientId);
+                } catch (err: any) { showToast("Error al cancelar: " + err.message, 'error'); } finally { setLoading(false); }
+            }
+        });
     };
 
     const getWeekRange = () => {
@@ -345,7 +382,7 @@ const ClientWorkout = () => {
 
     const startWorkout = async (routine: any, planOrAssignmentId: string) => {
         if(routine?.name?.includes("Bloqueada") || routine?.name?.includes("Sincronizando")) {
-            alert("⚠️ Supabase está bloqueando esta rutina. El Coach debe ejecutar el SQL en su panel para arreglarlo.");
+            showToast("⚠️ Esta rutina está bloqueada. Consulta con tu Coach.", 'error');
             return;
         }
 
@@ -387,9 +424,9 @@ const ClientWorkout = () => {
         if (!currentAssignmentId || !clientId) return;
 
         const hasLogs = Object.keys(workoutLogs).length > 0;
-        if (!hasLogs && !confirm("No has completado ninguna serie. ¿Seguro que quieres finalizar?")) return;
-
-        if (confirm("¿Finalizar entrenamiento y guardar marcas?")) {
+        
+        const finishAction = async () => {
+            setConfirmDialog(null);
             setLoading(true);
             try {
                 const resultsToSave: any[] = [];
@@ -414,9 +451,8 @@ const ClientWorkout = () => {
                 }
 
                 setWorkoutLogs({});
-                alert(`¡Sesión Completada! 🎉 Sigue así.`);
+                showToast(`¡Sesión Completada! 🎉 Sigue así.`, 'success');
                 
-                // Recargamos silenciosamente los datos para que actualice la barra y ponga el Check Verde
                 await fetchClientData(false);
                 
                 setActiveTab('inicio'); 
@@ -424,10 +460,26 @@ const ClientWorkout = () => {
                 setTimerActive(false);
                 
             } catch (error: any) {
-                alert("Hubo un error al guardar: " + error.message);
+                showToast("Hubo un error al guardar: " + error.message, 'error');
             } finally {
                 setLoading(false);
             }
+        };
+
+        if (!hasLogs) {
+            setConfirmDialog({
+                isOpen: true,
+                title: "Sesión Vacía",
+                message: "No has completado ninguna serie. ¿Seguro que quieres finalizar?",
+                onConfirm: finishAction
+            });
+        } else {
+            setConfirmDialog({
+                isOpen: true,
+                title: "Finalizar Entrenamiento",
+                message: "¿Guardar marcas y completar sesión?",
+                onConfirm: finishAction
+            });
         }
     };
 
@@ -445,24 +497,36 @@ const ClientWorkout = () => {
             const { error } = await supabase.from('client_progress').insert([payload]);
             if(error) throw error;
             
-            alert("Progreso guardado correctamente.");
+            showToast("Progreso guardado correctamente.", 'success');
             setShowCheckinModal(false);
             
             // Limpiamos formulario
             setFormWeight(""); setFormWaist(""); setFormArm(""); setFormLeg("");
             fetchProgress(clientId);
         } catch (error: any) {
-            alert("Error al guardar en Supabase. Asegúrate de ejecutar el código SQL: " + error.message);
+            showToast("Error al guardar el progreso. Inténtalo de nuevo.", 'error');
         } finally {
             setSaving(false);
         }
     };
     
-    const handleDeleteBefore = async () => { alert("Borrado en mantenimiento"); };
-    const handleLogout = () => { if(confirm("¿Salir?")) { localStorage.removeItem('fit_client_email'); window.location.href = "/client-app"; } };
-    const handleDeleteAccount = async () => { alert("Borrar cuenta en mantenimiento"); };
-    const handleProfileFileSelect = async () => { alert("Cambio foto perfil en mantenimiento"); };
-    const handleDeleteProfilePic = async () => { alert("Borrado foto perfil en mantenimiento"); };
+    // Funciones en mantenimiento ocultadas (CA5)
+    // const handleDeleteBefore = async () => { alert("Borrado en mantenimiento"); };
+    // const handleDeleteAccount = async () => { alert("Borrar cuenta en mantenimiento"); };
+    // const handleProfileFileSelect = async () => { alert("Cambio foto perfil en mantenimiento"); };
+    // const handleDeleteProfilePic = async () => { alert("Borrado foto perfil en mantenimiento"); };
+
+    const handleLogout = () => { 
+        setConfirmDialog({
+            isOpen: true,
+            title: "Cerrar Sesión",
+            message: "¿Seguro que quieres salir de la aplicación?",
+            onConfirm: () => {
+                localStorage.removeItem('fit_client_email'); 
+                window.location.href = "/client-app";
+            }
+        });
+    };
 
     if (loading && !clientId) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500"><Activity className="w-10 h-10 animate-spin" /></div>;
 
@@ -503,7 +567,7 @@ const ClientWorkout = () => {
                                         <div key={ex.id || index} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-4">
                                             <div className="flex gap-4 items-start">
                                                 <div 
-                                                    onClick={() => { if(ex.video_url) setPlayingVideoUrl(ex.video_url); else alert("No hay vídeo disponible."); }}
+                                                    onClick={() => { if(ex.video_url) setPlayingVideoUrl(ex.video_url); else showToast("No hay vídeo disponible para este ejercicio.", 'info'); }}
                                                     className="w-16 h-16 bg-zinc-800 rounded-lg overflow-hidden flex-shrink-0 relative cursor-pointer"
                                                 >
                                                     {ex.image_url ? (
@@ -585,7 +649,7 @@ const ClientWorkout = () => {
                 
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 relative overflow-hidden"><div className="flex justify-between items-start mb-4 relative z-10"><div><h3 className="text-emerald-400 font-bold text-xs mb-1 uppercase tracking-wider">Objetivo Semanal</h3><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-white">{weeklyWorkouts}</span><span className="text-zinc-400 text-sm">/ {weeklyGoal} sesiones</span></div></div><Trophy className="w-6 h-6 text-emerald-600" /></div><div className="h-1.5 w-full bg-zinc-800 rounded-full mb-1 relative z-10"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }} /></div><p className="text-right text-[10px] text-emerald-500 font-medium relative z-10">{weeklyWorkouts >= weeklyGoal ? "¡Objetivo cumplido! 🔥" : "¡Casi lo tienes!"}</p></div>
                 
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-4 items-start"><div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center flex-shrink-0"><Lightbulb className="w-5 h-5 text-yellow-500" /></div><div><h3 className="text-white font-bold text-sm mb-1">Tip del Día</h3><p className="text-zinc-400 text-xs leading-relaxed">Concéntrate en la técnica durante los bloques de control postural. ¡La calidad supera a la cantidad! ⚖️</p></div></div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-4 items-start"><div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center flex-shrink-0"><Lightbulb className="w-5 h-5 text-yellow-500" /></div><div><h3 className="text-white font-bold text-sm mb-1">Tip del Día</h3><p className="text-zinc-400 text-xs leading-relaxed">{DAILY_TIPS[todayDayId % 7]}</p></div></div>
                 
                 <div>
                     <h3 className="text-white font-bold text-lg mb-3">Tu plan de hoy:</h3>
@@ -780,7 +844,7 @@ const ClientWorkout = () => {
             <div className="grid grid-cols-2 gap-3">
                 <div className="relative aspect-[3/4] bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden group">
                     <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-white/10">ANTES</div>
-                    {photos[viewAngle].before ? (<><img src={photos[viewAngle].before!} alt="Antes" className="w-full h-full object-cover opacity-80" /><button onClick={handleDeleteBefore} className="absolute top-2 right-2 p-1.5 bg-red-500/20 text-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button></>) : (<div onClick={() => { setFileToUpload(null); setPreviewUrl(null); setShowPhotoModal(true); }} className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-2 cursor-pointer hover:bg-zinc-800"><User className="w-8 h-8 opacity-20" /><span className="text-[10px] text-center px-2">Sin foto inicial</span></div>)}
+                    {photos[viewAngle].before ? (<img src={photos[viewAngle].before!} alt="Antes" className="w-full h-full object-cover opacity-80" />) : (<div onClick={() => { setFileToUpload(null); setPreviewUrl(null); setShowPhotoModal(true); }} className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-2 cursor-pointer hover:bg-zinc-800"><User className="w-8 h-8 opacity-20" /><span className="text-[10px] text-center px-2">Sin foto inicial</span></div>)}
                 </div>
                 {photos[viewAngle].now ? (<div className="relative aspect-[3/4] bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden group"><div className="absolute top-2 left-2 bg-emerald-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">AHORA</div><img src={photos[viewAngle].now!} alt="Ahora" className="w-full h-full object-cover" /><button onClick={() => { setFileToUpload(null); setPreviewUrl(null); setShowPhotoModal(true); }} className="absolute bottom-2 right-2 p-2 bg-emerald-500 rounded-full shadow-lg text-black hover:scale-105 transition-transform"><RefreshCw className="w-4 h-4" /></button></div>) : (<button onClick={() => { setFileToUpload(null); setPreviewUrl(null); setShowPhotoModal(true); }} className="aspect-[3/4] bg-zinc-900 rounded-xl border border-emerald-500/30 border-dashed flex flex-col items-center justify-center gap-3 hover:bg-emerald-500/5 group relative"><div className="absolute top-2 left-2 bg-emerald-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">AHORA</div><div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform"><Plus className="w-5 h-5 text-emerald-500" /></div><span className="text-xs font-bold text-emerald-500">Subir {viewAngle === 'front' ? 'Frontal' : viewAngle === 'back' ? 'Espalda' : 'Perfil'}</span></button>)}
             </div>
@@ -806,16 +870,8 @@ const ClientWorkout = () => {
         <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
              <div className="flex flex-col items-center justify-center mb-6">
                  <div 
-                    className="w-24 h-24 rounded-full bg-zinc-800 border-2 border-emerald-500 p-1 mb-3 relative group overflow-hidden cursor-pointer"
-                    onClick={() => { if(!uploadingProfile) profileInputRef.current?.click(); }}
+                    className="w-24 h-24 rounded-full bg-zinc-800 border-2 border-emerald-500 p-1 mb-3 relative group overflow-hidden"
                  >
-                     <input 
-                        type="file" 
-                        ref={profileInputRef} 
-                        className="hidden" 
-                        accept="image/*" 
-                        onChange={handleProfileFileSelect}
-                     />
                      
                      {uploadingProfile ? (
                          <div className="w-full h-full flex items-center justify-center bg-black/50"><Activity className="w-6 h-6 animate-spin text-emerald-500"/></div>
@@ -836,11 +892,7 @@ const ClientWorkout = () => {
                      )}
                  </div>
 
-                 {clientPhoto && (
-                     <button onClick={handleDeleteProfilePic} className="text-xs text-red-500 hover:text-red-400 mb-2 flex items-center gap-1">
-                         <Trash2 className="w-3 h-3" /> Borrar foto
-                     </button>
-                 )}
+                  {/* Botón de borrar foto ocultado (CA5) */}
 
                  <h2 className="text-2xl font-bold text-white">{clientName} {clientLastName}</h2>
                  <p className="text-zinc-500 text-sm">{email}</p>
@@ -889,9 +941,7 @@ const ClientWorkout = () => {
                         {activeProfileModal === 'settings' && (
                             <div className="space-y-6">
                                 <div className="pt-4">
-                                    <button onClick={handleDeleteAccount} className="w-full py-4 text-red-500 font-bold bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors">
-                                        <Trash2 className="w-5 h-5" /> Eliminar Cuenta
-                                    </button>
+                                {/* Botón de borrar cuenta ocultado (CA5) */}
                                 </div>
                             </div>
                         )}
@@ -989,8 +1039,8 @@ const ClientWorkout = () => {
                                  }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
                              </div>
                              
-                             <Button disabled={!fileToUpload} onClick={() => alert("Subida en mantenimiento")} className="w-full bg-emerald-500 text-black font-bold h-12 rounded-lg disabled:opacity-50">
-                                Confirmar y Subir Foto
+                             <Button disabled={true} className="w-full bg-emerald-500 text-black font-bold h-12 rounded-lg disabled:opacity-50">
+                                Próximamente
                              </Button>
                          </div>
                     </div>
@@ -1011,6 +1061,27 @@ const ClientWorkout = () => {
                                 <span className="text-[9px] font-bold capitalize tracking-tight">{tab}</span>
                             </button>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* --- COMPONENTES DE UI GLOBALES --- */}
+            <ToastContainer toasts={toasts} onClose={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
+
+            {/* Modal de Confirmación Custom */}
+            {confirmDialog && (
+                <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-sm p-6 relative shadow-2xl">
+                        <h3 className="text-xl font-bold text-white mb-2">{confirmDialog.title}</h3>
+                        <p className="text-zinc-400 text-sm mb-6 leading-relaxed">{confirmDialog.message}</p>
+                        <div className="flex items-center gap-3">
+                            <Button onClick={() => setConfirmDialog(null)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-bold h-11">
+                                Cancelar
+                            </Button>
+                            <Button onClick={confirmDialog.onConfirm} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-bold h-11">
+                                Confirmar
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}

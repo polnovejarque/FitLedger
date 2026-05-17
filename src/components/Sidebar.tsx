@@ -37,20 +37,18 @@ const Sidebar = () => {
                 // SOLUCIÓN: select('*') para evitar errores si la base de datos cambia
                 const { data } = await supabase
                     .from('profiles')
-                    .select('*') 
+                    .select('role, plan, business_name, logo_url, studio_id')
                     .eq('id', user.id)
                     .single();
                 
                 if (data) {
                     setUserRole(data.role || 'admin');
-                    setUserPlan(data.plan || 'pro'); // Guardamos el plan que paga
+                    setUserPlan(data.plan || 'pro');
 
-                    // LÓGICA DE MARCA BLANCA INTELIGENTE
                     if (data.role === 'staff' && data.studio_id) {
-                        // Si es empleado, buscamos cómo se llama el centro de su jefe
                         const { data: studioData } = await supabase
                             .from('profiles')
-                            .select('*')
+                            .select('business_name, logo_url')
                             .eq('id', data.studio_id)
                             .single();
                             

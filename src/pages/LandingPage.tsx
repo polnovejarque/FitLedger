@@ -1,13 +1,43 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { 
     CheckCircle2, ArrowRight, BarChart3, 
     Calendar, Users, LayoutDashboard, Dumbbell, UserPlus,
-    Star, HelpCircle, Smartphone, DollarSign, Check, X
+    Star, HelpCircle, Smartphone, DollarSign, Check, X, Menu, ChevronDown
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
+const faqs = [
+    {
+        q: '¿Es difícil pasar mis datos de Excel a FitLeader?',
+        a: 'Para nada. Nuestra interfaz es muy intuitiva y está diseñada para que puedas crear clientes y rutinas en segundos. Olvídate de fórmulas complicadas.'
+    },
+    {
+        q: '¿La App para el cliente tiene coste extra?',
+        a: 'No, está incluida en tu suscripción. Tus clientes pueden descargarla y usarla gratis para ver sus rutinas, registrar sus marcas y hacer seguimiento de su progreso.'
+    },
+    {
+        q: '¿Hay permanencia?',
+        a: 'Ninguna. Eres libre de cancelar tu suscripción en cualquier momento desde tu panel de configuración. Sin llamadas, sin formularios.'
+    },
+    {
+        q: '¿Sirve para entrenadores online y presenciales?',
+        a: 'Sí, FitLeader está diseñado para modelos híbridos. Puedes gestionar tanto clientes a distancia como sesiones presenciales en tu gimnasio.'
+    },
+    {
+        q: '¿Puedo probar FitLeader antes de pagar?',
+        a: 'Sí. Tienes 14 días de prueba gratuita con todas las funciones activas. No se requiere tarjeta de crédito para empezar.'
+    },
+    {
+        q: '¿Mis datos están seguros?',
+        a: 'Completamente. Toda la información se almacena cifrada en servidores europeos certificados y nunca compartimos tus datos ni los de tus clientes con terceros.'
+    },
+];
+
 const Landing = () => {
     const navigate = useNavigate();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [openFaq, setOpenFaq] = useState<number | null>(0);
 
     return (
         <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500 selection:text-black overflow-x-hidden">
@@ -20,6 +50,7 @@ const Landing = () => {
                         <span className="text-xl font-bold tracking-tight">FitLeader</span>
                     </div>
                     
+                    {/* Links desktop */}
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
                         <a href="#product" className="hover:text-white transition-colors">Plataforma</a>
                         <a href="#comparison" className="hover:text-white transition-colors">Método</a>
@@ -27,12 +58,46 @@ const Landing = () => {
                         <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => navigate('/dashboard')} className="text-sm font-bold text-white hover:text-emerald-400 transition-colors px-4 py-2">
+                    {/* Acciones desktop */}
+                    <div className="hidden md:flex items-center gap-4">
+                        <button onClick={() => navigate('/auth')} className="text-sm font-bold text-white hover:text-emerald-400 transition-colors px-4 py-2">
                             Login
                         </button>
+                        <button
+                            onClick={() => navigate('/auth?mode=register')}
+                            className="text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 rounded-lg transition-colors"
+                        >
+                            Empezar gratis
+                        </button>
                     </div>
+
+                    {/* Hamburger móvil */}
+                    <button
+                        className="md:hidden p-2 text-zinc-400 hover:text-white transition-colors"
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        aria-label="Abrir menú"
+                    >
+                        {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                    </button>
                 </div>
+
+                {/* Menú móvil desplegable */}
+                {mobileMenuOpen && (
+                    <div className="md:hidden bg-black/95 border-t border-white/10 px-6 py-6 flex flex-col gap-4">
+                        <a href="#product" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-zinc-300 hover:text-white transition-colors py-2">Plataforma</a>
+                        <a href="#comparison" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-zinc-300 hover:text-white transition-colors py-2">Método</a>
+                        <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-zinc-300 hover:text-white transition-colors py-2">Precios</a>
+                        <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-zinc-300 hover:text-white transition-colors py-2">FAQ</a>
+                        <div className="flex flex-col gap-3 pt-4 border-t border-white/10">
+                            <button onClick={() => { setMobileMenuOpen(false); navigate('/auth'); }} className="w-full text-sm font-bold text-white border border-zinc-800 rounded-lg px-4 py-3 hover:bg-white/5 transition-colors">
+                                Login
+                            </button>
+                            <button onClick={() => { setMobileMenuOpen(false); navigate('/auth?mode=register'); }} className="w-full text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg px-4 py-3 transition-colors">
+                                Empezar gratis
+                            </button>
+                        </div>
+                    </div>
+                )}
             </nav>
 
             {/* --- HERO SECTION --- */}
@@ -62,10 +127,10 @@ const Landing = () => {
                         
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Button 
-                                onClick={() => navigate('/dashboard')} 
+                                onClick={() => navigate('/auth?mode=register')} 
                                 className="h-14 px-8 text-lg bg-emerald-500 text-black hover:bg-emerald-400 font-bold shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all active:scale-95"
                             >
-                                Empezar Ahora
+                                Empezar Ahora — Gratis
                             </Button>
                             
                             <Button 
@@ -73,7 +138,7 @@ const Landing = () => {
                                 onClick={() => navigate('/client-app')} 
                                 className="h-14 px-8 text-lg border-zinc-700 text-white hover:bg-white/5 transition-all"
                             >
-                                App Cliente
+                                Ver App Cliente
                             </Button>
                         </div>
                         <p className="mt-4 text-xs text-zinc-500 flex items-center gap-2">
@@ -350,54 +415,55 @@ const Landing = () => {
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4">Lo que dicen los entrenadores</h2>
-                        <p className="text-zinc-400">Más de 500 entrenadores ya han automatizado su negocio.</p>
+                        <p className="text-zinc-400">Los primeros en confiar en FitLeader comparten su experiencia.</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Review 1 */}
-                        <div className="p-6 bg-[#111] rounded-2xl border border-zinc-800 hover:border-emerald-500/30 transition-all">
+                        <div className="p-6 bg-[#111] rounded-2xl border border-zinc-800 hover:border-emerald-500/30 transition-all flex flex-col">
                             <div className="flex gap-1 mb-4 text-emerald-500">
                                 <Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" />
                             </div>
-                            <p className="text-zinc-300 text-sm mb-6 leading-relaxed">"Desde que uso FitLeader ahorro unas 10 horas a la semana. Antes todo era un caos de Excels y PDFs. Ahora mis clientes tienen su app y yo tengo paz mental."</p>
+                            <p className="text-zinc-300 text-sm mb-6 leading-relaxed flex-1">"Desde que uso FitLeader ahorro unas 10 horas a la semana. Antes todo era un caos de Excels y PDFs. Ahora mis clientes tienen su app y yo tengo paz mental."</p>
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-white">CR</div>
+                                <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 text-sm">CR</div>
                                 <div>
                                     <p className="text-white text-sm font-bold">Carlos Rodríguez</p>
-                                    <p className="text-zinc-500 text-xs">Entrenador Personal</p>
+                                    <p className="text-zinc-500 text-xs">Entrenador Personal · <span className="text-emerald-600">Beta Tester</span></p>
                                 </div>
                             </div>
                         </div>
                         {/* Review 2 */}
-                        <div className="p-6 bg-[#111] rounded-2xl border border-zinc-800 hover:border-emerald-500/30 transition-all">
+                        <div className="p-6 bg-[#111] rounded-2xl border border-zinc-800 hover:border-emerald-500/30 transition-all flex flex-col">
                             <div className="flex gap-1 mb-4 text-emerald-500">
                                 <Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" />
                             </div>
-                            <p className="text-zinc-300 text-sm mb-6 leading-relaxed">"A mis clientes les encanta la app. Ver su progreso gráfico y tener los vídeos de los ejercicios a mano ha mejorado muchísimo su adherencia. Imprescindible."</p>
+                            <p className="text-zinc-300 text-sm mb-6 leading-relaxed flex-1">"A mis clientes les encanta la app. Ver su progreso gráfico y tener los vídeos de los ejercicios a mano ha mejorado muchísimo su adherencia. Imprescindible."</p>
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-white">SM</div>
+                                <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 text-sm">SM</div>
                                 <div>
                                     <p className="text-white text-sm font-bold">Sofía Martínez</p>
-                                    <p className="text-zinc-500 text-xs">Coach Online</p>
+                                    <p className="text-zinc-500 text-xs">Coach Online · <span className="text-emerald-600">Beta Tester</span></p>
                                 </div>
                             </div>
                         </div>
                         {/* Review 3 */}
-                        <div className="p-6 bg-[#111] rounded-2xl border border-zinc-800 hover:border-emerald-500/30 transition-all">
+                        <div className="p-6 bg-[#111] rounded-2xl border border-zinc-800 hover:border-emerald-500/30 transition-all flex flex-col">
                             <div className="flex gap-1 mb-4 text-emerald-500">
                                 <Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" /><Star className="w-4 h-4 fill-emerald-500" />
                             </div>
-                            <p className="text-zinc-300 text-sm mb-6 leading-relaxed">"La mejor inversión para mi estudio. La gestión de pagos automatizada me ha quitado un peso enorme de encima. Muy intuitivo y el soporte es de 10."</p>
+                            <p className="text-zinc-300 text-sm mb-6 leading-relaxed flex-1">"La mejor inversión para mi estudio. La gestión de pagos automatizada me ha quitado un peso enorme de encima. Muy intuitivo y el soporte es de 10."</p>
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-white">JT</div>
+                                <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center font-bold text-purple-400 text-sm">JT</div>
                                 <div>
                                     <p className="text-white text-sm font-bold">Javier Torres</p>
-                                    <p className="text-zinc-500 text-xs">Dueño de Box</p>
+                                    <p className="text-zinc-500 text-xs">Dueño de Box · <span className="text-emerald-600">Beta Tester</span></p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
+
 
             {/* --- PRICING SECTION --- */}
             <section id="pricing" className="py-24 relative border-t border-white/5">
@@ -407,44 +473,30 @@ const Landing = () => {
                         <p className="text-zinc-400">Escala tu negocio sin costes ocultos.</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                        {/* PROFESIONAL */}
-                        <div className="p-8 rounded-3xl border border-emerald-500 bg-zinc-900/50 flex flex-col relative transform md:-translate-y-4 shadow-2xl shadow-emerald-500/10">
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-500 text-black text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wide">Más Popular</div>
-                            <h3 className="text-xl font-bold text-emerald-400 mb-2">Profesional</h3>
-                            <div className="mb-6">
-                                <span className="text-5xl font-bold text-white">29,99€</span>
-                                <span className="text-zinc-400">/mes</span>
+                    <div className="max-w-xl mx-auto">
+                        {/* PROFESIONAL — único plan activo */}
+                        <div className="p-10 rounded-3xl border border-emerald-500 bg-zinc-900/50 flex flex-col shadow-2xl shadow-emerald-500/10">
+                            <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full mb-6 w-fit">
+                                ✦ Plan actual
                             </div>
-                            <p className="text-zinc-300 text-sm mb-8">Para entrenadores que viven de ello.</p>
+                            <h3 className="text-2xl font-bold text-white mb-2">Profesional</h3>
+                            <div className="mb-4 flex items-end gap-2">
+                                <span className="text-6xl font-black text-white">29,99€</span>
+                                <span className="text-zinc-400 mb-2">/mes</span>
+                            </div>
+                            <p className="text-zinc-400 text-sm mb-8">Para entrenadores que viven de ello. 14 días gratis, cancela cuando quieras.</p>
                             
-                            <Button onClick={() => navigate('/dashboard')} className="w-full mb-8 bg-emerald-500 text-black hover:bg-emerald-400 font-bold h-12 shadow-lg shadow-emerald-500/20">
-                                Empezar prueba de 14 días
+                            <Button onClick={() => navigate('/auth?mode=register')} className="w-full mb-8 bg-emerald-500 text-black hover:bg-emerald-400 font-bold h-14 text-lg shadow-lg shadow-emerald-500/20">
+                                Empezar 14 días gratis →
                             </Button>
                             
                             <div className="space-y-4 flex-1">
                                 <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> <strong>Clientes Ilimitados</strong></li>
+                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> App cliente con tu marca y logo</li>
                                 <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Rutinas Avanzadas + Vídeos</li>
                                 <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Reportes Financieros</li>
                                 <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Pagos Stripe Integrados</li>
-                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Marca Personalizada (Logo)</li>
-                            </div>
-                        </div>
-
-                        {/* PREMIUM */}
-                        <div className="p-8 rounded-3xl border border-zinc-800 bg-black flex flex-col opacity-60">
-                            <h3 className="text-xl font-bold text-purple-400 mb-2">Premium</h3>
-                            <div className="mb-6">
-                                <span className="text-4xl font-bold text-white">Prox.</span>
-                            </div>
-                            <p className="text-zinc-400 text-sm mb-8">Para gimnasios y grandes equipos.</p>
-                            <Button disabled variant="outline" className="w-full mb-8 border-zinc-800 text-zinc-500 cursor-not-allowed">
-                                Próximamente
-                            </Button>
-                            <div className="space-y-4 flex-1">
-                                <li className="flex items-center gap-3 text-sm text-zinc-500"><CheckCircle2 className="w-4 h-4 text-zinc-700" /> Múltiples entrenadores</li>
-                                <li className="flex items-center gap-3 text-sm text-zinc-500"><CheckCircle2 className="w-4 h-4 text-zinc-700" /> Web propia integrada</li>
-                                <li className="flex items-center gap-3 text-sm text-zinc-500"><CheckCircle2 className="w-4 h-4 text-zinc-700" /> API Access</li>
+                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Soporte prioritario</li>
                             </div>
                         </div>
                     </div>
@@ -453,28 +505,41 @@ const Landing = () => {
 
             {/* --- FAQ --- */}
             <section id="faq" className="py-24 bg-zinc-950 border-t border-white/5">
-                <div className="max-w-4xl mx-auto px-6">
+                <div className="max-w-3xl mx-auto px-6">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4">Preguntas Frecuentes</h2>
                         <p className="text-zinc-400">Resolvemos tus dudas antes de empezar.</p>
                     </div>
-                    <div className="grid gap-4">
-                        <div className="p-6 bg-[#111] border border-zinc-800 rounded-2xl">
-                            <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><HelpCircle className="w-5 h-5 text-emerald-500"/> ¿Es difícil pasar mis datos de Excel a FitLeader?</h3>
-                            <p className="text-zinc-400 text-sm leading-relaxed">Para nada. Nuestra interfaz es muy intuitiva y está diseñada para que puedas crear clientes y rutinas en segundos. Olvídate de fórmulas complicadas.</p>
-                        </div>
-                        <div className="p-6 bg-[#111] border border-zinc-800 rounded-2xl">
-                            <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><HelpCircle className="w-5 h-5 text-emerald-500"/> ¿La App para el cliente tiene coste extra?</h3>
-                            <p className="text-zinc-400 text-sm leading-relaxed">No, está incluida en tu suscripción. Tus clientes pueden descargarla y usarla gratis para ver sus rutinas y registrar sus marcas.</p>
-                        </div>
-                        <div className="p-6 bg-[#111] border border-zinc-800 rounded-2xl">
-                            <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><HelpCircle className="w-5 h-5 text-emerald-500"/> ¿Hay permanencia?</h3>
-                            <p className="text-zinc-400 text-sm leading-relaxed">Ninguna. Eres libre de cancelar tu suscripción en cualquier momento desde tu panel de configuración.</p>
-                        </div>
-                        <div className="p-6 bg-[#111] border border-zinc-800 rounded-2xl">
-                            <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2"><HelpCircle className="w-5 h-5 text-emerald-500"/> ¿Sirve para entrenadores online y presenciales?</h3>
-                            <p className="text-zinc-400 text-sm leading-relaxed">Sí, FitLeader está diseñado para modelos híbridos. Puedes gestionar tanto clientes a distancia como sesiones presenciales en tu gimnasio.</p>
-                        </div>
+                    <div className="flex flex-col gap-3">
+                        {faqs.map((faq, i) => (
+                            <div
+                                key={i}
+                                className={`border rounded-2xl overflow-hidden transition-colors duration-200 ${
+                                    openFaq === i
+                                        ? 'bg-zinc-900 border-emerald-500/30'
+                                        : 'bg-[#111] border-zinc-800 hover:border-zinc-700'
+                                }`}
+                            >
+                                <button
+                                    className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left"
+                                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                                >
+                                    <span className="font-bold text-white text-base">{faq.q}</span>
+                                    <ChevronDown
+                                        className={`w-5 h-5 text-emerald-500 shrink-0 transition-transform duration-300 ${
+                                            openFaq === i ? 'rotate-180' : ''
+                                        }`}
+                                    />
+                                </button>
+                                <div
+                                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                                        openFaq === i ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                                    }`}
+                                >
+                                    <p className="px-6 pb-5 text-zinc-400 text-sm leading-relaxed">{faq.a}</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>
@@ -485,10 +550,10 @@ const Landing = () => {
                     <h2 className="text-4xl md:text-5xl font-black text-white mb-6">¿Listo para profesionalizarte?</h2>
                     <p className="text-xl text-zinc-400 mb-10">Únete a los entrenadores que ya están escalando su negocio con FitLeader.</p>
                     <Button 
-                        onClick={() => navigate('/dashboard')}
-                        className="h-16 px-10 text-xl bg-white text-black hover:bg-zinc-200 font-bold rounded-full shadow-[0_0_50px_rgba(255,255,255,0.2)] active:scale-95 transition-all"
+                        onClick={() => navigate('/auth?mode=register')}
+                        className="h-16 px-10 text-xl bg-emerald-500 text-black hover:bg-emerald-400 font-bold rounded-full shadow-[0_0_50px_rgba(16,185,129,0.3)] active:scale-95 transition-all"
                     >
-                        Crear Cuenta Gratis <ArrowRight className="w-6 h-6 ml-2" />
+                        Crear Cuenta Gratis — 14 días <ArrowRight className="w-6 h-6 ml-2" />
                     </Button>
                     <p className="mt-6 text-sm text-zinc-500">No se requiere tarjeta de crédito • Cancelación en cualquier momento</p>
                 </div>
@@ -502,11 +567,11 @@ const Landing = () => {
                         <span className="font-bold text-white">FitLeader</span>
                     </div>
                     <div className="flex gap-6">
-                        <a href="#" className="hover:text-white transition-colors">Términos</a>
-                        <a href="#" className="hover:text-white transition-colors">Privacidad</a>
-                        <a href="#" className="hover:text-white transition-colors">Soporte</a>
+                        <a href="/terminos" className="hover:text-white transition-colors">Términos</a>
+                        <a href="/privacidad" className="hover:text-white transition-colors">Privacidad</a>
+                        <a href="mailto:fitleader@fitleaderapp.com" className="hover:text-white transition-colors">Soporte</a>
                     </div>
-                    <p>© 2025 FitLeader Inc. Todos los derechos reservados.</p>
+                    <p>© {new Date().getFullYear()} FitLeader. Todos los derechos reservados.</p>
                 </div>
             </footer>
         </div>

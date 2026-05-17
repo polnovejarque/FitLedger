@@ -28,6 +28,9 @@ import StaffRegister from './pages/StaffRegister';
 import Inventory from './pages/Inventory';
 // ✅ NUEVO: Importamos la página de Drop-in Landing
 import DropinLanding from './pages/DropinLanding';
+// Páginas legales
+import Privacidad from './pages/Privacidad';
+import Terminos from './pages/Terminos';
 
 const RequireAuth = () => {
   const { session, loading } = useAuth();
@@ -47,6 +50,8 @@ function App() {
           <Route path="/update-password" element={<UpdatePassword />} /> {/* ✅ NUEVA RUTA AQUÍ */}
           <Route path="/register" element={<StaffRegister />} /> {/* ✅ NUEVA RUTA DE REGISTRO STAFF AQUÍ */}
           <Route path="/join/:eventId" element={<DropinLanding />} /> {/* ✅ NUEVA RUTA DROP-IN */}
+          <Route path="/privacidad" element={<Privacidad />} />
+          <Route path="/terminos" element={<Terminos />} />
           
           {/* Rutas de la App del Cliente (Móvil) */}
           <Route path="/client-app" element={<ClientLogin />} />

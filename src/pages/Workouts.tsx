@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { 
     Search, Plus, Dumbbell, Calendar, 
-    MoreVertical, Clock, 
-    LayoutGrid, List, Loader2, Edit} from 'lucide-react';
+    Clock, 
+    LayoutGrid, List, Loader2, Edit, Copy} from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
 const Workouts = () => {
@@ -13,6 +13,7 @@ const Workouts = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchTerm, setSearchTerm] = useState("");
+    const [isDuplicating, setIsDuplicating] = useState<string | null>(null);
 
     useEffect(() => {
         fetchRoutines();
@@ -35,6 +36,71 @@ const Workouts = () => {
             setRoutines(data || []);
         }
         setIsLoading(false);
+    };
+
+    const handleDuplicateRoutine = async (routineId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isDuplicating) return;
+        
+        setIsDuplicating(routineId);
+        try {
+            // 1. Obtener la rutina original
+            const { data: originalRoutine, error: fetchError } = await supabase
+                .from('routines')
+                .select('*')
+                .eq('id', routineId)
+                .single();
+
+            if (fetchError || !originalRoutine) throw new Error("No se pudo obtener la rutina original");
+
+            // 2. Clonar la rutina base
+            const { id: _, created_at: __, updated_at: ___, ...routineData } = originalRoutine;
+            const newRoutine = {
+                ...routineData,
+                name: `${originalRoutine.name} (Copia)`,
+            };
+
+            const { data: insertedRoutine, error: insertError } = await supabase
+                .from('routines')
+                .insert(newRoutine)
+                .select()
+                .single();
+
+            if (insertError || !insertedRoutine) throw new Error("Error al clonar la rutina base");
+
+            // 3. Obtener ejercicios de la rutina original
+            const { data: originalExercises, error: exercisesError } = await supabase
+                .from('routine_exercises')
+                .select('*')
+                .eq('routine_id', routineId);
+
+            if (exercisesError) throw new Error("Error al obtener ejercicios originales");
+
+            // 4. Clonar ejercicios
+            if (originalExercises && originalExercises.length > 0) {
+                const newExercises = originalExercises.map((ex) => {
+                    const { id: _, created_at: __, ...exData } = ex;
+                    return {
+                        ...exData,
+                        routine_id: insertedRoutine.id
+                    };
+                });
+
+                const { error: insertExError } = await supabase
+                    .from('routine_exercises')
+                    .insert(newExercises);
+
+                if (insertExError) throw new Error("Error al clonar ejercicios");
+            }
+
+            // Éxito: recargar lista
+            await fetchRoutines();
+        } catch (error) {
+            console.error("Error duplicando rutina:", error);
+            alert("Hubo un error al duplicar la rutina.");
+        } finally {
+            setIsDuplicating(null);
+        }
     };
 
     const filteredRoutines = routines.filter(r => 
@@ -84,8 +150,15 @@ const Workouts = () => {
                                     <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-emerald-500" /> {routine.days_per_week || '?'} Días/sem</div>
                                     <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-blue-500" /> {routine.estimated_duration || '?'}</div>
                                 </div>
-                                <div className="mt-auto pt-4 border-t border-zinc-800/50 flex items-center justify-between">
-                                    <button className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"><MoreVertical className="w-4 h-4" /></button>
+                                <div className="mt-auto pt-4 border-t border-zinc-800/50 flex items-center justify-end gap-2">
+                                    <button 
+                                        onClick={(e) => handleDuplicateRoutine(routine.id, e)} 
+                                        disabled={isDuplicating === routine.id}
+                                        className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
+                                        title="Duplicar rutina"
+                                    >
+                                        {isDuplicating === routine.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -139,9 +212,21 @@ const Workouts = () => {
                                             <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {routine.estimated_duration || '-'}</div>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
-                                                <Edit className="w-4 h-4" />
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    onClick={(e) => handleDuplicateRoutine(routine.id, e)}
+                                                    disabled={isDuplicating === routine.id}
+                                                    className="text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                                    title="Duplicar rutina"
+                                                >
+                                                    {isDuplicating === routine.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                                                    <Edit className="w-4 h-4" />
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

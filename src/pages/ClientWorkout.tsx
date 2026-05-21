@@ -433,7 +433,7 @@ const ClientWorkout = () => {
                 const resultsToSave: any[] = [];
                 Object.entries(workoutLogs).forEach(([exerciseId, sets]: any) => {
                     Object.entries(sets).forEach(([setNumber, data]: any) => {
-                        if (data.done || (data.weight && data.reps)) {
+                        if (data.done || data.weight || data.reps) {
                             resultsToSave.push({
                                 assignment_id: parseInt(currentAssignmentId),
                                 exercise_id: parseInt(exerciseId),

@@ -384,7 +384,7 @@ const ClientProfile = () => {
                             </button>
                         ))}
                         
-                        <div className="ml-auto flex gap-2 hidden md:flex">
+                        <div className="ml-auto flex gap-2">
                             <button onClick={() => setHistoryModalOpen(true)} className="px-3 py-2 text-xs font-medium text-emerald-500 hover:text-emerald-400 flex items-center gap-1.5 transition-colors">
                                 <Trophy className="w-3.5 h-3.5" /> Ver Historial
                             </button>

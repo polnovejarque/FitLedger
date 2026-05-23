@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /client-app/home
+
+Sitemap: https://www.fitleader.app/sitemap.xml

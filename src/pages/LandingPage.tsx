@@ -231,13 +231,98 @@ const Landing = () => {
 
                 <div className="max-w-7xl mx-auto px-6 space-y-32">
                     
+                    {/* --- CARACTERÍSTICAS EN COLUMNAS (DESCRIPCIÓN GENERAL PREMIUM) --- */}
+                    <div className="space-y-16">
+                        <div className="text-center max-w-3xl mx-auto">
+                            <h2 className="text-base font-semibold tracking-wider text-emerald-400 uppercase">Funciones Todo-En-Uno</h2>
+                            <p className="mt-2 text-3xl font-extrabold text-white tracking-tight sm:text-4xl">
+                                Diseñado para potenciar y automatizar tu negocio
+                            </p>
+                            <p className="mt-4 text-lg text-zinc-400">
+                                La plataforma líder que integra todo lo necesario para la gestión de tus atletas en un entorno premium e intuitivo.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            
+                            {/* Tarjeta 1: Clientes */}
+                            <a href="#atletas" className="group relative bg-[#09090b] rounded-2xl border border-zinc-800 p-6 flex flex-col justify-between hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] transition-all duration-300 hover:-translate-y-1">
+                                <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                                <div>
+                                    <div className="w-12 h-12 bg-zinc-900/80 rounded-xl flex items-center justify-center border border-zinc-800 group-hover:border-emerald-500/30 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 mb-6">
+                                        <Users className="w-6 h-6 text-emerald-500" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">Gestión de Atletas</h3>
+                                    <p className="text-zinc-400 text-sm leading-relaxed">
+                                        Fichas de clientes con histórico de pesos, métricas corporales y evolución visual.
+                                    </p>
+                                </div>
+                                <div className="mt-6 flex items-center text-xs font-semibold text-zinc-500 group-hover:text-emerald-400 transition-colors">
+                                    Ver detalles <ArrowRight className="w-3.5 h-3.5 ml-1 transition-transform group-hover:translate-x-1" />
+                                </div>
+                            </a>
+
+                            {/* Tarjeta 2: Rutinas */}
+                            <a href="#rutinas" className="group relative bg-[#09090b] rounded-2xl border border-zinc-800 p-6 flex flex-col justify-between hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] transition-all duration-300 hover:-translate-y-1">
+                                <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                                <div>
+                                    <div className="w-12 h-12 bg-zinc-900/80 rounded-xl flex items-center justify-center border border-zinc-800 group-hover:border-cyan-500/30 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 mb-6">
+                                        <Dumbbell className="w-6 h-6 text-cyan-500" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2 group-hover:text-cyan-400 transition-colors">Creador de Rutinas</h3>
+                                    <p className="text-zinc-400 text-sm leading-relaxed">
+                                        Diseño de rutinas Drag & Drop con series, repeticiones y vídeos técnicos integrados.
+                                    </p>
+                                </div>
+                                <div className="mt-6 flex items-center text-xs font-semibold text-zinc-500 group-hover:text-cyan-400 transition-colors">
+                                    Ver detalles <ArrowRight className="w-3.5 h-3.5 ml-1 transition-transform group-hover:translate-x-1" />
+                                </div>
+                            </a>
+
+                            {/* Tarjeta 3: App Cliente */}
+                            <a href="#app-cliente" className="group relative bg-[#09090b] rounded-2xl border border-zinc-800 p-6 flex flex-col justify-between hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] transition-all duration-300 hover:-translate-y-1">
+                                <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                                <div>
+                                    <div className="w-12 h-12 bg-zinc-900/80 rounded-xl flex items-center justify-center border border-zinc-800 group-hover:border-emerald-500/30 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 mb-6">
+                                        <Smartphone className="w-6 h-6 text-emerald-500" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">App Marca Blanca</h3>
+                                    <p className="text-zinc-400 text-sm leading-relaxed">
+                                        Tus alumnos instalan tu propia PWA con tu logotipo e identidad de marca.
+                                    </p>
+                                </div>
+                                <div className="mt-6 flex items-center text-xs font-semibold text-zinc-500 group-hover:text-emerald-400 transition-colors">
+                                    Ver detalles <ArrowRight className="w-3.5 h-3.5 ml-1 transition-transform group-hover:translate-x-1" />
+                                </div>
+                            </a>
+
+                            {/* Tarjeta 4: Finanzas */}
+                            <a href="#finanzas" className="group relative bg-[#09090b] rounded-2xl border border-zinc-800 p-6 flex flex-col justify-between hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] transition-all duration-300 hover:-translate-y-1">
+                                <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                                <div>
+                                    <div className="w-12 h-12 bg-zinc-900/80 rounded-xl flex items-center justify-center border border-zinc-800 group-hover:border-emerald-500/30 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 mb-6">
+                                        <DollarSign className="w-6 h-6 text-emerald-500" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">Finanzas y Cobros</h3>
+                                    <p className="text-zinc-400 text-sm leading-relaxed">
+                                        Control de facturación, pasarela Stripe y cobros recurrentes sin comisiones extra.
+                                    </p>
+                                </div>
+                                <div className="mt-6 flex items-center text-xs font-semibold text-zinc-500 group-hover:text-emerald-400 transition-colors">
+                                    Ver detalles <ArrowRight className="w-3.5 h-3.5 ml-1 transition-transform group-hover:translate-x-1" />
+                                </div>
+                            </a>
+
+                        </div>
+                    </div>
+                    
                     {/* ZIG-ZAG 1: Cartera de Clientes (IMG DERECHA) */}
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                    <div id="atletas" className="grid lg:grid-cols-2 gap-16 items-center pt-16 scroll-mt-24">
                         <div className="order-2 lg:order-1">
                             <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 border border-zinc-800">
                                 <Users className="w-6 h-6 text-emerald-500" />
                             </div>
-                            <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Control total sobre<br/>tus atletas.</h2>
+                            <h3 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Control total sobre<br/>tus atletas.</h3>
                             <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
                                 Deja de buscar mensajes antiguos en WhatsApp. Tienes toda la información de tus clientes en una sola tabla: objetivos, métricas de progreso, planes activos y estado de los pagos.
                             </p>
@@ -262,7 +347,7 @@ const Landing = () => {
                     </div>
 
                     {/* ZIG-ZAG 2: Creador de Rutinas (IMG IZQUIERDA) */}
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                    <div id="rutinas" className="grid lg:grid-cols-2 gap-16 items-center pt-16 scroll-mt-24">
                         <div className="order-1 relative group">
                             <div className="absolute -inset-2 bg-gradient-to-br from-cyan-500/20 to-transparent rounded-2xl blur-lg group-hover:blur-xl transition-all duration-500"></div>
                             {/* AQUÍ VA LA CAPTURA: Guarda tu captura como "captura-rutinas.png" en la carpeta public */}
@@ -279,7 +364,7 @@ const Landing = () => {
                             <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 border border-zinc-800">
                                 <Dumbbell className="w-6 h-6 text-cyan-500" />
                             </div>
-                            <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Crea rutinas de nivel <br/>en minutos.</h2>
+                            <h3 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Crea rutinas de nivel <br/>en minutos.</h3>
                             <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
                                 Programa entrenamientos como un profesional. Asigna días, series, repeticiones y añade vídeos demostrativos para que tu cliente ejecute la técnica perfecta desde su móvil.
                             </p>
@@ -292,12 +377,12 @@ const Landing = () => {
                     </div>
 
                     {/* ZIG-ZAG 3: App Cliente Marca Blanca (IMG DERECHA) */}
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                    <div id="app-cliente" className="grid lg:grid-cols-2 gap-16 items-center pt-16 scroll-mt-24">
                         <div className="order-2 lg:order-1">
                             <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 border border-zinc-800">
                                 <Smartphone className="w-6 h-6 text-emerald-500" />
                             </div>
-                            <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Tu propia App. <br/>Tu propia Marca.</h2>
+                            <h3 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Tu propia App. <br/>Tu propia Marca.</h3>
                             <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
                                 Eleva tu estatus. Tus clientes no verán una herramienta genérica, descargarán una WebApp (PWA) coronada por tu propio logotipo y el nombre de tu negocio.
                             </p>
@@ -330,14 +415,14 @@ const Landing = () => {
                     </div>
 
                     {/* ZIG-ZAG 4: Finanzas (IMG IZQUIERDA) */}
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+                    <div id="finanzas" className="grid lg:grid-cols-2 gap-16 items-center pt-16 scroll-mt-24">
                         <div className="order-1 relative group">
                             <div className="absolute -inset-2 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-2xl blur-lg group-hover:blur-xl transition-all duration-500"></div>
                             {/* AQUÍ VA LA CAPTURA: Guarda tu captura como "captura-finanzas.png" */}
                             <img 
                                 src="/captura-finanzas.png" 
                                 alt="Panel de Finanzas FitLeader" 
-                                className="relative rounded-2xl border border-zinc-800 shadow-2xl w-full object-cover bg-zinc-900 aspect-video fallback-bg"
+                                className="relative rounded-2xl border border-zinc-800 shadow-2xl w-full object-cover bg-[#09090b] bg-zinc-900 aspect-video fallback-bg"
                                 onError={(e) => {
                                     e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450' viewBox='0 0 800 450'%3E%3Crect fill='%23111' width='800' height='450'/%3E%3Ctext x='400' y='225' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23333' text-anchor='middle' alignment-baseline='middle'%3EInserta aquí captura-finanzas.png%3C/text%3E%3C/svg%3E";
                                 }}
@@ -347,7 +432,7 @@ const Landing = () => {
                             <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 border border-zinc-800">
                                 <DollarSign className="w-6 h-6 text-emerald-500" />
                             </div>
-                            <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Cobra a tiempo,<br/>sin perseguir a nadie.</h2>
+                            <h3 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">Cobra a tiempo,<br/>sin perseguir a nadie.</h3>
                             <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
                                 Mantén el control de tus ingresos. Anota los pagos en efectivo, transferencias o vincula los enlaces de pago automático de Stripe directamente en el perfil del cliente.
                             </p>

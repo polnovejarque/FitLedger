@@ -7,16 +7,16 @@
 
     <!-- SEO Primary -->
     <title>FitLeader — Software de Gestión para Entrenadores Personales</title>
-    <meta name="description" content="Gestiona clientes, rutinas y pagos desde un solo lugar. FitLeader es el software todo-en-uno para entrenadores personales y coaches fitness. Prueba 14 días gratis." />
-    <meta name="keywords" content="software entrenador personal, app entrenador, gestión clientes fitness, rutinas online, cobros entrenador, SaaS fitness" />
+    <meta name="description" content="FitLeader es el software todo-en-uno para entrenadores personales y coaches fitness. Automatiza rutinas de entrenamiento, gestiona clientes, controla pagos recurrentes con Stripe y ofrece una app premium a tus atletas." />
+    <meta name="keywords" content="software entrenador personal, app para entrenadores personales, gestión de clientes fitness, software de entrenamiento, rutinas de gimnasio online, app atleta, software fitness coach, SaaS fitness" />
     <link rel="canonical" href="https://www.fitleader.app/" />
 
     <!-- Open Graph (LinkedIn, Facebook, WhatsApp) -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://www.fitleader.app/" />
-    <meta property="og:title" content="FitLeader — Tu Negocio Fitness en Automático" />
-    <meta property="og:description" content="Olvida el Excel. Gestiona clientes, pagos y rutinas con tu App Premium para atletas. Prueba 14 días gratis, sin tarjeta." />
-    <meta property="og:image" content="https://www.fitleader.app/og-image.png" />
+    <meta property="og:title" content="FitLeader — Software para Entrenadores Personales" />
+    <meta property="og:description" content="Lleva tus asesorías fitness al siguiente nivel. Gestiona clientes, pagos y rutinas con tu propia App Premium. Prueba 14 días gratis." />
+    <meta property="og:image" content="https://www.fitleader.app/captura-app.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="es_ES" />
@@ -24,13 +24,101 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="FitLeader — Tu Negocio Fitness en Automático" />
-    <meta name="twitter:description" content="Olvida el Excel. Gestiona clientes, pagos y rutinas con tu App Premium. Prueba 14 días gratis." />
-    <meta name="twitter:image" content="https://www.fitleader.app/og-image.png" />
+    <meta name="twitter:title" content="FitLeader — Software para Entrenadores Personales" />
+    <meta name="twitter:description" content="Automatiza tus rutinas, clientes y pagos con tu App Premium. Empieza gratis." />
+    <meta name="twitter:image" content="https://www.fitleader.app/captura-app.png" />
 
     <!-- PWA -->
     <meta name="theme-color" content="#10b981" />
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- Schema.org JSON-LD Structured Data for Sitelinks Search & Rich Snippets -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://www.fitleader.app/#software",
+          "name": "FitLeader",
+          "url": "https://www.fitleader.app/",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "All",
+          "offers": {
+            "@type": "Offer",
+            "price": "29.99",
+            "priceCurrency": "EUR",
+            "priceSpecification": {
+              "@type": "UnitPriceSpecification",
+              "price": "29.99",
+              "priceCurrency": "EUR",
+              "referenceQuantity": {
+                "@type": "QuantitativeValue",
+                "value": "1",
+                "unitCode": "MON"
+              }
+            }
+          },
+          "description": "El software de gestión todo-en-uno para entrenadores personales y coaches fitness. Automatiza tus rutinas, gestiona tus clientes y controla tus cobros recurrentes."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.fitleader.app/#website",
+          "url": "https://www.fitleader.app/",
+          "name": "FitLeader",
+          "description": "Software de Gestión para Entrenadores Personales y Fitness Coaches",
+          "publisher": {
+            "@id": "https://www.fitleader.app/#organization"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://www.fitleader.app/#organization",
+          "name": "FitLeader",
+          "url": "https://www.fitleader.app/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://www.fitleader.app/logo.png"
+          }
+        },
+        {
+          "@type": "ItemList",
+          "@id": "https://www.fitleader.app/#navigation",
+          "name": "Menú de Navegación",
+          "itemListElement": [
+            {
+              "@type": "SiteNavigationElement",
+              "position": 1,
+              "name": "Plataforma de Gestión",
+              "description": "Nuestros módulos: gestión de atletas, creador de rutinas, app de marca blanca y finanzas.",
+              "url": "https://www.fitleader.app/#product"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 2,
+              "name": "El Método FitLeader",
+              "description": "Compara el método tradicional caótico con la automatización inteligente.",
+              "url": "https://www.fitleader.app/#comparison"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 3,
+              "name": "Precios y Planes",
+              "description": "Plan profesional simple de tarifa plana mensual sin compromiso.",
+              "url": "https://www.fitleader.app/#pricing"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 4,
+              "name": "Preguntas Frecuentes (FAQ)",
+              "description": "Dudas comunes sobre permanencia, migración y funcionamiento.",
+              "url": "https://www.fitleader.app/#faq"
+            }
+          ]
+        }
+      ]
+    }
+    </script>
 
     <!-- Analytics: Plausible (sin cookies, GDPR compliant) -->
     <script defer data-domain="fitleader.app" src="https://plausible.io/js/script.js"></script>

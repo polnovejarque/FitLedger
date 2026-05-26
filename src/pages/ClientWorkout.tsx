@@ -4,7 +4,7 @@ import {
     Home, ClipboardList, TrendingUp, User, LogOut, Flame, 
     Calendar as CalendarIcon, Trophy, Activity, Dumbbell,
     Bell, Settings, ChevronRight, Plus, Scale, X, Camera, Ruler, RefreshCw,
-    ArrowLeft, Check, Clock, Play, SkipForward, Lightbulb, Upload,
+    ArrowLeft, Check, Clock, Play, SkipForward, Lightbulb, Upload, ExternalLink,
     CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers, RefreshCcw
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
@@ -20,6 +20,55 @@ const DAILY_TIPS = [
     "No compares tu capítulo 1 con el capítulo 20 de otra persona. 🌱",
     "La proteína es esencial para la recuperación muscular. Asegura tu ingesta. 🍗"
 ];
+
+const getYoutubeEmbedUrl = (url: string) => {
+    if (!url) return null;
+    if (url.includes('youtube.com/embed/')) return url;
+    
+    let videoId = '';
+    try {
+        if (url.includes('youtu.be/')) {
+            videoId = url.split('youtu.be/')[1]?.split(/[?#]/)[0];
+        } else if (url.includes('youtube.com/watch')) {
+            const urlObj = new URL(url);
+            videoId = urlObj.searchParams.get('v') || '';
+        } else if (url.includes('youtube.com/shorts/')) {
+            videoId = url.split('youtube.com/shorts/')[1]?.split(/[?#]/)[0];
+        }
+    } catch (e) {
+        const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+        videoId = match ? match[1] : '';
+    }
+    
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+};
+
+const getVimeoEmbedUrl = (url: string) => {
+    if (!url) return null;
+    if (url.includes('player.vimeo.com/video/')) return url;
+    
+    const match = url.match(/vimeo\.com\/(?:video\/)?([0-9]+)/);
+    return match ? `https://player.vimeo.com/video/${match[1]}` : null;
+};
+
+const getVideoEmbedUrl = (url: string) => {
+    if (!url) return null;
+    const ytUrl = getYoutubeEmbedUrl(url);
+    if (ytUrl) return ytUrl;
+    const vimeoUrl = getVimeoEmbedUrl(url);
+    if (vimeoUrl) return vimeoUrl;
+    return null;
+};
+
+const isDirectVideo = (url: string) => {
+    if (!url) return false;
+    const cleanUrl = url.toLowerCase().split(/[?#]/)[0];
+    return cleanUrl.endsWith('.mp4') || 
+           cleanUrl.endsWith('.mov') || 
+           cleanUrl.endsWith('.webm') || 
+           cleanUrl.endsWith('.ogg') ||
+           url.includes('supabase.co/storage/v1/object/public/');
+};
 
 // --- COMPONENTE PRINCIPAL APP CLIENTE ---
 const ClientWorkout = () => {
@@ -627,12 +676,47 @@ const ClientWorkout = () => {
                         </div>
                     </div>
                 )}
-                {playingVideoUrl && (
-                    <div onClick={() => setPlayingVideoUrl(null)} className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4">
-                        <button onClick={() => setPlayingVideoUrl(null)} className="absolute top-6 right-6 text-white"><X className="w-8 h-8" /></button>
-                        <video src={playingVideoUrl} controls autoPlay playsInline className="w-full max-w-4xl rounded-lg" />
-                    </div>
-                )}
+                {playingVideoUrl && (() => {
+                    const embedUrl = getVideoEmbedUrl(playingVideoUrl);
+                    const isDirect = isDirectVideo(playingVideoUrl);
+                    
+                    return (
+                        <div className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4" onClick={() => setPlayingVideoUrl(null)}>
+                            <button onClick={() => setPlayingVideoUrl(null)} className="absolute top-6 right-6 text-white z-50 hover:text-emerald-400 transition-colors">
+                                <X className="w-8 h-8" />
+                            </button>
+                            
+                            <div className="w-full max-w-4xl rounded-xl overflow-hidden aspect-video bg-zinc-950 flex items-center justify-center border border-zinc-800" onClick={(e) => e.stopPropagation()}>
+                                {embedUrl ? (
+                                    <iframe 
+                                        src={embedUrl} 
+                                        title="Video del ejercicio" 
+                                        frameBorder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowFullScreen 
+                                        className="w-full h-full"
+                                    />
+                                ) : isDirect ? (
+                                    <video src={playingVideoUrl} controls autoPlay playsInline className="w-full h-full" />
+                                ) : (
+                                    <div className="text-center p-8 max-w-md">
+                                        <p className="text-zinc-300 text-sm mb-6 leading-relaxed">
+                                            Este enlace de video no se puede reproducir directamente en la aplicación. Puedes abrirlo en tu navegador.
+                                        </p>
+                                        <a 
+                                            href={playingVideoUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-5 py-2.5 rounded-lg transition-colors text-sm shadow-lg shadow-emerald-500/20"
+                                        >
+                                            Abrir enlace de video <ExternalLink className="w-4 h-4" />
+                                        </a>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
                 <div className="fixed bottom-0 left-0 w-full bg-black/80 pt-6 pb-6 px-6 z-40 border-t border-zinc-800">
                     <Button className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black text-lg py-5 rounded-lg shadow uppercase" onClick={handleFinishWorkout}>
                         Completar Entrenamiento

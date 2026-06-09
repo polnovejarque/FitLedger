@@ -10,13 +10,25 @@ const Layout = () => {
 
     useEffect(() => {
         const handleThemeChange = () => {
-            setTheme(localStorage.getItem('theme') || 'dark');
+            const currentTheme = localStorage.getItem('theme') || 'dark';
+            setTheme(currentTheme);
+            if (currentTheme === 'light') {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            }
         };
+        
+        handleThemeChange();
+        
         window.addEventListener('storage', handleThemeChange);
         window.addEventListener('theme-change', handleThemeChange);
         return () => {
             window.removeEventListener('storage', handleThemeChange);
             window.removeEventListener('theme-change', handleThemeChange);
+            document.documentElement.classList.remove('light', 'dark');
         };
     }, []);
 

@@ -28,6 +28,8 @@ import StaffRegister from './pages/StaffRegister';
 import Inventory from './pages/Inventory';
 // ✅ NUEVO: Importamos la página de Drop-in Landing
 import DropinLanding from './pages/DropinLanding';
+// ✅ NUEVO: Importamos la página de Center (Alquiler de Espacios)
+import CenterSpaces from './pages/CenterSpaces';
 // Páginas legales
 import Privacidad from './pages/Privacidad';
 import Terminos from './pages/Terminos';
@@ -80,6 +82,9 @@ function App() {
 
               {/* ✅ NUEVO: Ruta para Inventario */}
               <Route path="inventory" element={<Inventory />} />
+
+              {/* ✅ NUEVO: Ruta para Alquiler de Espacios (Plan Center) */}
+              <Route path="center" element={<CenterSpaces />} />
               
               <Route path="settings" element={<Settings />} />
             </Route>

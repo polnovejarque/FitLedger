@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut, Shield, Box } from 'lucide-react';
+import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut, Shield, Box, Building2 } from 'lucide-react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Button } from './ui/Button';
@@ -15,6 +15,7 @@ const navItems = [
     { icon: BarChart3, label: 'Reportes', path: '/dashboard/reports', restricted: true },
     { icon: Shield, label: 'Mi Equipo', path: '/dashboard/team', restricted: true, studioOnly: true },
     { icon: Box, label: 'Inventario', path: '/dashboard/inventory', restricted: true, studioOnly: true },
+    { icon: Building2, label: 'Alquiler Espacios', path: '/dashboard/center', restricted: true },
     { icon: SettingsIcon, label: 'Configuración', path: '/dashboard/settings', restricted: true },
 ];
 
@@ -79,8 +80,8 @@ const Sidebar = () => {
             return false;
         }
         
-        // 2. Si es una función exclusiva de Studio, ocultarla a los demás planes
-        if (item.studioOnly && userPlan !== 'studio') {
+        // 2. Si es una función exclusiva de Studio, ocultarla si no tiene Studio ni Center
+        if (item.studioOnly && userPlan !== 'studio' && userPlan !== 'center') {
             return false;
         }
 
@@ -109,24 +110,41 @@ const Sidebar = () => {
                 </div>
 
                 <nav className="flex-1 space-y-1">
-                    {visibleNavItems.map((item) => (
-                        <NavLink
-                            key={item.path}
-                            to={item.path}
-                            end={item.path === '/dashboard'} /* ¡AQUÍ ESTÁ LA SOLUCIÓN! */
-                            className={({ isActive }) =>
-                                cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                                    isActive
-                                        ? "bg-accent text-accent-foreground"
-                                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                                )
-                            }
-                        >
-                            <item.icon className="h-5 w-5" />
-                            {item.label}
-                        </NavLink>
-                    ))}
+                    {visibleNavItems.map((item) => {
+                        const isCenterItem = item.path === '/dashboard/center';
+                        const isLocked = isCenterItem && userPlan !== 'center';
+
+                        return (
+                            <NavLink
+                                key={item.path}
+                                to={isLocked ? '/dashboard/settings' : item.path}
+                                end={item.path === '/dashboard'}
+                                onClick={() => {
+                                    if (isLocked) {
+                                        alert("¡El alquiler de espacios requiere el Plan Center! Te redirigimos a Ajustes para mejorar tu suscripción. 🚀");
+                                    }
+                                }}
+                                className={({ isActive }) =>
+                                    cn(
+                                        "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors w-full",
+                                        isActive && !isLocked
+                                            ? "bg-accent text-accent-foreground"
+                                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                    )
+                                }
+                            >
+                                <div className="flex items-center gap-3">
+                                    <item.icon className="h-5 w-5" />
+                                    <span>{item.label}</span>
+                                </div>
+                                {isLocked && (
+                                    <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-full animate-pulse shrink-0">
+                                        Center ↑
+                                    </span>
+                                )}
+                            </NavLink>
+                        );
+                    })}
                 </nav>
 
                 <div className="mt-auto border-t border-border pt-4">

@@ -50,6 +50,7 @@ const ClientProfile = () => {
     const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
     const [assigningDay, setAssigningDay] = useState<number | null>(null); // Controla el modal de asignar rutina
     const [assignRoutinesModalOpen, setAssignRoutinesModalOpen] = useState(false);
+    const [staffList, setStaffList] = useState<any[]>([]);
 
     // UI
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -129,13 +130,28 @@ const ClientProfile = () => {
                     setPhotos([]);
                 }
 
-                // 3. Cargar las rutinas del Coach (Para el selector)
+                // 3. Cargar las rutinas del Coach (Para el selector) y el personal (staff)
                 if (user) {
                     const { data: routinesData } = await supabase
                         .from('routines')
                         .select('id, name, level')
                         .eq('coach_id', user.id);
                     if (routinesData) setCoachRoutines(routinesData);
+
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('role, studio_id')
+                        .eq('id', user.id)
+                        .single();
+                    
+                    const currentStudioId = profile?.studio_id || user.id;
+
+                    const { data: staffData } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, business_name, email')
+                        .or(`studio_id.eq.${currentStudioId},id.eq.${currentStudioId}`);
+                    
+                    if (staffData) setStaffList(staffData);
                 }
 
                 // 4. Cargar las rutinas ya permitidas para este cliente
@@ -247,6 +263,20 @@ const ClientProfile = () => {
         }
     };
 
+    const handleCoachAssignChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value || null;
+        const { error } = await supabase
+            .from('clients')
+            .update({ assigned_coach_id: value })
+            .eq('id', id);
+        if (!error) {
+            setClient((prev: any) => ({ ...prev, assigned_coach_id: value }));
+            addToast('Entrenador asignado actualizado', 'success');
+        } else {
+            addToast('Error al asignar entrenador', 'error');
+        }
+    };
+
     const handleConvertToClient = async () => {
         const { error } = await supabase.from('clients').update({ status: 'active' }).eq('id', id);
         if (!error) {
@@ -324,11 +354,27 @@ const ClientProfile = () => {
                                     <span>Miembro desde {formatDateSafe(client.created_at)}</span>
                                 </div>
 
-                                <div className="pt-2 flex justify-center md:justify-start">
+                                <div className="pt-2 flex flex-wrap gap-3 justify-center md:justify-start items-center">
                                     <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-900/80 border border-zinc-800 rounded-lg text-sm">
                                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                                         <span className="text-zinc-400 font-medium">Objetivo:</span>
                                         <span className="text-white font-bold">{client.goals?.[0] || client.objective || "Sin definir"}</span>
+                                    </div>
+
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900/80 border border-zinc-800 rounded-lg text-sm">
+                                        <span className="text-zinc-400 font-medium text-xs">Asignar a:</span>
+                                        <select 
+                                            value={client.assigned_coach_id || ""} 
+                                            onChange={handleCoachAssignChange}
+                                            className="bg-transparent text-white border-none outline-none font-bold text-xs cursor-pointer focus:ring-0 p-0 pr-6"
+                                        >
+                                            <option value="" className="bg-zinc-900 text-zinc-400">Sin asignar</option>
+                                            {staffList.map(staff => (
+                                                <option key={staff.id} value={staff.id} className="bg-zinc-900 text-white">
+                                                    {staff.first_name ? `${staff.first_name} ${staff.last_name || ''}` : (staff.business_name || staff.email)}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             </div>

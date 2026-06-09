@@ -20,6 +20,9 @@ const Clients = () => {
     // Filtros y Búsqueda
     const [searchTerm, setSearchTerm] = useState("");
     const [activeTab, setActiveTab] = useState<'active' | 'lead'>('active');
+    const [userRole, setUserRole] = useState<string | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [onlyAssigned, setOnlyAssigned] = useState(false);
     
     // Menús y Modales
     const [openMenuId, setOpenMenuId] = useState<number | null>(null); 
@@ -47,6 +50,7 @@ const Clients = () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
+            setCurrentUserId(user.id);
 
             const { data: profile } = await supabase
                 .from('profiles')
@@ -54,13 +58,17 @@ const Clients = () => {
                 .eq('id', user.id)
                 .single();
 
+            if (profile) {
+                setUserRole(profile.role);
+            }
+
             const currentStudioId = profile?.studio_id || user.id;
             setStudioId(currentStudioId);
 
             // ¡SOLUCIÓN AQUÍ! Usamos .or() para recuperar clientes antiguos (user_id) y nuevos (studio_id)
             const { data, error } = await supabase
                 .from('clients')
-                .select('*')
+                .select('*, profiles:assigned_coach_id(first_name, last_name, business_name)')
                 .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id}`)
                 .order('created_at', { ascending: false });
 
@@ -162,10 +170,14 @@ const Clients = () => {
         }
     };
 
-    const filteredClients = clients.filter(client => 
-        client.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        (activeTab === 'active' ? (client.status === 'active' || !client.status) : client.status === 'lead')
-    );
+    const filteredClients = clients.filter(client => {
+        const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesTab = activeTab === 'active' 
+            ? (client.status === 'active' || !client.status) 
+            : client.status === 'lead';
+        const matchesAssigned = !onlyAssigned || client.assigned_coach_id === currentUserId;
+        return matchesSearch && matchesTab && matchesAssigned;
+    });
 
     const toggleMenu = (e: React.MouseEvent, id: number) => {
         e.stopPropagation(); 
@@ -193,6 +205,18 @@ const Clients = () => {
                             className="w-full bg-[#111] border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-emerald-500 outline-none transition-all focus:ring-1 focus:ring-emerald-500" 
                         />
                     </div>
+                    {userRole === 'staff' && (
+                        <button 
+                            onClick={() => setOnlyAssigned(!onlyAssigned)}
+                            className={`px-3 py-2 border rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                                onlyAssigned 
+                                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' 
+                                    : 'bg-[#111] border-zinc-800 text-zinc-400 hover:text-white'
+                            }`}
+                        >
+                            {onlyAssigned ? 'Mis Clientes ✓' : 'Todos los Clientes'}
+                        </button>
+                    )}
                     <button className="p-2 border border-zinc-800 rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-white transition-colors">
                         <Filter className="w-4 h-4" />
                     </button>
@@ -267,6 +291,17 @@ const Clients = () => {
                                                 {client.access_code && (
                                                     <p className="text-[10px] text-emerald-500 font-mono flex items-center gap-1">
                                                         <Key className="w-3 h-3" /> {client.access_code}
+                                                    </p>
+                                                )}
+                                                {client.profiles ? (
+                                                    <p className="text-[10px] text-zinc-400 mt-0.5 flex items-center gap-1">
+                                                        <span className="w-1 h-1 rounded-full bg-blue-400 inline-block"></span>
+                                                        Coach: {client.profiles.first_name ? `${client.profiles.first_name} ${client.profiles.last_name || ''}` : (client.profiles.business_name || 'Asignado')}
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-[10px] text-zinc-500 mt-0.5 italic flex items-center gap-1">
+                                                        <span className="w-1 h-1 rounded-full bg-zinc-600 inline-block"></span>
+                                                        Coach: Sin asignar
                                                     </p>
                                                 )}
                                             </div>

@@ -2,19 +2,21 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
     User, Building2, CreditCard, Shield, Key, 
-    Upload, Camera, Check, Eye, EyeOff, LogOut,
-    ExternalLink, HelpCircle, AlertCircle, CheckCircle2, XCircle, Info, Loader2 
+    Upload, Camera, Eye, EyeOff, LogOut,
+    ExternalLink, HelpCircle, AlertCircle, CheckCircle2, XCircle, Loader2,
+    Sun, Moon
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
-type TabType = 'profile' | 'business' | 'subscription' | 'security' | 'payments';
+type TabType = 'profile' | 'business' | 'subscription' | 'security' | 'payments' | 'appearance';
 
 const tabs = [
     { id: 'profile' as TabType, label: 'Mi Perfil', icon: User, color: 'text-emerald-500' },
     { id: 'business' as TabType, label: 'Negocio', icon: Building2, color: 'text-blue-500' },
     { id: 'payments' as TabType, label: 'Pagos & Integraciones', icon: Key, color: 'text-orange-500' },
     { id: 'subscription' as TabType, label: 'Suscripción', icon: CreditCard, color: 'text-purple-500' },
+    { id: 'appearance' as TabType, label: 'Apariencia', icon: Sun, color: 'text-amber-400' },
     { id: 'security' as TabType, label: 'Seguridad', icon: Shield, color: 'text-red-500' },
 ];
 
@@ -54,8 +56,9 @@ const Settings = () => {
     const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
 
-    // Billing
-    const [billingMessage, setBillingMessage] = useState('');
+    // Billing and Appearance
+    const [plan, setPlan] = useState('pro');
+    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
     // --- 1. CARGAR DATOS DESDE SUPABASE ---
     useEffect(() => {
@@ -74,6 +77,7 @@ const Settings = () => {
                     setBusinessName(data.business_name || '');
                     setCurrency(data.currency || 'EUR');
                     setLogoUrl(data.logo_url || ''); 
+                    if (data.plan) setPlan(data.plan);
                 }
             }
             setIsLoading(false);
@@ -82,6 +86,32 @@ const Settings = () => {
     }, []);
 
     // --- HANDLERS ---
+
+    const handleThemeChange = (newTheme: 'dark' | 'light') => {
+        setTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        window.dispatchEvent(new Event('theme-change'));
+    };
+
+    const handleUpgradePlan = async (newPlan: 'pro' | 'studio' | 'center') => {
+        setIsSaving(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ plan: newPlan })
+                .eq('id', user.id);
+                
+            if (error) {
+                alert("Error al cambiar plan: " + error.message);
+            } else {
+                setPlan(newPlan);
+                alert(`¡Plan actualizado con éxito a FitLeader ${newPlan.toUpperCase()}! ✅`);
+                window.location.reload();
+            }
+        }
+        setIsSaving(false);
+    };
 
     const handleSaveGeneral = async () => {
         setIsSaving(true);
@@ -215,10 +245,7 @@ const Settings = () => {
         }, 1500);
     };
 
-    const handleManageBilling = () => {
-        setBillingMessage('De momento solo está disponible el Plan Profesional. ¡Pronto novedades!');
-        setTimeout(() => setBillingMessage(''), 3000);
-    };
+
 
     if (isLoading) return <div className="min-h-screen flex items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin"/></div>;
 
@@ -458,39 +485,128 @@ const Settings = () => {
                         <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
                             <div>
                                 <h2 className="text-xl font-bold text-white mb-1">Tu Suscripción</h2>
-                                <p className="text-sm text-zinc-400">Detalles de tu plan actual en FitLeader.</p>
+                                <p className="text-sm text-zinc-400">Gestiona y cambia tu plan de FitLeader.</p>
                             </div>
 
-                            <div className="bg-gradient-to-br from-purple-900/30 to-[#111] border border-purple-500/30 rounded-xl p-6 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-24 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none" />
-                                <div className="flex justify-between items-start relative z-10">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Plan Pro */}
+                                <div className={`p-6 rounded-2xl border transition-all relative flex flex-col justify-between ${
+                                    plan === 'pro' 
+                                        ? 'bg-zinc-900 border-emerald-500/50 shadow-lg shadow-emerald-500/5' 
+                                        : 'bg-[#151518] border-zinc-800'
+                                }`}>
                                     <div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <h3 className="text-2xl font-bold text-white">Plan Profesional</h3>
-                                            <span className="bg-purple-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Activo</span>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="text-lg font-bold text-white">Profesional</h3>
+                                            {plan === 'pro' && <span className="bg-emerald-500 text-black text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Activo</span>}
                                         </div>
-                                        <ul className="space-y-1 text-sm text-zinc-300 mt-4">
-                                            <li className="flex items-center gap-2"><Check className="w-3 h-3 text-purple-400" /> Clientes Ilimitados</li>
-                                            <li className="flex items-center gap-2"><Check className="w-3 h-3 text-purple-400" /> Rutinas Avanzadas</li>
-                                            <li className="flex items-center gap-2"><Check className="w-3 h-3 text-purple-400" /> Reportes Financieros</li>
+                                        <p className="text-2xl font-black text-white mb-4">29,99€<span className="text-xs text-zinc-500 font-normal">/mes</span></p>
+                                        <ul className="space-y-2 text-xs text-zinc-400">
+                                            <li className="flex items-center gap-2">✓ Clientes Ilimitados</li>
+                                            <li className="flex items-center gap-2">✓ Creador de Rutinas</li>
+                                            <li className="flex items-center gap-2">✓ Pagos e Integraciones</li>
                                         </ul>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-3xl font-bold text-white">29.99€</p>
-                                        <p className="text-zinc-500 text-xs">/mes</p>
+                                    {plan !== 'pro' && (
+                                        <Button onClick={() => handleUpgradePlan('pro')} className="w-full mt-6 bg-zinc-800 text-white hover:bg-zinc-700 text-xs font-bold py-2">
+                                            Bajar a Profesional
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* Plan Studio */}
+                                <div className={`p-6 rounded-2xl border transition-all relative flex flex-col justify-between ${
+                                    plan === 'studio' 
+                                        ? 'bg-zinc-900 border-purple-500/50 shadow-lg shadow-purple-500/5' 
+                                        : 'bg-[#151518] border-zinc-800'
+                                }`}>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="text-lg font-bold text-white">Studio</h3>
+                                            {plan === 'studio' && <span className="bg-purple-500 text-black text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Activo</span>}
+                                        </div>
+                                        <p className="text-2xl font-black text-white mb-4">59,99€<span className="text-xs text-zinc-500 font-normal">/mes</span></p>
+                                        <ul className="space-y-2 text-xs text-zinc-400">
+                                            <li className="flex items-center gap-2">✓ Todo lo de Profesional</li>
+                                            <li className="flex items-center gap-2">✓ Gestión de Equipo Staff</li>
+                                            <li className="flex items-center gap-2">✓ Gestión de Inventario</li>
+                                        </ul>
                                     </div>
+                                    {plan !== 'studio' && (
+                                        <Button onClick={() => handleUpgradePlan('studio')} className="w-full mt-6 bg-purple-500 hover:bg-purple-400 text-black text-xs font-bold py-2">
+                                            Activar Plan Studio
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* Plan Center */}
+                                <div className={`p-6 rounded-2xl border transition-all relative flex flex-col justify-between ${
+                                    plan === 'center' 
+                                        ? 'bg-zinc-900 border-blue-500/50 shadow-lg shadow-blue-500/5' 
+                                        : 'bg-[#151518] border-zinc-800'
+                                }`}>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="text-lg font-bold text-white">Center</h3>
+                                            {plan === 'center' && <span className="bg-blue-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Activo</span>}
+                                        </div>
+                                        <p className="text-2xl font-black text-white mb-4">99,99€<span className="text-xs text-zinc-500 font-normal">/mes</span></p>
+                                        <ul className="space-y-2 text-xs text-zinc-400">
+                                            <li className="flex items-center gap-2">✓ Todo lo de Studio</li>
+                                            <li className="flex items-center gap-2">✓ Gestión de Salas/Zonas</li>
+                                            <li className="flex items-center gap-2">✓ Reservas de Entrenadores</li>
+                                        </ul>
+                                    </div>
+                                    {plan !== 'center' && (
+                                        <Button onClick={() => handleUpgradePlan('center')} className="w-full mt-6 bg-blue-500 hover:bg-blue-400 text-white text-xs font-bold py-2">
+                                            Activar Plan Center
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
+                        </div>
+                    )}
 
-                            <div className="flex flex-col items-end pt-4 gap-2">
-                                <Button variant="outline" onClick={handleManageBilling} className="border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800">
-                                    Gestionar Facturación
-                                </Button>
-                                {billingMessage && (
-                                    <div className="text-xs text-yellow-500 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
-                                        <Info className="w-3 h-3" /> {billingMessage}
+                    {/* --- 4.5 APARIENCIA (Tema) --- */}
+                    {activeTab === 'appearance' && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-white mb-1">Apariencia del SaaS</h2>
+                                <p className="text-sm text-zinc-400">Personaliza el aspecto del panel de control de entrenadores y centros.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Modo Oscuro */}
+                                <button
+                                    onClick={() => handleThemeChange('dark')}
+                                    className={`p-6 rounded-2xl border transition-all text-left flex flex-col justify-between h-40 ${
+                                        theme === 'dark'
+                                            ? 'bg-zinc-900 border-emerald-500/50 text-white shadow-lg'
+                                            : 'bg-zinc-900/30 border-zinc-800 text-zinc-400 hover:bg-zinc-900/50'
+                                    }`}
+                                >
+                                    <Moon className={`w-8 h-8 ${theme === 'dark' ? 'text-emerald-500' : 'text-zinc-500'}`} />
+                                    <div>
+                                        <span className="block text-sm font-bold text-white">Modo Oscuro</span>
+                                        <span className="block text-xs text-zinc-500 mt-1">El tema clásico inmersivo. Recomendado para entornos de poca luz.</span>
                                     </div>
-                                )}
+                                </button>
+
+                                {/* Modo Claro */}
+                                <button
+                                    onClick={() => handleThemeChange('light')}
+                                    className={`p-6 rounded-2xl border transition-all text-left flex flex-col justify-between h-40 ${
+                                        theme === 'light'
+                                            ? 'bg-zinc-900 border-amber-500/50 text-white shadow-lg'
+                                            : 'bg-zinc-900/30 border-zinc-800 text-zinc-400 hover:bg-zinc-900/50'
+                                    }`}
+                                >
+                                    <Sun className={`w-8 h-8 ${theme === 'light' ? 'text-amber-400' : 'text-zinc-500'}`} />
+                                    <div>
+                                        <span className="block text-sm font-bold text-white">Modo Claro</span>
+                                        <span className="block text-xs text-zinc-500 mt-1">Colores claros y nítidos. Ideal para trabajar en el día a día.</span>
+                                    </div>
+                                </button>
                             </div>
                         </div>
                     )}

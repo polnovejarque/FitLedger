@@ -85,6 +85,11 @@ const Sidebar = () => {
             return false;
         }
 
+        // 3. Ocultar alquiler de espacios si no se tiene activo el plan Center
+        if (item.path === '/dashboard/center' && userPlan !== 'center') {
+            return false;
+        }
+
         return true;
     });
 

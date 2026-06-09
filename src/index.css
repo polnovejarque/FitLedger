@@ -183,6 +183,56 @@
   background-color: hsl(188.7 94.5% 95%) !important;
 }
 
+/* Forzar que todos los textos blancos y grises tengan opacidad completa y se lean perfectamente en negro */
+.light .text-white,
+.light [class*="text-white/"],
+.light .text-zinc-50, .light [class*="text-zinc-50/"],
+.light .text-zinc-100, .light [class*="text-zinc-100/"],
+.light .text-zinc-200, .light [class*="text-zinc-200/"],
+.light .text-zinc-300, .light [class*="text-zinc-300/"] {
+  color: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+}
+
+/* Textos secundarios (zinc-400 y zinc-500) mapeados a gris oscuro nítido */
+.light .text-zinc-400, .light [class*="text-zinc-400/"],
+.light .text-zinc-500, .light [class*="text-zinc-500/"] {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 1 !important;
+}
+
+/* Corregir textos de banners de alerta o Stripe (text-blue-100/200/300) para evitar contraste lavado */
+.light .text-blue-100, .light [class*="text-blue-100/"],
+.light .text-blue-200, .light [class*="text-blue-200/"],
+.light .text-blue-300, .light [class*="text-blue-300/"] {
+  color: hsl(221.2 83.2% 25%) !important;
+  opacity: 1 !important;
+}
+.light .text-blue-400 {
+  color: hsl(221.2 83.2% 45%) !important;
+  opacity: 1 !important;
+}
+
+/* Corregir opacidades de imágenes (portadas de rutinas y entrenamientos) en modo claro para que sean nítidas y sólidas */
+.light img {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+/* Adaptación de Tooltips de Recharts para modo claro */
+.light .recharts-default-tooltip {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+.light .recharts-tooltip-item {
+  color: hsl(151 75% 28%) !important;
+}
+.light .recharts-tooltip-label {
+  color: hsl(var(--foreground)) !important;
+}
+
 /* Light Theme Utility Overrides */
 .light.bg-black, .light .bg-black {
   background-color: hsl(var(--background)) !important;

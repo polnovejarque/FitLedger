@@ -42,8 +42,20 @@ const Auth = () => {
                 if (error) throw error;
                 navigate('/dashboard'); 
             } else {
-                const { error } = await supabase.auth.signUp({ email, password });
+                const { data, error } = await supabase.auth.signUp({ email, password });
                 if (error) throw error;
+                
+                const userId = data.user?.id;
+                const selectedPlan = searchParams.get('plan') || 'pro';
+                if (userId && selectedPlan !== 'pro') {
+                    // Esperar 500ms para asegurar que el trigger de base de datos haya insertado el perfil
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await supabase
+                        .from('profiles')
+                        .update({ plan: selectedPlan })
+                        .eq('id', userId);
+                }
+
                 setMessage("¡Cuenta creada! Ya puedes iniciar sesión.");
                 setIsLogin(true);
             }

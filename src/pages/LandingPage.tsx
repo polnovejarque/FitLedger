@@ -577,7 +577,7 @@ const Landing = () => {
                                     <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Pagos Stripe + Reportes</li>
                                 </ul>
                             </div>
-                            <Button onClick={() => navigate('/auth?mode=register')} className="w-full bg-zinc-800 text-white hover:bg-zinc-700 font-bold h-11 text-xs">
+                            <Button onClick={() => navigate('/auth?mode=register&plan=pro')} className="w-full bg-zinc-800 text-white hover:bg-zinc-700 font-bold h-11 text-xs">
                                 Probar 14 días gratis
                             </Button>
                         </div>
@@ -602,7 +602,7 @@ const Landing = () => {
                                     <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-purple-400 flex-shrink-0" /> <strong>Gestión de Inventario</strong></li>
                                 </ul>
                             </div>
-                            <Button onClick={() => navigate('/auth?mode=register')} className="w-full bg-purple-500 text-black hover:bg-purple-400 font-bold h-11 text-xs shadow-lg shadow-purple-500/20">
+                            <Button onClick={() => navigate('/auth?mode=register&plan=studio')} className="w-full bg-purple-500 text-black hover:bg-purple-400 font-bold h-11 text-xs shadow-lg shadow-purple-500/20">
                                 Probar 14 días gratis
                             </Button>
                         </div>
@@ -624,7 +624,7 @@ const Landing = () => {
                                     <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" /> Reservas de entrenadores freelance</li>
                                 </ul>
                             </div>
-                            <Button onClick={() => navigate('/auth?mode=register')} className="w-full bg-zinc-800 text-white hover:bg-zinc-700 font-bold h-11 text-xs">
+                            <Button onClick={() => navigate('/auth?mode=register&plan=center')} className="w-full bg-zinc-800 text-white hover:bg-zinc-700 font-bold h-11 text-xs">
                                 Probar 14 días gratis
                             </Button>
                         </div>

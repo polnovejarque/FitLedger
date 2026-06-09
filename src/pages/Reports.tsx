@@ -178,14 +178,22 @@ const Reports = () => {
             {/* KPI CARDS (DINÁMICOS) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 print:gap-4">
                 {/* Ingresos */}
-                <div className="bg-[#111] border border-zinc-800 p-6 rounded-2xl relative overflow-hidden group print:bg-white print:border-zinc-300 print:text-black">
-                    <div className="absolute top-0 right-0 p-20 bg-emerald-500/5 blur-[60px] rounded-full pointer-events-none print:hidden" />
+                <div
+                    className="kpi-featured p-6 rounded-2xl relative overflow-hidden group print:bg-white print:border-zinc-300 print:text-black"
+                    style={{ background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)' }}
+                >
+                    <div className="absolute top-0 right-0 p-20 bg-white/5 blur-[60px] rounded-full pointer-events-none print:hidden" />
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500 print:bg-emerald-100 print:text-emerald-700"><DollarSign className="w-6 h-6" /></div>
-                        <span className="flex items-center text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full print:bg-emerald-100 print:text-emerald-700">Ingresos <TrendingUp className="w-3 h-3 ml-1" /></span>
+                        <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm text-white print:bg-emerald-100 print:text-emerald-700">
+                            <DollarSign className="w-6 h-6" />
+                        </div>
+                        <span className="flex items-center text-xs font-bold text-white/80 bg-white/15 px-2 py-1 rounded-full print:bg-emerald-100 print:text-emerald-700">
+                            Ingresos <TrendingUp className="w-3 h-3 ml-1" />
+                        </span>
                     </div>
-                    <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider print:text-zinc-600">Total Ingresado ({timeRange})</p>
+                    <p className="text-white/75 text-xs font-semibold uppercase tracking-wider print:text-zinc-600">Total Ingresado ({timeRange})</p>
                     <h3 className="text-3xl font-bold text-white mt-2 print:text-black print:text-2xl">{kpi.income.toFixed(2)} €</h3>
+                    <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/10 rounded-full pointer-events-none" />
                 </div>
 
                 {/* Gastos */}
@@ -260,7 +268,7 @@ const Reports = () => {
                                     </div>
                                     
                                     {/* ETIQUETA EJE X */}
-                                    <span className={`text-xs text-center mt-2 font-medium text-zinc-600 print:text-zinc-400 uppercase`}>
+                                    <span className={`text-xs text-center mt-2 font-medium text-zinc-500 print:text-zinc-400 uppercase`}>
                                         {item.month}
                                     </span>
                                 </div>

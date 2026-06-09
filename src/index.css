@@ -284,6 +284,24 @@
 .light.bg-zinc-950, .light .bg-zinc-950 {
   background-color: hsl(var(--background)) !important;
 }
+
+/* Tabla: cabeceras oscuras → gris perla suave en modo claro */
+.light thead,
+.light thead tr,
+.light .bg-black\/50,
+.light .bg-black\/30 {
+  background-color: hsl(220 20% 88%) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Tooltip de Recharts en modo claro → fondo blanco automático */
+.light .recharts-wrapper .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10) !important;
+  color: hsl(var(--foreground)) !important;
+}
 .light .bg-zinc-950\/70, .light .bg-zinc-950\/50 {
   background-color: hsl(var(--card)) !important;
 }
@@ -387,4 +405,162 @@ body {
   to {
     opacity: 1;
   }
+}
+
+/* ==========================================
+   MODO CLARO - REGLAS GLOBALES PARA TODAS LAS PÁGINAS
+   Cubren modales, tablas, inputs, sidebar, botones, etc.
+   sin necesidad de editar cada página individualmente.
+   ========================================== */
+
+/* --- INPUTS, SELECTS Y TEXTAREAS --- */
+.light input:not([type="checkbox"]):not([type="radio"]),
+.light select,
+.light textarea {
+  background-color: #ffffff !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+.light input::placeholder,
+.light textarea::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.7 !important;
+}
+.light input:focus,
+.light select:focus,
+.light textarea:focus {
+  border-color: hsl(151 75% 40%) !important;
+  box-shadow: 0 0 0 2px hsl(151 75% 40% / 0.15) !important;
+}
+
+/* --- MODALES Y POPOVERS --- */
+.light .fixed.inset-0 > div:not(.bg-black),
+.light .fixed.inset-0 > div:not([style*="background"]) > div {
+  background-color: #ffffff !important;
+  border-color: hsl(var(--border)) !important;
+}
+/* Fondo oscuro del overlay de modales: mantenerlo semitransparente */
+.light .bg-black\/80,
+.light .bg-black\/70,
+.light .bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.45) !important;
+}
+
+/* --- TABLAS DE DATOS --- */
+.light table {
+  background-color: #ffffff !important;
+}
+.light th {
+  background-color: hsl(220 20% 92%) !important;
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600 !important;
+}
+.light td {
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+.light tr:hover td {
+  background-color: hsl(220 20% 96%) !important;
+}
+.light .divide-zinc-800 > * + * {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* --- SIDEBAR EN MODO CLARO --- */
+.light aside {
+  background-color: #ffffff !important;
+  border-color: hsl(var(--border)) !important;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.06) !important;
+}
+
+/* --- BOTONES OUTLINE EN MODO CLARO --- */
+.light button[class*="border-zinc-700"],
+.light button[class*="border-zinc-800"],
+.light a[class*="border-zinc-700"],
+.light a[class*="border-zinc-800"] {
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  background-color: #ffffff !important;
+}
+.light button[class*="border-zinc-700"]:hover,
+.light button[class*="border-zinc-800"]:hover {
+  background-color: hsl(var(--secondary)) !important;
+}
+
+/* --- BADGES Y PILLS DE ESTADO --- */
+.light .bg-zinc-800,
+.light .bg-zinc-900\/50,
+.light .bg-zinc-900\/30 {
+  background-color: hsl(220 15% 88%) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* --- DROPDOWN MENUS (bg-[#18181b] etc.) --- */
+.light [class*="18181b"] {
+  background-color: #ffffff !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10) !important;
+}
+
+/* --- CABECERAS DE SECCIÓN --- */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* --- SEPARADORES / DIVIDERS --- */
+.light .border-t,
+.light .border-b,
+.light .border-l,
+.light .border-r,
+.light .border {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* --- SCROLLBAR EN MODO CLARO --- */
+.light ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.light ::-webkit-scrollbar-track {
+  background: hsl(220 15% 88%);
+}
+.light ::-webkit-scrollbar-thumb {
+  background: hsl(220 10% 70%);
+  border-radius: 3px;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: hsl(151 75% 40%);
+}
+
+/* --- STAT BADGES (Hoy, Mes, etc) en modo claro --- */
+.light span[class*="bg-zinc-800"][class*="rounded-full"],
+.light span[class*="bg-zinc-900"][class*="rounded-full"] {
+  background-color: hsl(220 20% 86%) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* --- CARDS CON COLORES SEMITRANSPARENTES EN MODO CLARO --- */
+/* Estos ya funcionan bien en light gracias a los overrides anteriores,
+   pero añadimos sombra extra para la jerarquía visual fintech */
+.light [class*="bg-emerald-500/5"],
+.light [class*="bg-emerald-500\/5"] {
+  background-color: hsl(151 75% 96%) !important;
+  border-color: hsl(151 75% 85%) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 4px 16px rgba(5, 150, 105, 0.06) !important;
+}
+.light [class*="bg-blue-500/5"],
+.light [class*="bg-blue-500\/5"] {
+  background-color: hsl(221 83% 96%) !important;
+  border-color: hsl(221 83% 88%) !important;
+}
+.light [class*="bg-amber-500/5"],
+.light [class*="bg-amber-500\/5"] {
+  background-color: hsl(43 96% 96%) !important;
+  border-color: hsl(43 96% 88%) !important;
+}
+.light [class*="bg-purple-500/5"],
+.light [class*="bg-purple-500\/5"] {
+  background-color: hsl(262 83% 97%) !important;
+  border-color: hsl(262 83% 90%) !important;
 }

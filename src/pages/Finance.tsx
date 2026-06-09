@@ -194,14 +194,21 @@ const Finance = () => {
 
             {/* KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-emerald-500/5 border-emerald-500/20">
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-emerald-500/20 rounded-full text-emerald-500"><DollarSign className="w-6 h-6" /></div>
-                            <div><p className="text-sm font-medium text-zinc-400">Cobrado este mes</p><h3 className="text-2xl font-bold text-emerald-500">{totalRevenue} €</h3></div>
+                <div
+                    className="kpi-featured p-6 rounded-2xl relative overflow-hidden cursor-default transition-all duration-300"
+                    style={{ background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)' }}
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
+                            <DollarSign className="w-6 h-6 text-white" />
                         </div>
-                    </CardContent>
-                </Card>
+                        <div>
+                            <p className="text-sm font-medium text-white/80">Cobrado total</p>
+                            <h3 className="text-2xl font-bold text-white">{totalRevenue} €</h3>
+                        </div>
+                    </div>
+                    <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/10 rounded-full pointer-events-none" />
+                </div>
                 <Card className="bg-amber-500/5 border-amber-500/20">
                     <CardContent className="p-6">
                         <div className="flex items-center gap-4">
@@ -235,10 +242,10 @@ const Finance = () => {
                                         <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
                                         <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
-                                    <XAxis dataKey="month" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}€`} />
-                                    <Tooltip contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }} />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border, #333)" />
+                                    <XAxis dataKey="month" stroke="transparent" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: 'var(--color-muted-foreground, #888)' }} />
+                                    <YAxis stroke="transparent" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}€`} tick={{ fill: 'var(--color-muted-foreground, #888)' }} />
+                                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-card, #111)', border: '1px solid var(--color-border, #333)', borderRadius: '10px', color: 'var(--color-card-foreground, white)' }} />
                                     <Area type="monotone" dataKey="ingresos" stroke="#10b981" fillOpacity={1} fill="url(#colorIngresos)" />
                                     <Area type="monotone" dataKey="gastos" stroke="#ef4444" fillOpacity={1} fill="url(#colorGastos)" />
                                 </AreaChart>
@@ -260,7 +267,7 @@ const Finance = () => {
                                         <Pie data={processPieData()} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                                             {processPieData().map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />)}
                                         </Pie>
-                                        <Tooltip contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }} />
+                                        <Tooltip contentStyle={{ backgroundColor: 'var(--color-card, #111)', border: '1px solid var(--color-border, #333)', borderRadius: '10px', color: 'var(--color-card-foreground, white)' }} />
                                         <Legend />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -286,7 +293,7 @@ const Finance = () => {
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-black/50 text-zinc-400 font-medium">
+                            <thead className="bg-zinc-900/80 finance-table-head text-zinc-400 font-medium">
                                 <tr>
                                     <th className="p-4 px-6">Fecha</th>
                                     <th className="p-4 px-6">Descripción</th>
@@ -301,7 +308,7 @@ const Finance = () => {
                                     <tr><td colSpan={6} className="p-8 text-center text-zinc-500">No hay movimientos aún.</td></tr>
                                 ) : (
                                     filteredTransactions.map((t) => (
-                                        <tr key={t.id} className="hover:bg-zinc-900/50 transition-colors">
+                                        <tr key={t.id} className="hover:bg-zinc-900/30 transition-colors">
                                             <td className="p-4 px-6 text-zinc-500">{t.date}</td>
                                             <td className="p-4 px-6 font-medium text-white">{t.description}</td>
                                             <td className="p-4 px-6 hidden sm:table-cell">

@@ -234,9 +234,9 @@ const Reports = () => {
                                 <div key={index} className="flex-1 flex flex-col justify-end group h-full relative cursor-pointer gap-1">
                                     
                                     {/* TOOLTIP (Solo Pantalla) */}
-                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#18181b] text-white text-xs py-2 px-3 rounded-lg border border-zinc-700 opacity-0 group-hover:opacity-100 transition-all duration-300 z-50 pointer-events-none shadow-xl print:hidden w-max text-center">
-                                        <div className="font-bold text-emerald-400">Ing: {item.income}€</div>
-                                        <div className="font-bold text-red-400">Gas: {item.expenses}€</div>
+                                    <div className="report-tooltip absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#18181b] text-white text-xs py-2 px-3 rounded-lg border border-zinc-700 opacity-0 group-hover:opacity-100 transition-all duration-300 z-50 pointer-events-none shadow-xl print:hidden w-max text-center">
+                                        <div className="font-bold text-emerald-400 report-tooltip-income">Ing: {item.income}€</div>
+                                        <div className="font-bold text-red-400 report-tooltip-expense">Gas: {item.expenses}€</div>
                                     </div>
 
                                     {/* ETIQUETA FIJA (Solo PDF) */}

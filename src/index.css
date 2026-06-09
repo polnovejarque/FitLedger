@@ -91,26 +91,28 @@
   --ring: 240 4.9% 83.9%;
 }
 
-/* Light Theme overrides */
+/* Light Theme overrides - Estilo Finexy/Fintech con colores FitLeader */
 .light {
   color-scheme: light;
-  --background: 240 5% 97.5%;
-  --foreground: 240 10% 3.9%;
+  /* Fondo gris-perla neutro suave (estilo dashboard fintech) */
+  --background: 220 25% 93%;
+  --foreground: 222 47% 11%;
 
+  /* Cards blancos puros para que destaquen sobre el fondo gris-perla */
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 222 47% 11%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
+  --popover-foreground: 222 47% 11%;
 
-  --primary: 240 5.9% 10%;
+  --primary: 222 47% 11%;
   --primary-foreground: 0 0% 98%;
 
-  --secondary: 240 4.8% 94.5%;
-  --secondary-foreground: 240 5.9% 10%;
+  --secondary: 220 20% 88%;
+  --secondary-foreground: 222 47% 11%;
 
-  --muted: 240 4.8% 94.5%;
-  --muted-foreground: 240 3.8% 46.1%;
+  --muted: 220 15% 88%;
+  --muted-foreground: 220 10% 40%;
 
   --accent: 151 75% 28%;
   --accent-foreground: 0 0% 100%;
@@ -118,9 +120,9 @@
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 240 5.9% 88%;
-  --input: 240 5.9% 88%;
-  --ring: 240 5.9% 10%;
+  --border: 220 15% 82%;
+  --input: 220 15% 85%;
+  --ring: 151 75% 28%;
 
   /* Redefine Tailwind v4 variables locally inside .light to override :root inheritance */
   --color-border: hsl(var(--border));
@@ -142,6 +144,13 @@
   --color-popover-foreground: hsl(var(--popover-foreground));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
+}
+
+/* Sombras en cards del modo claro para la jerarquía visual estilo fintech */
+.light .bg-card,
+.light .rounded-2xl,
+.light .rounded-xl {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05) !important;
 }
 
 /* Adaptaciones de colores para contrastar mejor sobre tarjetas blancas en modo claro */
@@ -231,6 +240,41 @@
 }
 .light .recharts-tooltip-label {
   color: hsl(var(--foreground)) !important;
+}
+
+/* Tooltip manual de la gráfica de Reportes en modo claro */
+.light .report-tooltip {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+}
+.light .report-tooltip-income {
+  color: hsl(151 75% 28%) !important;
+}
+.light .report-tooltip-expense {
+  color: hsl(0 72% 42%) !important;
+}
+
+/* Columna de horas de la Agenda: mantener fondo oscuro y texto blanco en modo claro */
+.light .agenda-time-column {
+  background-color: #1a1a1f !important;
+  color: #ffffff !important;
+}
+.light .agenda-time-cell {
+  color: #ffffff !important;
+  background-color: #1a1a1f !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+/* Proteger el card destacado de Ingresos (gradiente esmeralda) en modo claro:
+   Sus textos blancos NO deben convertirse a negro. */
+.light .kpi-featured *,
+.light .kpi-featured .text-white,
+.light .kpi-featured .text-white\/80,
+.light .kpi-featured .text-white\/75 {
+  color: #ffffff !important;
+  opacity: 1 !important;
 }
 
 /* Light Theme Utility Overrides */

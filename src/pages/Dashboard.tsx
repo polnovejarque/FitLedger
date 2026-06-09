@@ -124,41 +124,62 @@ const Dashboard = () => {
     const renderOverview = () => (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* KPI INGRESOS - Card destacado estilo Finexy con fondo de marca */}
                 {userRole !== 'staff' && (
-                    <div onClick={() => navigate('/dashboard/finance')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-emerald-500/30 transition-colors cursor-pointer">
+                    <div
+                        onClick={() => navigate('/dashboard/finance')}
+                        className="kpi-featured p-6 rounded-2xl relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02]"
+                        style={{ background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)' }}
+                    >
                         <div className="flex justify-between items-start mb-4">
-                            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500"><DollarSign className="w-5 h-5" /></div>
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <DollarSign className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="text-xs font-bold text-white/80 bg-white/15 px-2 py-1 rounded-full flex items-center gap-1">
+                                <ArrowUpRight className="w-3 h-3" /> Este mes
+                            </span>
                         </div>
-                        <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Ingresos Este Mes</p>
-                        <h3 className="text-3xl font-bold text-white mt-1">{kpi.monthlyRevenue} €</h3>
+                        <p className="text-white/75 text-xs font-semibold uppercase tracking-wider">Ingresos Este Mes</p>
+                        <h3 className="text-4xl font-black text-white mt-1">{kpi.monthlyRevenue} €</h3>
+                        <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full pointer-events-none" />
+                        <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white/5 rounded-full pointer-events-none" />
                     </div>
                 )}
 
-                <div onClick={() => navigate('/dashboard/clients')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-blue-500/50 cursor-pointer transition-all">
+                {/* KPI CLIENTES */}
+                <div onClick={() => navigate('/dashboard/clients')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-blue-500/50 cursor-pointer transition-all duration-300 hover:scale-[1.02]">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors"><Users className="w-5 h-5" /></div>
-                        <ArrowUpRight className="w-4 h-4 text-zinc-600 group-hover:text-blue-500" />
+                        <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                            <Users className="w-5 h-5" />
+                        </div>
+                        <ArrowUpRight className="w-4 h-4 text-zinc-600 group-hover:text-blue-500 transition-colors" />
                     </div>
-                    <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Clientes Totales</p>
-                    <h3 className="text-3xl font-bold text-white mt-1">{kpi.activeClients}</h3>
+                    <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Clientes Totales</p>
+                    <h3 className="text-4xl font-black text-white mt-1">{kpi.activeClients}</h3>
                 </div>
 
-                <div onClick={() => navigate('/dashboard/agenda')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-purple-500/30 transition-colors cursor-pointer">
+                {/* KPI SESIONES HOY */}
+                <div onClick={() => navigate('/dashboard/agenda')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-purple-500/30 transition-all duration-300 cursor-pointer hover:scale-[1.02]">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-2 bg-purple-500/10 rounded-lg text-purple-500"><Calendar className="w-5 h-5" /></div>
+                        <div className="p-2 bg-purple-500/10 rounded-lg text-purple-500">
+                            <Calendar className="w-5 h-5" />
+                        </div>
                         <span className="text-xs font-bold text-zinc-400 bg-zinc-800 px-2 py-1 rounded-full">Hoy</span>
                     </div>
-                    <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Sesiones Hoy</p>
-                    <h3 className="text-3xl font-bold text-white mt-1">{kpi.sessionsToday}</h3>
+                    <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Sesiones Hoy</p>
+                    <h3 className="text-4xl font-black text-white mt-1">{kpi.sessionsToday}</h3>
                 </div>
 
-                <div onClick={() => navigate('/dashboard/agenda')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-emerald-500/30 transition-colors cursor-pointer">
+                {/* KPI SESIONES MES */}
+                <div onClick={() => navigate('/dashboard/agenda')} className="bg-[#111] p-6 rounded-2xl border border-zinc-800 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300 cursor-pointer hover:scale-[1.02]">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500"><BarChart3 className="w-5 h-5" /></div>
+                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
+                            <BarChart3 className="w-5 h-5" />
+                        </div>
                         <span className="text-xs font-bold text-zinc-400 bg-zinc-800 px-2 py-1 rounded-full">Mes</span>
                     </div>
-                    <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Sesiones del Mes</p>
-                    <h3 className="text-3xl font-bold text-white mt-1">{kpi.sessionsThisMonth}</h3>
+                    <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Sesiones del Mes</p>
+                    <h3 className="text-4xl font-black text-white mt-1">{kpi.sessionsThisMonth}</h3>
                 </div>
             </div>
 
@@ -166,30 +187,37 @@ const Dashboard = () => {
                 {userRole !== 'staff' && (
                     <div className="lg:col-span-2 bg-[#111] p-6 rounded-2xl border border-zinc-800">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-white">Evolución de Ingresos</h3>
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Evolución de Ingresos</h3>
+                                <p className="text-xs text-zinc-500 mt-0.5">Últimos 6 meses</p>
+                            </div>
+                            <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
+                                ↑ Ingresos
+                            </span>
                         </div>
 
-                        <div className="h-[300px] w-full">
+                        <div className="h-[280px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={cashFlowData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="gradientGraph" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
+                                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
                                             <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
                                         </linearGradient>
                                     </defs>
-                                    <XAxis dataKey="month" hide />
-                                    <Tooltip 
-                                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '8px' }} 
-                                        itemStyle={{ color: '#10b981' }}
+                                    <XAxis dataKey="month" tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '10px', padding: '8px 14px' }}
+                                        itemStyle={{ color: '#10b981', fontWeight: 700 }}
+                                        labelStyle={{ color: '#a1a1aa', fontSize: 11, marginBottom: 4 }}
                                         formatter={(value: number) => [`${value} €`, 'Ingresos']}
                                     />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="value" 
-                                        stroke="#10b981" 
-                                        strokeWidth={3}
-                                        fill="url(#gradientGraph)" 
+                                    <Area
+                                        type="monotone"
+                                        dataKey="value"
+                                        stroke="#10b981"
+                                        strokeWidth={2.5}
+                                        fill="url(#gradientGraph)"
                                     />
                                 </AreaChart>
                             </ResponsiveContainer>
@@ -203,7 +231,7 @@ const Dashboard = () => {
                             <CalendarIcon className="w-5 h-5 text-purple-500" /> Agenda de Hoy
                         </h3>
 
-                        <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[300px]">
+                        <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[300px]">
                             {todayEvents.length === 0 ? (
                                 <p className="text-zinc-500 text-sm text-center py-10">No hay eventos para hoy.</p>
                             ) : (
@@ -213,8 +241,10 @@ const Dashboard = () => {
                                     return (
                                         <div key={event.id} className="p-3 rounded-xl bg-[#111] border border-zinc-800 flex justify-between items-center hover:bg-zinc-900 transition-colors">
                                             <div className="flex items-center gap-3">
-                                                <span className="text-sm font-bold text-white font-mono">{time}</span>
-                                                <div className="h-8 w-[1px] bg-zinc-700" />
+                                                {/* Hora: pastilla oscura forzada en ambos modos */}
+                                                <span className="text-sm font-bold font-mono px-2 py-1 rounded-lg agenda-time-badge" style={{ backgroundColor: '#1a1a1f', color: '#ffffff' }}>
+                                                    {time}
+                                                </span>
                                                 <div className="min-w-0">
                                                     <p className="text-sm text-white font-bold truncate max-w-[120px]">{event.title}</p>
                                                     <p className="text-xs text-zinc-500 capitalize">{event.type}</p>
@@ -227,8 +257,8 @@ const Dashboard = () => {
                         </div>
 
                         <div className="mt-4 text-center pt-4 border-t border-zinc-800">
-                            <button 
-                                onClick={() => navigate('/dashboard/agenda')} 
+                            <button
+                                onClick={() => navigate('/dashboard/agenda')}
                                 className="text-xs text-zinc-400 hover:text-white underline-offset-4 hover:underline transition-all"
                             >
                                 Ver agenda completa
@@ -239,6 +269,7 @@ const Dashboard = () => {
             </div>
         </div>
     );
+
 
     const renderSkeleton = () => (
         <div className="p-8 w-full max-w-7xl mx-auto animate-pulse">

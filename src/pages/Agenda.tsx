@@ -361,8 +361,8 @@ const Agenda = () => {
                 <div className="flex-1 overflow-y-auto custom-scrollbar relative">
                     {loading && <div className="absolute inset-0 z-30 bg-black/50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-500"/></div>}
                     <div className="grid grid-cols-8 relative min-h-[1088px]">
-                        <div className="border-r border-zinc-800 bg-[#111]/50 sticky left-0 z-10">
-                            {HOURS.map(hour => (<div key={hour} className="h-16 border-b border-zinc-800/50 text-xs text-zinc-500 flex items-start justify-center pt-2 font-mono">{hour}:00</div>))}
+                        <div className="border-r border-zinc-800 bg-[#111]/50 sticky left-0 z-10 agenda-time-column">
+                            {HOURS.map(hour => (<div key={hour} className="h-16 border-b border-zinc-800/50 text-xs text-zinc-500 flex items-start justify-center pt-2 font-mono agenda-time-cell">{hour}:00</div>))}
                         </div>
                         {DAYS.map((_, dayIndex) => (
                             <div key={dayIndex} className="relative border-r border-zinc-800/30">

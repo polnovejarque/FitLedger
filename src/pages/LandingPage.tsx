@@ -551,39 +551,84 @@ const Landing = () => {
 
 
             {/* --- PRICING SECTION --- */}
-            <section id="pricing" className="py-24 relative border-t border-white/5">
+            <section id="pricing" className="py-24 relative border-t border-white/5 bg-zinc-950/20">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4">Planes simples y transparentes</h2>
-                        <p className="text-zinc-400">Escala tu negocio sin costes ocultos.</p>
+                        <p className="text-zinc-400">Escala tu negocio fitness sin costes ocultos. Elige tu plan y pruébalo gratis 14 días.</p>
                     </div>
 
-                    <div className="max-w-xl mx-auto">
-                        {/* PROFESIONAL — único plan activo */}
-                        <div className="p-10 rounded-3xl border border-emerald-500 bg-zinc-900/50 flex flex-col shadow-2xl shadow-emerald-500/10">
-                            <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full mb-6 w-fit">
-                                ✦ Plan actual
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                        
+                        {/* Plan Profesional */}
+                        <div className="p-8 rounded-3xl border border-zinc-800 bg-[#09090b] flex flex-col justify-between hover:border-emerald-500/30 transition-all duration-300 relative overflow-hidden">
+                            <div>
+                                <h3 className="text-xl font-bold text-white mb-2">Profesional</h3>
+                                <div className="mb-4 flex items-end gap-1.5">
+                                    <span className="text-5xl font-black text-white">29,99€</span>
+                                    <span className="text-zinc-400 text-sm mb-1.5">/mes</span>
+                                </div>
+                                <p className="text-zinc-400 text-xs mb-6 leading-relaxed">Perfecto para entrenadores independientes que gestionan clientes de forma online o presencial.</p>
+                                
+                                <ul className="space-y-3.5 mb-8">
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> <strong>Clientes Ilimitados</strong></li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> App móvil personalizada</li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Creador de rutinas avanzadas</li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Pagos Stripe + Reportes</li>
+                                </ul>
                             </div>
-                            <h3 className="text-2xl font-bold text-white mb-2">Profesional</h3>
-                            <div className="mb-4 flex items-end gap-2">
-                                <span className="text-6xl font-black text-white">29,99€</span>
-                                <span className="text-zinc-400 mb-2">/mes</span>
-                            </div>
-                            <p className="text-zinc-400 text-sm mb-8">Para entrenadores que viven de ello. 14 días gratis, cancela cuando quieras.</p>
-                            
-                            <Button onClick={() => navigate('/auth?mode=register')} className="w-full mb-8 bg-emerald-500 text-black hover:bg-emerald-400 font-bold h-14 text-lg shadow-lg shadow-emerald-500/20">
-                                Empezar 14 días gratis →
+                            <Button onClick={() => navigate('/auth?mode=register')} className="w-full bg-zinc-800 text-white hover:bg-zinc-700 font-bold h-11 text-xs">
+                                Probar 14 días gratis
                             </Button>
-                            
-                            <div className="space-y-4 flex-1">
-                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> <strong>Clientes Ilimitados</strong></li>
-                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> App cliente con tu marca y logo</li>
-                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Rutinas Avanzadas + Vídeos</li>
-                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Reportes Financieros</li>
-                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Pagos Stripe Integrados</li>
-                                <li className="flex items-center gap-3 text-sm text-white"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Soporte prioritario</li>
-                            </div>
                         </div>
+
+                        {/* Plan Studio */}
+                        <div className="p-8 rounded-3xl border-2 border-purple-500/80 bg-zinc-900/60 flex flex-col justify-between hover:border-purple-400 transition-all duration-300 relative overflow-hidden shadow-xl shadow-purple-500/5">
+                            <div className="absolute top-3 right-3 bg-purple-500 text-black text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                Popular
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white mb-2">Studio</h3>
+                                <div className="mb-4 flex items-end gap-1.5">
+                                    <span className="text-5xl font-black text-white">59,99€</span>
+                                    <span className="text-zinc-400 text-sm mb-1.5">/mes</span>
+                                </div>
+                                <p className="text-zinc-400 text-xs mb-6 leading-relaxed">Pensado para estudios de entrenamiento personal que cuentan con otros entrenadores en su equipo.</p>
+                                
+                                <ul className="space-y-3.5 mb-8">
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-purple-400 flex-shrink-0" /> <strong>Todo lo de Profesional</strong></li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-purple-400 flex-shrink-0" /> <strong>Gestión de Equipo Staff</strong></li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-purple-400 flex-shrink-0" /> Asignación de entrenadores</li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-purple-400 flex-shrink-0" /> <strong>Gestión de Inventario</strong></li>
+                                </ul>
+                            </div>
+                            <Button onClick={() => navigate('/auth?mode=register')} className="w-full bg-purple-500 text-black hover:bg-purple-400 font-bold h-11 text-xs shadow-lg shadow-purple-500/20">
+                                Probar 14 días gratis
+                            </Button>
+                        </div>
+
+                        {/* Plan Center */}
+                        <div className="p-8 rounded-3xl border border-zinc-800 bg-[#09090b] flex flex-col justify-between hover:border-blue-500/30 transition-all duration-300 relative overflow-hidden">
+                            <div>
+                                <h3 className="text-xl font-bold text-white mb-2">Center</h3>
+                                <div className="mb-4 flex items-end gap-1.5">
+                                    <span className="text-5xl font-black text-white">99,99€</span>
+                                    <span className="text-zinc-400 text-sm mb-1.5">/mes</span>
+                                </div>
+                                <p className="text-zinc-400 text-xs mb-6 leading-relaxed">La solución definitiva para centros de fitness y salas de alquiler de espacios de entrenamiento.</p>
+                                
+                                <ul className="space-y-3.5 mb-8">
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" /> <strong>Todo lo de Studio</strong></li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" /> <strong>Gestión de Zonas/Salas</strong></li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" /> Calendario de ocupación diaria</li>
+                                    <li className="flex items-center gap-2.5 text-xs text-white"><CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" /> Reservas de entrenadores freelance</li>
+                                </ul>
+                            </div>
+                            <Button onClick={() => navigate('/auth?mode=register')} className="w-full bg-zinc-800 text-white hover:bg-zinc-700 font-bold h-11 text-xs">
+                                Probar 14 días gratis
+                            </Button>
+                        </div>
+
                     </div>
                 </div>
             </section>

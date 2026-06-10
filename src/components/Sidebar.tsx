@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react';
 import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut, Shield, Box, Building2 } from 'lucide-react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { cn } from '../lib/utils';
-import { Button } from './ui/Button';
 import { supabase } from '../lib/supabase';
 
-// Añadimos "studioOnly: true" a las funciones exclusivas del plan más alto
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Clientes', path: '/dashboard/clients' },
@@ -22,20 +19,15 @@ const navItems = [
 const Sidebar = () => {
     const navigate = useNavigate();
     
-    // Estados para la marca blanca
     const [businessName, setBusinessName] = useState('FitLeader');
     const [logoUrl, setLogoUrl] = useState('/logo.png');
-
-    // Estado para guardar el rol y el plan
     const [userRole, setUserRole] = useState('admin');
-    const [userPlan, setUserPlan] = useState('pro'); // Por defecto asumimos que no es studio
+    const [userPlan, setUserPlan] = useState('pro');
 
-    // Cargar los datos del negocio, el ROL y el PLAN al iniciar
     useEffect(() => {
         const loadBusinessData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                // SOLUCIÓN: select('*') para evitar errores si la base de datos cambia
                 const { data } = await supabase
                     .from('profiles')
                     .select('role, plan, business_name, logo_url, studio_id')
@@ -58,7 +50,6 @@ const Sidebar = () => {
                             setLogoUrl(studioData.logo_url || '/logo.png');
                         }
                     } else {
-                        // Si es el dueño, pintamos sus propios datos
                         if (data.business_name) setBusinessName(data.business_name);
                         if (data.logo_url) setLogoUrl(data.logo_url);
                     }
@@ -70,43 +61,32 @@ const Sidebar = () => {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        navigate('/'); 
+        navigate('/');
     };
 
-    // EL PORTERO INTELIGENTE: Filtramos el menú según el ROL y el PLAN
     const visibleNavItems = navItems.filter(item => {
-        // 1. Si es empleado (staff), ocultamos las cosas de dueños (restricted)
-        if (userRole === 'staff' && item.restricted) {
-            return false;
-        }
-        
-        // 2. Si es una función exclusiva de Studio, ocultarla si no tiene Studio ni Center
-        if (item.studioOnly && userPlan !== 'studio' && userPlan !== 'center') {
-            return false;
-        }
-
-        // 3. Ocultar alquiler de espacios si no se tiene activo el plan Center
-        if (item.path === '/dashboard/center' && userPlan !== 'center') {
-            return false;
-        }
-
+        if (userRole === 'staff' && item.restricted) return false;
+        if (item.studioOnly && userPlan !== 'studio' && userPlan !== 'center') return false;
+        if (item.path === '/dashboard/center' && userPlan !== 'center') return false;
         return true;
     });
 
     return (
-        <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
-            <div className="flex h-full flex-col px-3 py-4">
-                
-                {/* --- LOGO Y MARCA DINÁMICOS --- */}
-                <div className="mb-8 flex items-center px-2">
+        <aside className="h-screen w-64 flex flex-col sidebar-shell">
+            <div className="flex h-full flex-col px-3 py-5">
+
+                {/* LOGO Y MARCA */}
+                <div className="mb-5 px-2">
                     <Link to="/dashboard" className="flex items-center gap-3 w-full">
-                        <img 
-                            src={logoUrl} 
-                            alt={businessName} 
-                            className="h-8 w-8 object-contain rounded-md bg-transparent" 
-                        />
-                        <span 
-                            className="text-xl font-bold tracking-tight text-foreground truncate" 
+                        <div className="h-9 w-9 rounded-xl overflow-hidden flex items-center justify-center sidebar-logo-bg flex-shrink-0">
+                            <img
+                                src={logoUrl}
+                                alt={businessName}
+                                className="h-full w-full object-contain"
+                            />
+                        </div>
+                        <span
+                            className="text-lg font-bold tracking-tight sidebar-brand truncate"
                             title={businessName}
                         >
                             {businessName}
@@ -114,10 +94,13 @@ const Sidebar = () => {
                     </Link>
                 </div>
 
-                <nav className="flex-1 space-y-1">
+                {/* SEPARADOR */}
+                <div className="sidebar-divider mb-3" />
+
+                {/* NAV ITEMS — cada uno como pastilla individual */}
+                <nav className="flex-1 space-y-1 overflow-y-auto">
                     {visibleNavItems.map((item) => {
-                        const isCenterItem = item.path === '/dashboard/center';
-                        const isLocked = isCenterItem && userPlan !== 'center';
+                        const isLocked = item.path === '/dashboard/center' && userPlan !== 'center';
 
                         return (
                             <NavLink
@@ -126,20 +109,22 @@ const Sidebar = () => {
                                 end={item.path === '/dashboard'}
                                 onClick={() => {
                                     if (isLocked) {
-                                        alert("¡El alquiler de espacios requiere el Plan Center! Te redirigimos a Ajustes para mejorar tu suscripción. 🚀");
+                                        alert('¡El alquiler de espacios requiere el Plan Center! Te redirigimos a Ajustes para mejorar tu suscripción. 🚀');
                                     }
                                 }}
                                 className={({ isActive }) =>
-                                    cn(
-                                        "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors w-full",
+                                    `flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                                         isActive && !isLocked
-                                            ? "bg-accent text-accent-foreground"
-                                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                                    )
+                                            ? 'sidebar-item-active'
+                                            : 'sidebar-item-inactive'
+                                    }`
                                 }
                             >
                                 <div className="flex items-center gap-3">
-                                    <item.icon className="h-5 w-5" />
+                                    <item.icon
+                                        className="flex-shrink-0"
+                                        style={{ width: '1.0625rem', height: '1.0625rem' }}
+                                    />
                                     <span>{item.label}</span>
                                 </div>
                                 {isLocked && (
@@ -152,15 +137,15 @@ const Sidebar = () => {
                     })}
                 </nav>
 
-                <div className="mt-auto border-t border-border pt-4">
-                    <Button 
-                        variant="ghost" 
-                        onClick={handleLogout} 
-                        className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive transition-colors"
+                {/* FOOTER — Cerrar sesión */}
+                <div className="mt-3 pt-3 sidebar-divider-top">
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 sidebar-logout"
                     >
-                        <LogOut className="h-5 w-5" />
-                        Cerrar Sesión
-                    </Button>
+                        <LogOut className="flex-shrink-0" style={{ width: '1.0625rem', height: '1.0625rem' }} />
+                        <span>Cerrar Sesión</span>
+                    </button>
                 </div>
             </div>
         </aside>

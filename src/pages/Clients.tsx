@@ -65,17 +65,40 @@ const Clients = () => {
             const currentStudioId = profile?.studio_id || user.id;
             setStudioId(currentStudioId);
 
-            // ¡SOLUCIÓN AQUÍ! Usamos .or() para recuperar clientes antiguos (user_id) y nuevos (studio_id)
+            // 1. Obtener clientes sin join directo (evita problemas por falta de clave foránea en la base de datos)
             const { data, error } = await supabase
                 .from('clients')
-                .select('*, profiles:assigned_coach_id(first_name, last_name, business_name)')
+                .select('*')
                 .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id}`)
                 .order('created_at', { ascending: false });
 
             if (error) {
                 console.error('Error cargando clientes:', error);
+                setClients([]);
             } else {
-                setClients(data || []);
+                let finalClients = data || [];
+                
+                // 2. Resolver los perfiles de los entrenadores de forma manual en memoria
+                const coachIds = Array.from(new Set(finalClients.map(c => c.assigned_coach_id).filter(Boolean)));
+                
+                if (coachIds.length > 0) {
+                    const { data: coachesData, error: coachesError } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, business_name')
+                        .in('id', coachIds);
+                    
+                    if (!coachesError && coachesData) {
+                        const coachesMap = new Map(coachesData.map(c => [c.id, c]));
+                        finalClients = finalClients.map(client => ({
+                            ...client,
+                            profiles: client.assigned_coach_id ? coachesMap.get(client.assigned_coach_id) || null : null
+                        }));
+                    } else if (coachesError) {
+                        console.error('Error cargando perfiles de entrenadores:', coachesError);
+                    }
+                }
+                
+                setClients(finalClients);
             }
         } catch (err) {
             console.error(err);

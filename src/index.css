@@ -50,8 +50,8 @@
   --muted: 240 3.7% 15.9%;
   --muted-foreground: 240 5% 64.9%;
 
-  --accent: 151 100% 45%;
-  /* #00E676 Neon Green */
+  --accent: 158 64% 52%;
+  /* #10b981 Emerald Green (FitLeader Brand Green) */
   --accent-foreground: 0 0% 98%;
 
   --destructive: 0 62.8% 30.6%;
@@ -82,7 +82,7 @@
   --secondary-foreground: 0 0% 98%;
   --muted: 240 3.7% 15.9%;
   --muted-foreground: 240 5% 64.9%;
-  --accent: 151 100% 45%;
+  --accent: 158 64% 52%;
   --accent-foreground: 0 0% 98%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
@@ -114,7 +114,7 @@
   --muted: 220 15% 88%;
   --muted-foreground: 220 10% 40%;
 
-  --accent: 151 75% 28%;
+  --accent: 158 64% 40%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 84.2% 60.2%;
@@ -122,7 +122,7 @@
 
   --border: 220 15% 82%;
   --input: 220 15% 85%;
-  --ring: 151 75% 28%;
+  --ring: 158 64% 40%;
 
   /* Redefine Tailwind v4 variables locally inside .light to override :root inheritance */
   --color-border: hsl(var(--border));
@@ -155,13 +155,13 @@
 
 /* Adaptaciones de colores para contrastar mejor sobre tarjetas blancas en modo claro */
 .light .text-emerald-500, .light .text-emerald-400 {
-  color: hsl(151 75% 28%) !important;
+  color: hsl(158 64% 40%) !important;
 }
 .light .bg-emerald-500\/10 {
-  background-color: hsl(151 75% 95%) !important;
+  background-color: hsl(158 64% 95%) !important;
 }
 .light .border-emerald-500\/20 {
-  border-color: hsl(151 75% 90%) !important;
+  border-color: hsl(158 64% 90%) !important;
 }
 
 .light .text-blue-500 {
@@ -236,7 +236,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
 }
 .light .recharts-tooltip-item {
-  color: hsl(151 75% 28%) !important;
+  color: hsl(158 64% 40%) !important;
 }
 .light .recharts-tooltip-label {
   color: hsl(var(--foreground)) !important;
@@ -250,7 +250,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
 }
 .light .report-tooltip-income {
-  color: hsl(151 75% 28%) !important;
+  color: hsl(158 64% 40%) !important;
 }
 .light .report-tooltip-expense {
   color: hsl(0 72% 42%) !important;
@@ -429,8 +429,8 @@ body {
 .light input:focus,
 .light select:focus,
 .light textarea:focus {
-  border-color: hsl(151 75% 40%) !important;
-  box-shadow: 0 0 0 2px hsl(151 75% 40% / 0.15) !important;
+  border-color: hsl(158 64% 45%) !important;
+  box-shadow: 0 0 0 2px hsl(158 64% 45% / 0.15) !important;
 }
 
 /* --- MODALES Y POPOVERS --- */
@@ -530,7 +530,7 @@ body {
   border-radius: 3px;
 }
 .light ::-webkit-scrollbar-thumb:hover {
-  background: hsl(151 75% 40%);
+  background: hsl(158 64% 45%);
 }
 
 /* --- STAT BADGES (Hoy, Mes, etc) en modo claro --- */
@@ -545,8 +545,8 @@ body {
    pero añadimos sombra extra para la jerarquía visual fintech */
 .light [class*="bg-emerald-500/5"],
 .light [class*="bg-emerald-500\/5"] {
-  background-color: hsl(151 75% 96%) !important;
-  border-color: hsl(151 75% 85%) !important;
+  background-color: hsl(158 64% 96%) !important;
+  border-color: hsl(158 64% 85%) !important;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 4px 16px rgba(5, 150, 105, 0.06) !important;
 }
 .light [class*="bg-blue-500/5"],
@@ -563,4 +563,114 @@ body {
 .light [class*="bg-purple-500\/5"] {
   background-color: hsl(262 83% 97%) !important;
   border-color: hsl(262 83% 90%) !important;
+}
+
+/* ==========================================
+   NUEVO DISEÑO DE SIDEBAR - PILAS/CARDS INDIVIDUALES
+   ========================================== */
+
+/* Dark Mode Sidebar (Por defecto) */
+.sidebar-shell {
+  background-color: #09090b;
+  border-right: 1px solid #1c1c24;
+}
+
+.sidebar-logo-bg {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-brand {
+  color: #ffffff;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background-color: #1c1c24;
+}
+
+.sidebar-divider-top {
+  border-top: 1px solid #1c1c24;
+}
+
+.sidebar-item-active {
+  background-color: hsl(var(--accent));
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.sidebar-item-active svg {
+  color: #ffffff !important;
+}
+
+.sidebar-item-inactive {
+  color: #a1a1aa;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.sidebar-item-inactive:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-logout {
+  color: #a1a1aa;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.sidebar-logout:hover {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.08);
+}
+
+/* Light Mode Sidebar Overrides */
+.light .sidebar-shell {
+  background-color: #ffffff !important;
+  border-right: 1px solid hsl(var(--border)) !important;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.03) !important;
+}
+
+.light .sidebar-logo-bg {
+  background-color: hsl(var(--secondary)) !important;
+}
+
+.light .sidebar-brand {
+  color: hsl(var(--foreground)) !important;
+}
+
+.light .sidebar-divider {
+  background-color: hsl(var(--border)) !important;
+}
+
+.light .sidebar-divider-top {
+  border-top: 1px solid hsl(var(--border)) !important;
+}
+
+.light .sidebar-item-active {
+  background-color: hsl(var(--accent)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15) !important;
+}
+
+.light .sidebar-item-active svg {
+  color: #ffffff !important;
+}
+
+.light .sidebar-item-inactive {
+  color: hsl(var(--muted-foreground)) !important;
+  background-color: hsl(var(--secondary)) !important;
+}
+
+.light .sidebar-item-inactive:hover {
+  color: hsl(var(--foreground)) !important;
+  background-color: hsl(var(--border)) !important;
+}
+
+.light .sidebar-logout {
+  color: hsl(var(--muted-foreground)) !important;
+  background-color: hsl(var(--secondary)) !important;
+}
+
+.light .sidebar-logout:hover {
+  color: #dc2626 !important;
+  background-color: #fef2f2 !important;
 }

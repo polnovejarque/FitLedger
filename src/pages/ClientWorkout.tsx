@@ -69,6 +69,16 @@ const isDirectVideo = (url: string) => {
            cleanUrl.endsWith('.ogg') ||
            url.includes('supabase.co/storage/v1/object/public/');
 };
+const parseRestTime = (restTimeStr: string | null | undefined): number => {
+    if (!restTimeStr) return 90;
+    const match = restTimeStr.match(/\d+/);
+    if (!match) return 90;
+    const num = parseInt(match[0]);
+    if (restTimeStr.toLowerCase().includes('min')) {
+        return num * 60;
+    }
+    return num;
+};
 
 // --- COMPONENTE PRINCIPAL APP CLIENTE ---
 const ClientWorkout = () => {
@@ -460,12 +470,16 @@ const ClientWorkout = () => {
         setWorkoutLogs((prev: any) => ({ ...prev, [exerciseId]: { ...prev[exerciseId], [setIndex]: { ...prev[exerciseId]?.[setIndex], [field]: value } } }));
     };
 
-    const toggleSetComplete = (exerciseId: number, setIndex: number) => {
+    const toggleSetComplete = (exerciseId: number, setIndex: number, restTimeStr: string | null | undefined) => {
         setWorkoutLogs((prev: any) => {
             const currentExercise = prev[exerciseId] || {};
             const currentSet = currentExercise[setIndex] || {};
             const isNowDone = !currentSet.done;
-            if (isNowDone) { setTimerTime(90); setTimerActive(true); }
+            if (isNowDone) { 
+                const seconds = parseRestTime(restTimeStr);
+                setTimerTime(seconds); 
+                setTimerActive(true); 
+            }
             return { ...prev, [exerciseId]: { ...currentExercise, [setIndex]: { ...currentSet, done: isNowDone } } };
         });
     };
@@ -636,22 +650,79 @@ const ClientWorkout = () => {
                                                         </div>
                                                     )}
 
-                                                    <div className="flex flex-wrap gap-2">
-                                                        <span className="px-2 py-1 bg-zinc-800 rounded-md text-xs text-zinc-400 border border-zinc-700">{ex.sets} Series</span>
-                                                        <span className="px-2 py-1 bg-zinc-800 rounded-md text-xs text-zinc-400 border border-zinc-700">{ex.reps} Reps</span>
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        <span className="px-2.5 py-1 bg-zinc-800 rounded-md text-[11px] font-semibold text-zinc-300 border border-zinc-700/50">
+                                                            {ex.sets} {ex.sets === 1 ? 'Serie' : 'Series'}
+                                                        </span>
+                                                        
+                                                        {ex.exercise_type === 'time' ? (
+                                                            <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-md text-[11px] font-bold border border-emerald-500/20 flex items-center gap-1">
+                                                                Tiempo: {ex.time_duration || '--'}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-md text-[11px] font-bold border border-emerald-500/20 flex items-center gap-1">
+                                                                Reps: {ex.reps || '--'}
+                                                            </span>
+                                                        )}
+
+                                                        {ex.rest_time && (
+                                                            <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded-md text-[11px] font-bold border border-blue-500/20 flex items-center gap-1">
+                                                                Descanso: {ex.rest_time}
+                                                            </span>
+                                                        )}
+
+                                                        {ex.rir !== null && ex.rir !== undefined && ex.rir !== "" && (
+                                                            <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 rounded-md text-[11px] font-bold border border-amber-500/20 flex items-center gap-1">
+                                                                RIR: {ex.rir}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                <div className="grid grid-cols-10 gap-2 text-[10px] uppercase font-bold text-zinc-500 text-center"><div className="col-span-1">#</div><div className="col-span-4">KG</div><div className="col-span-4">REPS</div><div className="col-span-1"></div></div>
+                                                <div className="grid grid-cols-10 gap-2 text-[10px] uppercase font-bold text-zinc-500 text-center">
+                                                    <div className="col-span-1">#</div>
+                                                    <div className="col-span-4">KG</div>
+                                                    <div className="col-span-4">{ex.exercise_type === 'time' ? 'TIEMPO' : 'REPS'}</div>
+                                                    <div className="col-span-1"></div>
+                                                </div>
                                                 {Array.from({ length: ex.sets || 3 }).map((_, i) => {
-                                                    const setNum = i + 1; const log = workoutLogs[ex.id]?.[setNum] || {}; const isDone = log.done;
+                                                    const setNum = i + 1; 
+                                                    const log = workoutLogs[ex.id]?.[setNum] || {}; 
+                                                    const isDone = log.done;
                                                     return (
                                                         <div key={i} className={`grid grid-cols-10 gap-2 items-center transition-all ${isDone ? 'opacity-50' : 'opacity-100'}`}>
                                                             <div className="col-span-1 text-center text-zinc-500 font-bold text-sm">{setNum}</div>
-                                                            <div className="col-span-4 relative"><input type="number" placeholder="0" value={log.weight || ''} onChange={(e) => handleLogChange(ex.id, setNum, 'weight', e.target.value)} className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500" /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-700 font-bold pointer-events-none">KG</span></div>
-                                                            <div className="col-span-4 relative"><input type="number" placeholder="0" value={log.reps || ''} onChange={(e) => handleLogChange(ex.id, setNum, 'reps', e.target.value)} className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500" /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-700 font-bold pointer-events-none">REPS</span></div>
-                                                            <div className="col-span-1 flex justify-center"><button onClick={() => toggleSetComplete(ex.id, setNum)} className={`w-8 h-8 rounded flex items-center justify-center ${isDone ? 'bg-emerald-500 text-black shadow' : 'bg-zinc-800 text-zinc-600'}`}><Check className="w-4 h-4 stroke-[3]" /></button></div>
+                                                            <div className="col-span-4 relative">
+                                                                <input 
+                                                                    type="number" 
+                                                                    placeholder="0" 
+                                                                    value={log.weight || ''} 
+                                                                    onChange={(e) => handleLogChange(ex.id, setNum, 'weight', e.target.value)} 
+                                                                    className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 text-white" 
+                                                                />
+                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-700 font-bold pointer-events-none">KG</span>
+                                                            </div>
+                                                            <div className="col-span-4 relative">
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder={ex.exercise_type === 'time' ? (ex.time_duration || '0') : (ex.reps || '0')} 
+                                                                    value={log.reps || ''} 
+                                                                    onChange={(e) => handleLogChange(ex.id, setNum, 'reps', e.target.value)} 
+                                                                    className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 text-white" 
+                                                                />
+                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-700 font-bold pointer-events-none uppercase">
+                                                                    {ex.exercise_type === 'time' ? 'TIME' : 'REPS'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="col-span-1 flex justify-center">
+                                                                <button 
+                                                                    onClick={() => toggleSetComplete(ex.id, setNum, ex.rest_time)} 
+                                                                    className={`w-8 h-8 rounded flex items-center justify-center ${isDone ? 'bg-emerald-500 text-black shadow' : 'bg-zinc-800 text-zinc-600 hover:text-white transition-colors'}`}
+                                                                >
+                                                                    <Check className="w-4 h-4 stroke-[3]" />
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     );
                                                 })}

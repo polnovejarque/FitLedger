@@ -120,6 +120,7 @@ const ClientWorkout = () => {
     const [currentDayFilter, setCurrentDayFilter] = useState("Día 1"); 
     const [viewingExercises, setViewingExercises] = useState(false);
     const [workoutLogs, setWorkoutLogs] = useState<any>({}); 
+    const [exerciseHistory, setExerciseHistory] = useState<Record<string, Record<number, { weight: number, reps: any }>>>({});
 
     const [timerActive, setTimerActive] = useState(false);
     const [timerTime, setTimerTime] = useState(90); 
@@ -280,6 +281,7 @@ const ClientWorkout = () => {
                 }
 
                 fetchProgress(clientData.id);
+                fetchExerciseHistory(clientData.id);
             } // Fin if (clientData)
             } catch (error) {
                 console.error("Error al cargar datos del cliente:", error);
@@ -422,6 +424,71 @@ const ClientWorkout = () => {
         } catch (error) { console.error("Error estadísticas:", error); }
     };
 
+    const fetchExerciseHistory = async (clientIdStr: string) => {
+        try {
+            const { data: weeklyPlans } = await supabase
+                .from('client_weekly_plan')
+                .select('id')
+                .eq('client_id', clientIdStr);
+            const { data: legacyAssignments } = await supabase
+                .from('routine_assignments')
+                .select('id')
+                .eq('client_id', clientIdStr);
+            const allAssignmentIds = [
+                ...(weeklyPlans?.map(p => p.id) || []),
+                ...(legacyAssignments?.map(a => a.id) || [])
+            ];
+
+            if (allAssignmentIds.length === 0) return;
+
+            const { data: pastLogs, error } = await supabase
+                .from('workout_results')
+                .select(`
+                    weight,
+                    reps,
+                    set_number,
+                    created_at,
+                    exercise:routine_exercises (exercise_name)
+                `)
+                .in('assignment_id', allAssignmentIds)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Error cargando historial de ejercicios:", error);
+                return;
+            }
+
+            const historyMap: Record<string, Record<number, { weight: number, reps: any }>> = {};
+            const exerciseLastSessionDate: Record<string, string> = {};
+
+            pastLogs?.forEach(log => {
+                const exName = Array.isArray(log.exercise) 
+                    ? (log.exercise[0] as any)?.exercise_name 
+                    : (log.exercise as any)?.exercise_name;
+                if (!exName) return;
+
+                const normalizedName = exName.trim().toLowerCase();
+                const sessionDate = log.created_at.split('T')[0];
+
+                if (!exerciseLastSessionDate[normalizedName]) {
+                    exerciseLastSessionDate[normalizedName] = sessionDate;
+                    historyMap[normalizedName] = {};
+                }
+
+                if (exerciseLastSessionDate[normalizedName] === sessionDate) {
+                    historyMap[normalizedName][log.set_number] = {
+                        weight: log.weight,
+                        reps: log.reps
+                    };
+                }
+            });
+
+            setExerciseHistory(historyMap);
+        } catch (e) {
+            console.error("Excepción cargando historial de ejercicios:", e);
+        }
+    };
+
     const fetchProgress = async (id: string) => {
         const { data: history } = await supabase.from('client_progress').select('*').eq('client_id', id).order('date', { ascending: true }); 
         if (history && history.length > 0) {
@@ -470,17 +537,32 @@ const ClientWorkout = () => {
         setWorkoutLogs((prev: any) => ({ ...prev, [exerciseId]: { ...prev[exerciseId], [setIndex]: { ...prev[exerciseId]?.[setIndex], [field]: value } } }));
     };
 
-    const toggleSetComplete = (exerciseId: number, setIndex: number, restTimeStr: string | null | undefined) => {
+    const toggleSetComplete = (exerciseId: number, setIndex: number, restTimeStr: string | null | undefined, exerciseName: string) => {
         setWorkoutLogs((prev: any) => {
             const currentExercise = prev[exerciseId] || {};
             const currentSet = currentExercise[setIndex] || {};
             const isNowDone = !currentSet.done;
+            
+            let updatedSet = { ...currentSet, done: isNowDone };
             if (isNowDone) { 
+                const prevLog = exerciseHistory[exerciseName.trim().toLowerCase()]?.[setIndex];
+                if (updatedSet.weight === undefined || updatedSet.weight === '') {
+                    updatedSet.weight = prevLog ? String(prevLog.weight) : '0';
+                }
+                if (updatedSet.reps === undefined || updatedSet.reps === '') {
+                    if (prevLog) {
+                        updatedSet.reps = String(prevLog.reps);
+                    } else {
+                        const exObj = exercises.find(e => e.id === exerciseId);
+                        updatedSet.reps = exObj ? (exObj.exercise_type === 'time' ? (exObj.time_duration || '0') : (exObj.reps || '0')) : '0';
+                    }
+                }
+
                 const seconds = parseRestTime(restTimeStr);
                 setTimerTime(seconds); 
                 setTimerActive(true); 
             }
-            return { ...prev, [exerciseId]: { ...currentExercise, [setIndex]: { ...currentSet, done: isNowDone } } };
+            return { ...prev, [exerciseId]: { ...currentExercise, [setIndex]: updatedSet } };
         });
     };
 
@@ -497,13 +579,17 @@ const ClientWorkout = () => {
                 Object.entries(workoutLogs).forEach(([exerciseId, sets]: any) => {
                     Object.entries(sets).forEach(([setNumber, data]: any) => {
                         if (data.done || data.weight || data.reps) {
+                            const parsedWeight = data.weight ? parseFloat(data.weight) : 0;
+                            const parsedReps = data.reps ? parseFloat(data.reps) : 0;
                             resultsToSave.push({
                                 assignment_id: parseInt(currentAssignmentId),
                                 exercise_id: parseInt(exerciseId),
                                 set_number: parseInt(setNumber),
-                                weight: data.weight ? parseFloat(data.weight) : 0,
-                                reps: data.reps ? parseFloat(data.reps) : 0,
-                                is_completed: data.done || false
+                                weight: isNaN(parsedWeight) ? 0 : parsedWeight,
+                                reps: isNaN(parsedReps) ? 0 : parsedReps,
+                                is_completed: data.done || false,
+                                client_id: clientId,
+                                routine_id: todayWorkout?.id || null
                             });
                         }
                     });
@@ -690,13 +776,14 @@ const ClientWorkout = () => {
                                                     const setNum = i + 1; 
                                                     const log = workoutLogs[ex.id]?.[setNum] || {}; 
                                                     const isDone = log.done;
+                                                    const prevLog = exerciseHistory[ex.exercise_name.trim().toLowerCase()]?.[setNum];
                                                     return (
                                                         <div key={i} className={`grid grid-cols-10 gap-2 items-center transition-all ${isDone ? 'opacity-50' : 'opacity-100'}`}>
                                                             <div className="col-span-1 text-center text-zinc-500 font-bold text-sm">{setNum}</div>
                                                             <div className="col-span-4 relative">
                                                                 <input 
                                                                     type="number" 
-                                                                    placeholder="0" 
+                                                                    placeholder={prevLog ? String(prevLog.weight) : "0"} 
                                                                     value={log.weight || ''} 
                                                                     onChange={(e) => handleLogChange(ex.id, setNum, 'weight', e.target.value)} 
                                                                     className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 text-white" 
@@ -706,7 +793,7 @@ const ClientWorkout = () => {
                                                             <div className="col-span-4 relative">
                                                                 <input 
                                                                     type="text" 
-                                                                    placeholder={ex.exercise_type === 'time' ? (ex.time_duration || '0') : (ex.reps || '0')} 
+                                                                    placeholder={prevLog ? String(prevLog.reps) : (ex.exercise_type === 'time' ? (ex.time_duration || '0') : (ex.reps || '0'))} 
                                                                     value={log.reps || ''} 
                                                                     onChange={(e) => handleLogChange(ex.id, setNum, 'reps', e.target.value)} 
                                                                     className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 text-white" 
@@ -717,7 +804,7 @@ const ClientWorkout = () => {
                                                             </div>
                                                             <div className="col-span-1 flex justify-center">
                                                                 <button 
-                                                                    onClick={() => toggleSetComplete(ex.id, setNum, ex.rest_time)} 
+                                                                    onClick={() => toggleSetComplete(ex.id, setNum, ex.rest_time, ex.exercise_name)} 
                                                                     className={`w-8 h-8 rounded flex items-center justify-center ${isDone ? 'bg-emerald-500 text-black shadow' : 'bg-zinc-800 text-zinc-600 hover:text-white transition-colors'}`}
                                                                 >
                                                                     <Check className="w-4 h-4 stroke-[3]" />

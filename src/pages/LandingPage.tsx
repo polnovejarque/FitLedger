@@ -56,6 +56,7 @@ const Landing = () => {
                         <a href="#comparison" className="hover:text-white transition-colors">Método</a>
                         <a href="#pricing" className="hover:text-white transition-colors">Precios</a>
                         <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+                        <button onClick={() => navigate('/coaches')} className="hover:text-white transition-colors cursor-pointer text-sm font-medium">Marketplace</button>
                     </div>
 
                     {/* Acciones desktop */}
@@ -88,6 +89,7 @@ const Landing = () => {
                         <a href="#comparison" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-zinc-300 hover:text-white transition-colors py-2">Método</a>
                         <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-zinc-300 hover:text-white transition-colors py-2">Precios</a>
                         <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="text-base font-medium text-zinc-300 hover:text-white transition-colors py-2">FAQ</a>
+                        <button onClick={() => { setMobileMenuOpen(false); navigate('/coaches'); }} className="text-left text-base font-medium text-zinc-300 hover:text-white transition-colors py-2 cursor-pointer bg-transparent border-none">Marketplace</button>
                         <div className="flex flex-col gap-3 pt-4 border-t border-white/10">
                             <button onClick={() => { setMobileMenuOpen(false); navigate('/auth'); }} className="w-full text-sm font-bold text-white border border-zinc-800 rounded-lg px-4 py-3 hover:bg-white/5 transition-colors">
                                 Login

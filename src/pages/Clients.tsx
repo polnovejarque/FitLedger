@@ -19,7 +19,7 @@ const Clients = () => {
 
     // Filtros y Búsqueda
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeTab, setActiveTab] = useState<'active' | 'lead'>('active');
+    const [activeTab, setActiveTab] = useState<'active' | 'lead' | 'marketplace'>('active');
     const [userRole, setUserRole] = useState<string | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [onlyAssigned, setOnlyAssigned] = useState(false);
@@ -34,6 +34,9 @@ const Clients = () => {
     const [newClientEmail, setNewClientEmail] = useState("");
     const [newClientObjective, setNewClientObjective] = useState("");
     const [newClientLimitations, setNewClientLimitations] = useState("");
+
+    // Marketplace leads state
+    const [marketplaceLeads, setMarketplaceLeads] = useState<any[]>([]);
 
     // 1. Cargar Clientes al entrar
     useEffect(() => {
@@ -100,10 +103,95 @@ const Clients = () => {
                 
                 setClients(finalClients);
             }
+
+            // 3. Obtener contactos desde el Marketplace
+            const { data: leads, error: leadsError } = await supabase
+                .from('marketplace_leads')
+                .select('*')
+                .eq('coach_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (!leadsError && leads) {
+                setMarketplaceLeads(leads);
+            }
         } catch (err) {
             console.error(err);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleAcceptLead = async (lead: any) => {
+        setIsSaving(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const finalStudioId = studioId || user.id;
+
+            // Generamos el código de acceso
+            const randomCode = Math.floor(1000 + Math.random() * 9000);
+            const generatedPassword = `FIT-${randomCode}`;
+
+            // 1. Guardar en clientes
+            const { error: dbError } = await supabase.from('clients').insert([{
+                user_id: user.id, 
+                studio_id: finalStudioId, 
+                name: lead.name,
+                email: lead.email,
+                access_code: generatedPassword, 
+                objective: lead.goals || "Objetivo Marketplace",
+                limitations: "Ninguna",
+                status: "active",
+                plan: "Básico",
+                location: "Presencial",
+                image_url: null, 
+                payment_status: 'pending'
+            }]);
+
+            if (dbError) throw dbError;
+
+            // 2. Crear credenciales del atleta en Supabase Auth
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            
+            const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+                auth: { persistSession: false, autoRefreshToken: false }
+            });
+
+            await tempClient.auth.signUp({
+                email: lead.email,
+                password: generatedPassword,
+            });
+
+            // 3. Actualizar el estado del lead a 'accepted'
+            await supabase
+                .from('marketplace_leads')
+                .update({ status: 'accepted' })
+                .eq('id', lead.id);
+
+            alert(`¡Cliente "${lead.name}" aceptado con éxito! Se ha creado su cuenta con el código de acceso: ${generatedPassword}`);
+            await fetchClients();
+        } catch (err: any) {
+            alert("Error al aceptar lead: " + err.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleRejectLead = async (leadId: number) => {
+        if (!confirm("¿Seguro que quieres rechazar este contacto?")) return;
+        setIsSaving(true);
+        try {
+            await supabase
+                .from('marketplace_leads')
+                .update({ status: 'rejected' })
+                .eq('id', leadId);
+            
+            await fetchClients();
+        } catch (err: any) {
+            alert("Error al rechazar lead: " + err.message);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -267,6 +355,14 @@ const Clients = () => {
                 >
                     Leads (Invitados) ({clients.filter(c => c.status === 'lead').length})
                 </button>
+                <button
+                    onClick={() => setActiveTab('marketplace')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        activeTab === 'marketplace' ? 'bg-emerald-500 text-black' : 'text-zinc-400 hover:text-white'
+                    }`}
+                >
+                    Marketplace ({marketplaceLeads.filter(l => l.status === 'new').length})
+                </button>
             </div>
 
             {/* TABLA DE CLIENTES */}
@@ -277,13 +373,79 @@ const Clients = () => {
                             <th className="px-6 py-4">Atleta y Acceso</th>
                             <th className="px-6 py-4 hidden md:table-cell">Objetivo</th>
                             <th className="px-6 py-4">Estado</th>
-                            <th className="px-6 py-4 hidden md:table-cell">Pago</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Pago / Fecha</th>
                             <th className="px-6 py-4 text-right">Acción</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
                         {isLoading ? (
                             <tr><td colSpan={6} className="px-6 py-12 text-center text-zinc-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2"/>Cargando clientes...</td></tr>
+                        ) : activeTab === 'marketplace' ? (
+                            (() => {
+                                const filteredLeads = marketplaceLeads.filter(l => 
+                                    l.status === 'new' && 
+                                    (l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                     l.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                     (l.phone && l.phone.includes(searchTerm)) ||
+                                     (l.goals && l.goals.toLowerCase().includes(searchTerm.toLowerCase())))
+                                );
+                                return filteredLeads.length > 0 ? (
+                                    filteredLeads.map((lead) => (
+                                        <tr key={lead.id} className="hover:bg-zinc-900/50 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <div>
+                                                    <p className="font-bold text-white">{lead.name}</p>
+                                                    <p className="text-xs text-zinc-400 mt-0.5">{lead.email}</p>
+                                                    {lead.phone && <p className="text-[10px] text-zinc-500">{lead.phone}</p>}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 hidden md:table-cell">
+                                                <div>
+                                                    <p className="text-sm text-zinc-300 font-medium">{lead.goals || 'Sin objetivo especificado'}</p>
+                                                    {lead.experience_level && (
+                                                        <span className="inline-block mt-1 text-[9px] font-bold bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700">
+                                                            {lead.experience_level}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                    Pendiente
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 hidden md:table-cell">
+                                                <span className="text-xs text-zinc-500">
+                                                    {new Date(lead.created_at).toLocaleDateString()}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => handleAcceptLead(lead)}
+                                                        className="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                                                    >
+                                                        Aceptar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRejectLead(lead.id)}
+                                                        className="bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 border border-zinc-700 hover:border-red-500/30 text-zinc-400 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                                                    >
+                                                        Rechazar
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
+                                            <div className="mb-2 text-2xl">📥</div>
+                                            No se encontraron contactos que coincidan con la búsqueda.
+                                        </td>
+                                    </tr>
+                                );
+                            })()
                         ) : filteredClients.length > 0 ? (
                             filteredClients.map((client) => (
                                 <tr 

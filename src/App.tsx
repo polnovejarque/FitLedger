@@ -33,6 +33,9 @@ import CenterSpaces from './pages/CenterSpaces';
 // Páginas legales
 import Privacidad from './pages/Privacidad';
 import Terminos from './pages/Terminos';
+// ✅ MARKETPLACE: Directorio de coaches
+import CoachesMarketplace from './pages/CoachesMarketplace';
+import CoachProfile from './pages/CoachProfile';
 
 const RequireAuth = () => {
   const { session, loading } = useAuth();
@@ -54,6 +57,9 @@ function App() {
           <Route path="/join/:eventId" element={<DropinLanding />} /> {/* ✅ NUEVA RUTA DROP-IN */}
           <Route path="/privacidad" element={<Privacidad />} />
           <Route path="/terminos" element={<Terminos />} />
+          {/* ✅ MARKETPLACE: Rutas públicas del directorio */}
+          <Route path="/coaches" element={<CoachesMarketplace />} />
+          <Route path="/coaches/:id" element={<CoachProfile />} />
           
           {/* Rutas de la App del Cliente (Móvil) */}
           <Route path="/client-app" element={<ClientLogin />} />

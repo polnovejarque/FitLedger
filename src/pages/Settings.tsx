@@ -1,23 +1,31 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
 import { 
     User, Building2, CreditCard, Shield, Key, 
     Upload, Camera, Eye, EyeOff, LogOut,
     ExternalLink, HelpCircle, AlertCircle, CheckCircle2, XCircle, Loader2,
-    Sun, Moon
+    Sun, Moon, Store, Globe, MapPin, Instagram, ExternalLink as LinkIcon, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
-type TabType = 'profile' | 'business' | 'subscription' | 'security' | 'payments' | 'appearance';
+type TabType = 'profile' | 'business' | 'subscription' | 'security' | 'payments' | 'appearance' | 'marketplace';
 
 const tabs = [
     { id: 'profile' as TabType, label: 'Mi Perfil', icon: User, color: 'text-emerald-500' },
     { id: 'business' as TabType, label: 'Negocio', icon: Building2, color: 'text-blue-500' },
+    { id: 'marketplace' as TabType, label: 'Marketplace', icon: Store, color: 'text-emerald-400' },
     { id: 'payments' as TabType, label: 'Pagos & Integraciones', icon: Key, color: 'text-orange-500' },
     { id: 'subscription' as TabType, label: 'Suscripción', icon: CreditCard, color: 'text-purple-500' },
     { id: 'appearance' as TabType, label: 'Apariencia', icon: Sun, color: 'text-amber-400' },
     { id: 'security' as TabType, label: 'Seguridad', icon: Shield, color: 'text-red-500' },
+];
+
+const SPECIALTIES_OPTIONS = [
+    'Pérdida de Grasa', 'Hipertrofia', 'Fuerza', 'Resistencia',
+    'Rehabilitación', 'Nutrición', 'Yoga/Pilates', 'CrossFit',
+    'Running', 'Deporte Específico', 'Movilidad', 'Embarazo'
 ];
 
 const currencies = [
@@ -27,6 +35,7 @@ const currencies = [
 ];
 
 const Settings = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<TabType>('profile');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -60,6 +69,17 @@ const Settings = () => {
     const [plan, setPlan] = useState('pro');
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
+    // Marketplace state
+    const [userId, setUserId] = useState<string | null>(null);
+    const [isPublicMarketplace, setIsPublicMarketplace] = useState(false);
+    const [biography, setBiography] = useState('');
+    const [specialties, setSpecialties] = useState<string[]>([]);
+    const [hourlyRate, setHourlyRate] = useState('');
+    const [locationAddress, setLocationAddress] = useState('');
+    const [modality, setModality] = useState('');
+    const [instagramHandle, setInstagramHandle] = useState('');
+    const [marketplaceSaved, setMarketplaceSaved] = useState(false);
+
     // --- 1. CARGAR DATOS DESDE SUPABASE ---
     useEffect(() => {
         const loadProfile = async () => {
@@ -67,7 +87,8 @@ const Settings = () => {
             const { data: { user } } = await supabase.auth.getUser();
             
             if (user) {
-                setEmail(user.email || ''); 
+                setEmail(user.email || '');
+                setUserId(user.id);
                 
                 const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
                 if (data) {
@@ -78,12 +99,44 @@ const Settings = () => {
                     setCurrency(data.currency || 'EUR');
                     setLogoUrl(data.logo_url || ''); 
                     if (data.plan) setPlan(data.plan);
+                    // Marketplace fields
+                    setIsPublicMarketplace(data.is_public_marketplace || false);
+                    setBiography(data.biography || '');
+                    setSpecialties(data.specialties || []);
+                    setHourlyRate(data.hourly_rate ? String(data.hourly_rate) : '');
+                    setLocationAddress(data.location_address || '');
+                    setModality(data.modality || '');
+                    setInstagramHandle(data.instagram_handle || '');
                 }
             }
             setIsLoading(false);
         };
         loadProfile();
     }, []);
+
+    // --- MARKETPLACE HANDLERS ---
+    const toggleSpecialty = (s: string) => {
+        setSpecialties(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+    };
+
+    const handleSaveMarketplace = async () => {
+        if (!userId) return;
+        setIsSaving(true);
+        setMarketplaceSaved(false);
+        const { error } = await supabase.from('profiles').update({
+            is_public_marketplace: isPublicMarketplace,
+            biography: biography.trim() || null,
+            specialties: specialties.length > 0 ? specialties : null,
+            hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
+            location_address: locationAddress.trim() || null,
+            modality: modality || null,
+            instagram_handle: instagramHandle.trim() || null,
+            marketplace_signup_date: isPublicMarketplace ? new Date().toISOString() : null,
+        }).eq('id', userId);
+        setIsSaving(false);
+        if (!error) setMarketplaceSaved(true);
+        else alert('Error al guardar: ' + error.message);
+    };
 
     // --- HANDLERS ---
 
@@ -638,6 +691,162 @@ const Settings = () => {
                                 <Button onClick={handleUpdatePassword} disabled={isSaving} className="bg-red-500 text-white font-bold hover:bg-red-600 min-w-[120px]">
                                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Actualizar Contraseña'}
                                 </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- MARKETPLACE TAB --- */}
+                    {activeTab === 'marketplace' && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-white mb-1">Marketplace de Coaches</h2>
+                                <p className="text-sm text-zinc-400">Configura tu perfil público en el directorio de entrenadores de FitLeader.</p>
+                            </div>
+
+                            {/* Toggle activation */}
+                            <div className="flex items-start justify-between gap-6 pb-6 border-b border-zinc-800">
+                                <div>
+                                    <p className="font-medium text-white mb-1">Activar perfil público</p>
+                                    <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
+                                        Al activarlo, tu perfil aparecerá en el directorio público de coaches de FitLeader en <span className="text-emerald-400">fitleader.app/coaches</span>, visible para cualquier persona que busque entrenador.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setIsPublicMarketplace(v => !v)}
+                                    className="flex-shrink-0 transition-colors"
+                                >
+                                    {isPublicMarketplace
+                                        ? <ToggleRight className="w-10 h-10 text-emerald-500" />
+                                        : <ToggleLeft className="w-10 h-10 text-zinc-600" />}
+                                </button>
+                            </div>
+
+                            {/* Visibility note */}
+                            {!isPublicMarketplace && (
+                                <div className="flex items-center gap-3 bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3">
+                                    <Globe className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                                    <p className="text-xs text-zinc-400">Activa tu perfil para que aparezca en el directorio público. Puedes rellenar los datos abajo y activarlo cuando estés listo.</p>
+                                </div>
+                            )}
+
+                            {/* Bio */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-zinc-400">Biografía / Descripción profesional</label>
+                                <textarea
+                                    value={biography}
+                                    onChange={e => setBiography(e.target.value)}
+                                    placeholder="Cuéntale a tus futuros clientes quién eres, tu experiencia, metodología y qué te hace diferente..."
+                                    rows={4}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                                />
+                                <p className="text-xs text-zinc-600">{biography.length}/500 caracteres</p>
+                            </div>
+
+                            {/* Specialties */}
+                            <div className="space-y-3">
+                                <label className="text-xs font-medium text-zinc-400">Especialidades <span className="text-zinc-600">(selecciona las que apliquen)</span></label>
+                                <div className="flex flex-wrap gap-2">
+                                    {SPECIALTIES_OPTIONS.map(s => (
+                                        <button
+                                            key={s}
+                                            type="button"
+                                            onClick={() => toggleSpecialty(s)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                                specialties.includes(s)
+                                                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
+                                            }`}
+                                        >
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Grid: rate + modality + location + instagram */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-zinc-400">Precio desde (€/hora)</label>
+                                    <input
+                                        type="number"
+                                        value={hourlyRate}
+                                        onChange={e => setHourlyRate(e.target.value)}
+                                        placeholder="Ej: 45"
+                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-zinc-400">Modalidad</label>
+                                    <div className="flex gap-2">
+                                        {['Presencial', 'Online', 'Híbrido'].map(m => (
+                                            <button
+                                                key={m}
+                                                type="button"
+                                                onClick={() => setModality(prev => prev === m ? '' : m)}
+                                                className={`flex-1 text-xs font-medium py-2.5 rounded-xl border transition-all ${
+                                                    modality === m
+                                                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
+                                                }`}
+                                            >
+                                                {m}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-400"><MapPin className="w-3.5 h-3.5" />Ubicación / Ciudad</label>
+                                    <input
+                                        type="text"
+                                        value={locationAddress}
+                                        onChange={e => setLocationAddress(e.target.value)}
+                                        placeholder="Ej: Madrid, España"
+                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-400"><Instagram className="w-3.5 h-3.5" />Instagram</label>
+                                    <input
+                                        type="text"
+                                        value={instagramHandle}
+                                        onChange={e => setInstagramHandle(e.target.value)}
+                                        placeholder="@tu_usuario"
+                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Preview link */}
+                            {isPublicMarketplace && userId && (
+                                <div className="flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl px-4 py-3">
+                                    <Globe className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                    <p className="text-xs text-zinc-400 flex-1">Tu perfil público estará disponible en:</p>
+                                    <button
+                                        onClick={() => navigate(`/coaches/${userId}`)}
+                                        className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                                    >
+                                        Ver mi perfil
+                                        <LinkIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Success message */}
+                            {marketplaceSaved && (
+                                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                    <p className="text-emerald-400 text-xs">Perfil del marketplace guardado correctamente.</p>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end pt-4 border-t border-zinc-800">
+                                <button
+                                    onClick={handleSaveMarketplace}
+                                    disabled={isSaving}
+                                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold px-6 py-2.5 rounded-xl transition-colors text-sm"
+                                >
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar Marketplace'}
+                                </button>
                             </div>
                         </div>
                     )}

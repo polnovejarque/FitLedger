@@ -448,6 +448,7 @@ const ClientWorkout = () => {
                     reps,
                     set_number,
                     created_at,
+                    exercise_name,
                     exercise:routine_exercises (exercise_name)
                 `)
                 .in('assignment_id', allAssignmentIds)
@@ -462,9 +463,13 @@ const ClientWorkout = () => {
             const exerciseLastSessionDate: Record<string, string> = {};
 
             pastLogs?.forEach(log => {
-                const exName = Array.isArray(log.exercise) 
-                    ? (log.exercise[0] as any)?.exercise_name 
+                // Primero usamos exercise_name guardado directamente (resistente a ediciones).
+                // Si no existe (datos legacy), intentamos el JOIN a routine_exercises.
+                const directName = (log as any).exercise_name as string | null;
+                const joinedName = Array.isArray(log.exercise)
+                    ? (log.exercise[0] as any)?.exercise_name
                     : (log.exercise as any)?.exercise_name;
+                const exName = directName || joinedName;
                 if (!exName) return;
 
                 const normalizedName = exName.trim().toLowerCase();
@@ -577,6 +582,12 @@ const ClientWorkout = () => {
             try {
                 const resultsToSave: any[] = [];
                 Object.entries(workoutLogs).forEach(([exerciseId, sets]: any) => {
+                    // Buscamos el nombre del ejercicio en la rutina actual para guardarlo directamente
+                    const exerciseObj = todayWorkout?.routine_exercises?.find(
+                        (ex: any) => String(ex.id) === String(exerciseId)
+                    );
+                    const exerciseName = exerciseObj?.exercise_name || null;
+
                     Object.entries(sets).forEach(([setNumber, data]: any) => {
                         if (data.done || data.weight || data.reps) {
                             const parsedWeight = data.weight ? parseFloat(data.weight) : 0;
@@ -584,6 +595,7 @@ const ClientWorkout = () => {
                             resultsToSave.push({
                                 assignment_id: parseInt(currentAssignmentId),
                                 exercise_id: parseInt(exerciseId),
+                                exercise_name: exerciseName,
                                 set_number: parseInt(setNumber),
                                 weight: isNaN(parsedWeight) ? 0 : parsedWeight,
                                 reps: isNaN(parsedReps) ? 0 : parsedReps,

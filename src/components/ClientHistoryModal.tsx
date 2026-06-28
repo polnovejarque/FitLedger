@@ -53,6 +53,7 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                         reps,
                         set_number,
                         created_at,
+                        exercise_name,
                         exercise:routine_exercises (exercise_name)
                     `)
                     .in('assignment_id', allAssignmentIds) // Usamos la lista de IDs directamente
@@ -70,8 +71,12 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                             };
                         }
 
-                        // Dentro de cada día, agrupamos por ejercicio
-                        const exerciseName = curr.exercise?.exercise_name || "Ejercicio Borrado";
+                        // Dentro de cada día, agrupamos por ejercicio.
+                        // Usamos el nombre guardado directamente primero (resistente a ediciones de rutina).
+                        // Si no hay (datos legacy), intentamos el JOIN a routine_exercises.
+                        const directName = curr.exercise_name as string | null;
+                        const joinedName = curr.exercise?.exercise_name;
+                        const exerciseName = directName || joinedName || "Ejercicio Borrado";
                         if (!acc[dateStr].exercises[exerciseName]) {
                             acc[dateStr].exercises[exerciseName] = [];
                         }

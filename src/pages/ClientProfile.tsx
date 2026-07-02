@@ -51,6 +51,7 @@ const ClientProfile = () => {
     const [assigningDay, setAssigningDay] = useState<number | null>(null); // Controla el modal de asignar rutina
     const [assignRoutinesModalOpen, setAssignRoutinesModalOpen] = useState(false);
     const [staffList, setStaffList] = useState<any[]>([]);
+    const [coachPlan, setCoachPlan] = useState('pro');
 
     // UI
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -140,9 +141,11 @@ const ClientProfile = () => {
 
                     const { data: profile } = await supabase
                         .from('profiles')
-                        .select('role, studio_id')
+                        .select('role, plan, studio_id')
                         .eq('id', user.id)
                         .single();
+                    
+                    if (profile?.plan) setCoachPlan(profile.plan);
                     
                     const currentStudioId = profile?.studio_id || user.id;
 
@@ -361,21 +364,23 @@ const ClientProfile = () => {
                                         <span className="text-white font-bold">{client.goals?.[0] || client.objective || "Sin definir"}</span>
                                     </div>
 
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900/80 border border-zinc-800 rounded-lg text-sm">
-                                        <span className="text-zinc-400 font-medium text-xs">Asignar a:</span>
-                                        <select 
-                                            value={client.assigned_coach_id || ""} 
-                                            onChange={handleCoachAssignChange}
-                                            className="bg-transparent text-white border-none outline-none font-bold text-xs cursor-pointer focus:ring-0 p-0 pr-6"
-                                        >
-                                            <option value="" className="bg-zinc-900 text-zinc-400">Sin asignar</option>
-                                            {staffList.map(staff => (
-                                                <option key={staff.id} value={staff.id} className="bg-zinc-900 text-white">
-                                                    {staff.first_name ? `${staff.first_name} ${staff.last_name || ''}` : (staff.business_name || staff.email)}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    {((coachPlan === 'studio' || coachPlan === 'center') && staffList.length > 1) && (
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900/80 border border-zinc-800 rounded-lg text-sm">
+                                            <span className="text-zinc-400 font-medium text-xs">Asignar a:</span>
+                                            <select 
+                                                value={client.assigned_coach_id || ""} 
+                                                onChange={handleCoachAssignChange}
+                                                className="bg-transparent text-white border-none outline-none font-bold text-xs cursor-pointer focus:ring-0 p-0 pr-6"
+                                            >
+                                                <option value="" className="bg-zinc-900 text-zinc-400">Sin asignar</option>
+                                                {staffList.map(staff => (
+                                                    <option key={staff.id} value={staff.id} className="bg-zinc-900 text-white">
+                                                        {staff.first_name ? `${staff.first_name} ${staff.last_name || ''}` : (staff.business_name || staff.email)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

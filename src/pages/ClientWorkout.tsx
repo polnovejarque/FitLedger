@@ -194,7 +194,7 @@ const ClientWorkout = () => {
                 const { data: clientData, error: clientError } = await supabase
                     .from('clients')
                     .select('id, name, email, image_url, stripe_link, user_id')
-                    .eq('email', storedEmail) 
+                    .ilike('email', storedEmail) 
                     .single();
                 
                 if (clientError) throw clientError;

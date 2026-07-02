@@ -31,7 +31,7 @@ const ClientLogin = () => {
             const { data: client, error: queryError } = await supabase
                 .from('clients')
                 .select('*')
-                .eq('email', email.trim())
+                .ilike('email', email.trim())
                 .single();
 
             if (queryError || !client) {

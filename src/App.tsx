@@ -36,6 +36,8 @@ import Terminos from './pages/Terminos';
 // ✅ MARKETPLACE: Directorio de coaches
 import CoachesMarketplace from './pages/CoachesMarketplace';
 import CoachProfile from './pages/CoachProfile';
+import SearchCenters from './pages/SearchCenters';
+import Chat from './pages/Chat';
 
 const RequireAuth = () => {
   const { session, loading } = useAuth();
@@ -91,6 +93,10 @@ function App() {
 
               {/* ✅ NUEVO: Ruta para Alquiler de Espacios (Plan Center) */}
               <Route path="center" element={<CenterSpaces />} />
+              
+              {/* ✅ NUEVO: Buscador de Salas (Coaches B2B) */}
+              <Route path="search-centers" element={<SearchCenters />} />
+              <Route path="chat" element={<Chat />} />
               
               <Route path="settings" element={<Settings />} />
             </Route>

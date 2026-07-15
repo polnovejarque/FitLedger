@@ -5,11 +5,13 @@ import {
     Calendar as CalendarIcon, Trophy, Activity, Dumbbell,
     Bell, Settings, ChevronRight, Plus, Scale, X, Camera, Ruler, RefreshCw,
     ArrowLeft, Check, Clock, Play, SkipForward, Lightbulb, Upload, ExternalLink,
-    CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers, RefreshCcw
+    CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers, RefreshCcw,
+    Apple, Send, MessageSquare, Utensils, MessageCircle, PlusCircle
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import ToastContainer from '../components/ui/ToastContainer';
 import type { ToastProps } from '../components/ui/Toast';
+import { subscribeToPush, sendPushNotification } from '../services/pushNotificationService';
 
 const DAILY_TIPS = [
     "El descanso es tan importante como el entrenamiento. Duerme al menos 7-8 horas. 😴",
@@ -148,7 +150,22 @@ const ClientWorkout = () => {
         side: { before: null, now: null, beforeId: null }
     });
 
-    const [activeTab, setActiveTab] = useState<'inicio' | 'reservas' | 'plan' | 'progreso' | 'perfil'>('inicio');
+    const [activeTab, setActiveTab] = useState<'inicio' | 'reservas' | 'plan' | 'progreso' | 'perfil' | 'nutricion' | 'chat'>('inicio');
+    
+    // --- ESTADOS CHAT & NUTRICIÓN (ELITE) ---
+    const [coachPlan, setCoachPlan] = useState<string>('pro');
+    const [nutritionPlan, setNutritionPlan] = useState<any>(null);
+    const [nutritionMeals, setNutritionMeals] = useState<any[]>([]);
+    const [chatMessages, setChatMessages] = useState<any[]>([]);
+    const [newChatMessage, setNewChatMessage] = useState('');
+    const [isSendingChat, setIsSendingChat] = useState(false);
+    const [waterLogged, setWaterLogged] = useState(0);
+    const [caloriesLogged, setCaloriesLogged] = useState(0);
+    const [protLogged, setProtLogged] = useState(0);
+    const [carbLogged, setCarbLogged] = useState(0);
+    const [fatLogged, setFatLogged] = useState(0);
+    const [isLoggingNutrition, setIsLoggingNutrition] = useState(false);
+
     const [activeProfileModal, setActiveProfileModal] = useState<'notifications' | 'settings' | null>(null);
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -201,6 +218,9 @@ const ClientWorkout = () => {
             
             if (clientData) {
                 setClientId(clientData.id);
+                // Suscribir al atleta a recibir notificaciones push en segundo plano
+                subscribeToPush(null, clientData.id).catch(err => console.log('Push subscription skipped:', err));
+
                 const nameParts = clientData.name.split(' ');
                 setClientName(nameParts[0]);
                 setClientLastName(nameParts.length > 1 ? nameParts[1] : "");
@@ -212,13 +232,47 @@ const ClientWorkout = () => {
                     setStudioId(clientData.user_id);
                     const { data: coachProfile } = await supabase
                         .from('profiles')
-                        .select('logo_url, business_name')
+                        .select('logo_url, business_name, plan')
                         .eq('id', clientData.user_id) 
                         .single();
 
                     if (coachProfile) {
                         if (coachProfile.logo_url) setCoachLogo(coachProfile.logo_url);
                         if (coachProfile.business_name) setCoachBusinessName(coachProfile.business_name);
+                        if (coachProfile.plan) setCoachPlan(coachProfile.plan);
+                    }
+
+                    // Cargar nutrición
+                    const { data: nPlan } = await supabase
+                        .from('nutrition_plans')
+                        .select('*')
+                        .eq('client_id', clientData.id)
+                        .maybeSingle();
+
+                    if (nPlan) {
+                        setNutritionPlan(nPlan);
+                        const { data: nMeals } = await supabase
+                            .from('nutrition_meals')
+                            .select('*')
+                            .eq('plan_id', nPlan.id)
+                            .order('meal_time', { ascending: true });
+                        if (nMeals) setNutritionMeals(nMeals);
+                    }
+
+                    // Cargar log de hoy
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const { data: todayLog } = await supabase
+                        .from('nutrition_logs')
+                        .select('*')
+                        .eq('client_id', clientData.id)
+                        .eq('date', todayStr)
+                        .maybeSingle();
+                    if (todayLog) {
+                        setWaterLogged(todayLog.water_ml || 0);
+                        setCaloriesLogged(todayLog.calories || 0);
+                        setProtLogged(todayLog.protein || 0);
+                        setCarbLogged(todayLog.carbs || 0);
+                        setFatLogged(todayLog.fat || 0);
                     }
                     
                     fetchClasses(clientData.user_id, clientData.id);
@@ -305,6 +359,121 @@ const ClientWorkout = () => {
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [fetchClientData]);
+
+    // --- EFECTO TIEMPO REAL: CHAT (ELITE) ---
+    useEffect(() => {
+        if (activeTab !== 'chat' || !clientId || !studioId) return;
+
+        const fetchChatMessages = async () => {
+            const { data } = await supabase
+                .from('chat_messages')
+                .select('*')
+                .eq('client_id', clientId)
+                .order('created_at', { ascending: true });
+            if (data) {
+                setChatMessages(data);
+                
+                // Marcar como leídos
+                await supabase
+                    .from('chat_messages')
+                    .update({ is_read: true })
+                    .eq('client_id', clientId)
+                    .eq('sender', 'coach')
+                    .eq('is_read', false);
+            }
+        };
+        fetchChatMessages();
+
+        const channel = supabase
+            .channel(`athlete_chat_realtime_${clientId}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'chat_messages',
+                filter: `client_id=eq.${clientId}`
+            }, (payload) => {
+                const newMsg = payload.new;
+                setChatMessages(prev => {
+                    if (prev.some(m => m.id === newMsg.id)) return prev;
+                    return [...prev, newMsg];
+                });
+                
+                if (newMsg.sender === 'coach') {
+                    supabase.from('chat_messages').update({ is_read: true }).eq('id', newMsg.id).then();
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [activeTab, clientId, studioId]);
+
+    const handleSendChatMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newChatMessage.trim() || !clientId || !studioId || isSendingChat) return;
+
+        setIsSendingChat(true);
+        const text = newChatMessage.trim();
+        setNewChatMessage('');
+
+        const { data, error } = await supabase
+            .from('chat_messages')
+            .insert({
+                coach_id: studioId,
+                client_id: clientId,
+                sender: 'client',
+                message: text,
+                is_read: false
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error("Error sending message:", error);
+            setNewChatMessage(text);
+        } else if (data) {
+            setChatMessages(prev => [...prev, data]);
+            
+            // Enviar notificación Push al coach
+            sendPushNotification(
+                studioId,
+                null,
+                clientName ? `${clientName} ${clientLastName}`.trim() : "Atleta",
+                text,
+                '/dashboard/chat'
+            ).catch(console.error);
+        }
+        setIsSendingChat(false);
+    };
+
+    // --- ACCIÓN: GUARDAR LOG NUTRICIÓN ---
+    const handleSaveTodayNutritionLog = async () => {
+        if (!clientId) return;
+        setIsLoggingNutrition(true);
+        const todayStr = new Date().toISOString().split('T')[0];
+        try {
+            const { error } = await supabase
+                .from('nutrition_logs')
+                .upsert({
+                    client_id: clientId,
+                    date: todayStr,
+                    calories: caloriesLogged,
+                    protein: protLogged,
+                    carbs: carbLogged,
+                    fat: fatLogged,
+                    water_ml: waterLogged
+                }, { onConflict: 'client_id,date' });
+            
+            if (error) throw error;
+            setToasts(prev => [...prev, { id: String(Date.now()) as any, type: 'success', message: '¡Progreso nutricional de hoy guardado! 🍏' } as any]);
+        } catch (err: any) {
+            console.error("Error logging nutrition:", err);
+            setToasts(prev => [...prev, { id: String(Date.now()) as any, type: 'error', message: 'Error al guardar log: ' + err.message } as any]);
+        } finally {
+            setIsLoggingNutrition(false);
+        }
+    };
 
     const handleManualRefresh = () => {
         setIsRefreshing(true);
@@ -1206,6 +1375,239 @@ const ClientWorkout = () => {
         </div>
     );
 
+    const renderNutricion = () => {
+        const targetKcal = nutritionPlan?.daily_calories || 2000;
+
+        return (
+            <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in max-w-md mx-auto bg-black text-white min-h-[calc(100vh-4rem)]">
+                <div>
+                    <h2 className="text-xl font-bold text-white mb-1">Mi Nutrición</h2>
+                    <p className="text-xs text-zinc-400">Objetivos fijados por tu entrenador personal.</p>
+                </div>
+
+                {!nutritionPlan ? (
+                    <div className="p-8 text-center text-zinc-500 bg-zinc-900/50 rounded-2xl border border-zinc-800">
+                        <Apple className="w-10 h-10 mx-auto mb-3 opacity-30 text-emerald-500" />
+                        <p className="text-sm font-semibold text-white">Sin plan de nutrición</p>
+                        <p className="text-xs mt-1">Tu entrenador todavía no ha asignado un plan de comidas o macronutrientes.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Tarjetas de objetivos */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl text-center">
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Calorías Objetivo</span>
+                                <span className="text-lg font-black text-emerald-400">{targetKcal} kcal</span>
+                            </div>
+                            <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl text-center">
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Consumo de Hoy</span>
+                                <span className="text-lg font-black text-white">{caloriesLogged} kcal</span>
+                            </div>
+                        </div>
+
+                        {/* Distribución macros */}
+                        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-4 space-y-3">
+                            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Macronutrientes</h3>
+                            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                <div className="bg-zinc-900 p-2.5 rounded-xl border border-zinc-800/85">
+                                    <span className="text-[9px] text-zinc-500 font-bold block">Proteínas</span>
+                                    <span className="font-bold text-red-400">{protLogged}g / {nutritionPlan.daily_protein}g</span>
+                                </div>
+                                <div className="bg-zinc-900 p-2.5 rounded-xl border border-zinc-800/85">
+                                    <span className="text-[9px] text-zinc-500 font-bold block">Carbos</span>
+                                    <span className="font-bold text-blue-400">{carbLogged}g / {nutritionPlan.daily_carbs}g</span>
+                                </div>
+                                <div className="bg-zinc-900 p-2.5 rounded-xl border border-zinc-800/85">
+                                    <span className="text-[9px] text-zinc-500 font-bold block">Grasas</span>
+                                    <span className="font-bold text-yellow-400">{fatLogged}g / {nutritionPlan.daily_fat}g</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Registrar Consumos Diarios */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
+                            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                                <PlusCircle className="w-4 h-4 text-emerald-400" /> Registrar Consumo de Hoy
+                            </h3>
+
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-zinc-400 font-medium">Calorías consumidas</label>
+                                    <input 
+                                        type="number"
+                                        value={caloriesLogged || ''}
+                                        onChange={(e) => setCaloriesLogged(parseInt(e.target.value) || 0)}
+                                        placeholder="Ej. 1850"
+                                        className="w-full bg-zinc-950 border border-zinc-850 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-zinc-700"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-zinc-400 font-medium">Proteínas (g)</label>
+                                    <input 
+                                        type="number"
+                                        value={protLogged || ''}
+                                        onChange={(e) => setProtLogged(parseInt(e.target.value) || 0)}
+                                        placeholder="Ej. 140"
+                                        className="w-full bg-zinc-950 border border-zinc-850 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-zinc-700"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-zinc-400 font-medium">Carbohidratos (g)</label>
+                                    <input 
+                                        type="number"
+                                        value={carbLogged || ''}
+                                        onChange={(e) => setCarbLogged(parseInt(e.target.value) || 0)}
+                                        placeholder="Ej. 180"
+                                        className="w-full bg-zinc-950 border border-zinc-850 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-zinc-700"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-zinc-400 font-medium">Grasas (g)</label>
+                                    <input 
+                                        type="number"
+                                        value={fatLogged || ''}
+                                        onChange={(e) => setFatLogged(parseInt(e.target.value) || 0)}
+                                        placeholder="Ej. 60"
+                                        className="w-full bg-zinc-950 border border-zinc-850 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-zinc-700"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Hidratación (Agua) */}
+                            <div className="space-y-2 pt-2 border-t border-zinc-800/60">
+                                <label className="text-[10px] text-zinc-400 font-medium flex items-center justify-between">
+                                    <span>Hidratación</span>
+                                    <span className="text-blue-400 font-bold">{waterLogged} ml</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => setWaterLogged(prev => prev + 250)}
+                                        className="flex-1 bg-zinc-800 text-zinc-300 font-bold py-1.5 rounded-lg text-xs hover:bg-zinc-750"
+                                    >
+                                        +250ml 🥛
+                                    </button>
+                                    <button 
+                                        onClick={() => setWaterLogged(prev => prev + 500)}
+                                        className="flex-1 bg-zinc-850 text-blue-400 font-bold py-1.5 rounded-lg text-xs hover:bg-zinc-800"
+                                    >
+                                        +500ml 💧
+                                    </button>
+                                    <button 
+                                        onClick={() => setWaterLogged(0)}
+                                        className="bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white p-2 rounded-lg flex items-center justify-center"
+                                        title="Reiniciar"
+                                    >
+                                        <RefreshCcw className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <Button 
+                                onClick={handleSaveTodayNutritionLog}
+                                disabled={isLoggingNutrition}
+                                className="w-full bg-emerald-500 text-black font-bold h-10 rounded-xl"
+                            >
+                                {isLoggingNutrition ? 'Guardando...' : 'Guardar Progreso de Hoy'}
+                            </Button>
+                        </div>
+
+                        {/* Distribución comidas */}
+                        {nutritionMeals.length > 0 && (
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                                    <Utensils className="w-4 h-4 text-emerald-400" /> Plan de Comidas
+                                </h3>
+                                <div className="space-y-3">
+                                    {nutritionMeals.map((meal) => (
+                                        <div key={meal.id} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
+                                            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                                                <span className="text-xs font-bold text-white">{meal.meal_name}</span>
+                                                <span className="text-[10px] text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">{meal.meal_time}</span>
+                                            </div>
+                                            <ul className="space-y-1.5 text-xs text-zinc-300">
+                                                {meal.items.map((item: any, idx: number) => (
+                                                    <li key={idx} className="flex justify-between items-center">
+                                                        <span>• {item.name} <span className="text-zinc-500 font-normal">({item.qty}{item.unit})</span></span>
+                                                        <span className="text-emerald-400 font-semibold">{item.kcal} kcal</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Notas del coach */}
+                        {nutritionPlan.notes && (
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-2">
+                                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Notas del Entrenador</h4>
+                                <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">{nutritionPlan.notes}</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderChat = () => {
+        return (
+            <div className="flex flex-col h-[calc(100vh-3.5rem)] pt-16 pb-20 animate-in fade-in max-w-md mx-auto bg-black text-white">
+                {/* Header */}
+                <div className="p-4 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-md font-bold text-white">Chat con Coach</h2>
+                        <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Canal en directo
+                        </p>
+                    </div>
+                </div>
+
+                {/* Mensajes */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0d0d0f]">
+                    {chatMessages.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center text-zinc-500 opacity-60">
+                            <MessageCircle className="w-10 h-10 mb-2 text-zinc-600" />
+                            <p className="text-xs">Di algo para iniciar la conversación.</p>
+                        </div>
+                    ) : (
+                        chatMessages.map((msg) => {
+                            const isAthlete = msg.sender === 'client';
+                            const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            return (
+                                <div key={msg.id} className={`flex ${isAthlete ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`p-3 rounded-2xl text-xs max-w-[85%] ${
+                                        isAthlete ? 'bg-emerald-500 text-black rounded-tr-none font-medium' : 'bg-zinc-850 text-zinc-100 rounded-tl-none border border-zinc-800/80'
+                                    }`}>
+                                        <p className="whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                                        <span className={`block text-[9px] mt-1 text-right ${isAthlete ? 'text-black/60' : 'text-zinc-500'}`}>
+                                            {time}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* Input */}
+                <form onSubmit={handleSendChatMessage} className="p-3 border-t border-zinc-850 bg-black flex gap-2">
+                    <input
+                        type="text"
+                        placeholder="Escribe un mensaje..."
+                        value={newChatMessage}
+                        onChange={(e) => setNewChatMessage(e.target.value)}
+                        className="flex-1 bg-zinc-900 border border-zinc-850 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500/50"
+                    />
+                    <Button type="submit" disabled={!newChatMessage.trim() || isSendingChat} className="bg-emerald-500 text-black hover:bg-emerald-400 font-bold px-4 rounded-xl flex items-center justify-center shrink-0">
+                        <Send className="w-4 h-4" />
+                    </Button>
+                </form>
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-black text-white font-sans pb-safe selection:bg-emerald-500 selection:text-black tracking-tight">
             {!viewingExercises && (
@@ -1231,6 +1633,8 @@ const ClientWorkout = () => {
                 {activeTab === 'inicio' && !viewingExercises && renderInicio()}
                 {activeTab === 'reservas' && !viewingExercises && renderReservas()}
                 {activeTab === 'plan' && (viewingExercises ? renderWorkoutView() : renderPlanSemanal())} 
+                {activeTab === 'nutricion' && !viewingExercises && renderNutricion()}
+                {activeTab === 'chat' && !viewingExercises && renderChat()}
                 {activeTab === 'progreso' && !viewingExercises && renderProgreso()}
                 {activeTab === 'perfil' && !viewingExercises && renderPerfil()}
 
@@ -1306,16 +1710,32 @@ const ClientWorkout = () => {
             {!viewingExercises && (
                 <div className="fixed bottom-0 left-0 w-full bg-black/95 backdrop-blur-sm border-t border-zinc-800 z-50 safe-area-bottom">
                     <div className="max-w-md mx-auto flex justify-around items-center p-2 pb-3 md:pb-2">
-                        {['inicio', 'reservas', 'plan', 'progreso', 'perfil'].map((tab) => (
-                            <button 
-                                key={tab} 
-                                onClick={() => { setActiveTab(tab as any); if(tab === 'plan') setViewingExercises(false); }} 
-                                className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 transition-colors ${activeTab === tab ? 'text-emerald-500' : 'text-zinc-600 hover:text-zinc-300'}`}
-                            >
-                                {tab === 'inicio' ? <Home className="w-5 h-5 stroke-[2.5]" /> : tab === 'reservas' ? <CalendarIcon className="w-5 h-5 stroke-[2.5]" /> : tab === 'plan' ? <ClipboardList className="w-5 h-5 stroke-[2.5]" /> : tab === 'progreso' ? <TrendingUp className="w-5 h-5 stroke-[2.5]" /> : <User className="w-5 h-5 stroke-[2.5]" />}
-                                <span className="text-[9px] font-bold capitalize tracking-tight">{tab}</span>
-                            </button>
-                        ))}
+                        {(() => {
+                            const tabsList = ['inicio', 'reservas', 'plan'];
+                            if (coachPlan === 'elite') {
+                                tabsList.push('nutricion', 'chat');
+                            }
+                            tabsList.push('progreso', 'perfil');
+                            
+                            return tabsList.map((tab) => (
+                                <button 
+                                    key={tab} 
+                                    onClick={() => { setActiveTab(tab as any); if(tab === 'plan') setViewingExercises(false); }} 
+                                    className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 transition-colors ${activeTab === tab ? 'text-emerald-500' : 'text-zinc-600 hover:text-zinc-300'}`}
+                                >
+                                    {tab === 'inicio' ? <Home className="w-5 h-5 stroke-[2.5]" /> : 
+                                     tab === 'reservas' ? <CalendarIcon className="w-5 h-5 stroke-[2.5]" /> : 
+                                     tab === 'plan' ? <ClipboardList className="w-5 h-5 stroke-[2.5]" /> : 
+                                     tab === 'nutricion' ? <Apple className="w-5 h-5 stroke-[2.5]" /> : 
+                                     tab === 'chat' ? <MessageSquare className="w-5 h-5 stroke-[2.5]" /> : 
+                                     tab === 'progreso' ? <TrendingUp className="w-5 h-5 stroke-[2.5]" /> : 
+                                     <User className="w-5 h-5 stroke-[2.5]" />}
+                                    <span className="text-[9px] font-bold capitalize tracking-tight">
+                                        {tab === 'nutricion' ? 'dieta' : tab}
+                                    </span>
+                                </button>
+                            ));
+                        })()}
                     </div>
                 </div>
             )}

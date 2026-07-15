@@ -8,9 +8,11 @@ import {
     BarChart3,
     Bell,
     Calendar as CalendarIcon,
-    ArrowUpRight
+    ArrowUpRight,
+    Sparkles
 } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis } from 'recharts';
+import { subscribeToPush } from '../services/pushNotificationService';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -26,6 +28,7 @@ const Dashboard = () => {
     });
     const [cashFlowData, setCashFlowData] = useState<any[]>([]);
     const [todayEvents, setTodayEvents] = useState<any[]>([]);
+    const [newLeadsCount, setNewLeadsCount] = useState(0);
 
     useEffect(() => {
         const loadDashboardData = async () => {
@@ -33,6 +36,9 @@ const Dashboard = () => {
                 setError(null);
                 const { data: { user }, error: userError } = await supabase.auth.getUser();
                 if (userError || !user) { setError('No se pudo verificar la sesión. Recarga la página.'); setLoading(false); return; }
+
+                // Registrar para recibir notificaciones push en el teléfono/navegador
+                subscribeToPush(user.id, null).catch(err => console.log('Push subscription skipped:', err));
 
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
@@ -110,6 +116,16 @@ const Dashboard = () => {
                     sessionsToday: events?.length || 0,
                     sessionsThisMonth: monthEvents?.length || 0,
                 });
+
+                // Cargar leads pendientes del marketplace
+                const { data: newLeads, error: leadsError } = await supabase
+                    .from('marketplace_leads')
+                    .select('id')
+                    .eq('coach_id', user.id)
+                    .eq('status', 'new');
+                if (!leadsError && newLeads) {
+                    setNewLeadsCount(newLeads.length);
+                }
             } catch (err: any) {
                 console.error('Error en Dashboard:', err);
                 setError('No se pudieron cargar los datos. Comprueba tu conexión y recarga.');
@@ -123,6 +139,27 @@ const Dashboard = () => {
 
     const renderOverview = () => (
         <div className="space-y-6 animate-in fade-in duration-500">
+            {/* ALERT BANNERS */}
+            {newLeadsCount > 0 && (
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400">
+                            <Sparkles className="w-5 h-5 animate-pulse" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-white">¡Tienes {newLeadsCount} nuevo{newLeadsCount > 1 ? 's' : ''} lead{newLeadsCount > 1 ? 's' : ''} en el Marketplace!</p>
+                            <p className="text-xs text-zinc-400">Nuevos atletas están interesados en trabajar contigo. Revísalos y acéptalos en tu lista de clientes.</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => navigate('/dashboard/clients?tab=marketplace')}
+                        className="w-full md:w-auto px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/10 shrink-0"
+                    >
+                        Ver Solicitudes
+                    </button>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* KPI INGRESOS - Card destacado estilo Finexy con fondo de marca */}
                 {userRole !== 'staff' && (
@@ -326,8 +363,21 @@ const Dashboard = () => {
                     <p className="text-zinc-400 mt-1">Aquí tienes el resumen de tu negocio hoy.</p>
                 </div>
                 <div className="flex items-center gap-4 hidden md:flex">
-                    <button className="p-2 text-zinc-400 hover:text-white border border-zinc-800 rounded-lg hover:bg-zinc-900 transition-colors">
+                    <button 
+                        onClick={() => {
+                            if (newLeadsCount > 0) {
+                                navigate('/dashboard/clients?tab=marketplace');
+                            }
+                        }}
+                        className="p-2 text-zinc-400 hover:text-white border border-zinc-800 rounded-lg hover:bg-zinc-900 transition-colors relative"
+                    >
                         <Bell className="w-5 h-5" />
+                        {newLeadsCount > 0 && (
+                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />
+                        )}
+                        {newLeadsCount > 0 && (
+                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full" />
+                        )}
                     </button>
                 </div>
             </div>

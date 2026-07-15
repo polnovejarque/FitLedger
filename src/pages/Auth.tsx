@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
+import { sendWelcomeCoachEmail } from '../services/emailService';
 import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 const Auth = () => {
@@ -22,10 +23,11 @@ const Auth = () => {
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isFreelanceOnly, setIsFreelanceOnly] = useState(false);
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        loadingStateSet(true);
         setError(null);
         setMessage(null);
 
@@ -46,15 +48,21 @@ const Auth = () => {
                 if (error) throw error;
                 
                 const userId = data.user?.id;
-                const selectedPlan = searchParams.get('plan') || 'pro';
-                if (userId && selectedPlan !== 'pro') {
+                const selectedPlan = isFreelanceOnly ? 'free' : (searchParams.get('plan') || 'pro');
+                if (userId && (selectedPlan !== 'pro' || isFreelanceOnly)) {
                     // Esperar 500ms para asegurar que el trigger de base de datos haya insertado el perfil
                     await new Promise(resolve => setTimeout(resolve, 500));
                     await supabase
                         .from('profiles')
-                        .update({ plan: selectedPlan })
+                        .update({ 
+                            plan: selectedPlan,
+                            subscription_plan: selectedPlan
+                        })
                         .eq('id', userId);
                 }
+
+                // Enviar correo de bienvenida/onboarding
+                sendWelcomeCoachEmail(email, "Entrenador").catch(console.error);
 
                 setMessage("¡Cuenta creada! Ya puedes iniciar sesión.");
                 setIsLogin(true);
@@ -62,8 +70,13 @@ const Auth = () => {
         } catch (err: any) {
             setError(err.message || "Ha ocurrido un error");
         } finally {
-            setLoading(false);
+            loadingStateSet(false);
         }
+    };
+
+    // Helper alias to avoid collision with loading state named "loading" in auth context
+    const loadingStateSet = (val: boolean) => {
+        setLoading(val);
     };
 
     return (
@@ -141,6 +154,22 @@ const Auth = () => {
                                         placeholder="••••••••••••"
                                     />
                                 </div>
+                            </div>
+                        )}
+
+                        {!isLogin && !isResetting && (
+                            <div className="flex items-start gap-3 bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
+                                <input 
+                                    type="checkbox" 
+                                    id="freelanceOnly"
+                                    checked={isFreelanceOnly}
+                                    onChange={(e) => setIsFreelanceOnly(e.target.checked)}
+                                    className="w-4 h-4 text-emerald-500 bg-black border-zinc-800 rounded focus:ring-emerald-500 mt-1 cursor-pointer"
+                                />
+                                <label htmlFor="freelanceOnly" className="text-xs text-zinc-400 leading-normal cursor-pointer select-none">
+                                    <span className="font-bold text-white block mb-0.5">Entrenador Freelance (Solo Marketplace)</span>
+                                    Quiero registrarme gratis solo para buscar, reservar salas de gimnasios y publicitarme. No necesito el software SaaS de rutinas por ahora.
+                                </label>
                             </div>
                         )}
 

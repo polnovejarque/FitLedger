@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import ClientHistoryModal from '../components/ClientHistoryModal';
-
 import { 
     ArrowLeft, Mail, MapPin, AlertCircle, 
     Lock, Copy, Check, Loader2, CreditCard, 
     Scale, Camera, ImageIcon, Trophy, User, 
-    CalendarDays, Dumbbell, Plus, Trash2, X
+    CalendarDays, Dumbbell, Plus, Trash2, X,
+    MessageSquare, Send, Apple, Utensils, TrendingUp, MessageCircle
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
@@ -16,6 +16,7 @@ import PaymentLinkModal from '../components/PaymentLinkModal';
 import EditClientModal from '../components/EditClientModal';
 import ToastContainer from '../components/ui/ToastContainer';
 import type { ToastProps } from '../components/ui/Toast';
+import { sendPushNotification } from '../services/pushNotificationService';
 
 const DAYS_OF_WEEK = [
     { id: 1, name: 'Lunes' },
@@ -52,6 +53,20 @@ const ClientProfile = () => {
     const [assignRoutinesModalOpen, setAssignRoutinesModalOpen] = useState(false);
     const [staffList, setStaffList] = useState<any[]>([]);
     const [coachPlan, setCoachPlan] = useState('pro');
+
+    // --- ESTADOS CHAT & NUTRICIÓN (ELITE) ---
+    const [coachId, setCoachId] = useState<string | null>(null);
+    const [coachName, setCoachName] = useState("Entrenador");
+    const [nutritionPlan, setNutritionPlan] = useState<any>(null);
+    const [meals, setMeals] = useState<any[]>([]);
+    const [nutritionLogs, setNutritionLogs] = useState<any[]>([]);
+    const [isLoadingNutrition, setIsLoadingNutrition] = useState(false);
+    const [isSavingNutrition, setIsSavingNutrition] = useState(false);
+    const [dailyCalories, setDailyCalories] = useState(2000);
+    const [dailyProtein, setDailyProtein] = useState(150);
+    const [dailyCarbs, setDailyCarbs] = useState(200);
+    const [dailyFat, setDailyFat] = useState(65);
+    const [nutritionNotes, setNutritionNotes] = useState('');
 
     // UI
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -133,6 +148,7 @@ const ClientProfile = () => {
 
                 // 3. Cargar las rutinas del Coach (Para el selector) y el personal (staff)
                 if (user) {
+                    setCoachId(user.id);
                     const { data: routinesData } = await supabase
                         .from('routines')
                         .select('id, name, level')
@@ -141,11 +157,14 @@ const ClientProfile = () => {
 
                     const { data: profile } = await supabase
                         .from('profiles')
-                        .select('role, plan, studio_id')
+                        .select('role, plan, studio_id, business_name, first_name, last_name')
                         .eq('id', user.id)
                         .single();
                     
-                    if (profile?.plan) setCoachPlan(profile.plan);
+                    if (profile) {
+                        if (profile.plan) setCoachPlan(profile.plan);
+                        setCoachName(profile.business_name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || "Entrenador");
+                    }
                     
                     const currentStudioId = profile?.studio_id || user.id;
 
@@ -189,6 +208,126 @@ const ClientProfile = () => {
         };
         fetchRealData();
     }, [id, navigate]);
+
+    // --- EFECTO CARGA NUTRICIÓN (PLAN ELITE) ---
+    useEffect(() => {
+        if (!client?.id || coachPlan !== 'elite') return;
+
+        const loadNutritionData = async () => {
+            setIsLoadingNutrition(true);
+            try {
+                // 1. Cargar plan
+                const { data: planData } = await supabase
+                    .from('nutrition_plans')
+                    .select('*')
+                    .eq('client_id', client.id)
+                    .maybeSingle();
+
+                if (planData) {
+                    setNutritionPlan(planData);
+                    setDailyCalories(planData.daily_calories);
+                    setDailyProtein(planData.daily_protein);
+                    setDailyCarbs(planData.daily_carbs);
+                    setDailyFat(planData.daily_fat);
+                    setNutritionNotes(planData.notes || '');
+
+                    // 2. Cargar comidas
+                    const { data: mealsData } = await supabase
+                        .from('nutrition_meals')
+                        .select('*')
+                        .eq('plan_id', planData.id)
+                        .order('meal_time', { ascending: true });
+                    if (mealsData) setMeals(mealsData);
+                } else {
+                    setNutritionPlan(null);
+                    setMeals([]);
+                }
+
+                // 3. Cargar logs
+                const { data: logsData } = await supabase
+                    .from('nutrition_logs')
+                    .select('*')
+                    .eq('client_id', client.id)
+                    .order('date', { ascending: false })
+                    .limit(7);
+                if (logsData) setNutritionLogs(logsData);
+            } catch (err) {
+                console.error("Error loading nutrition data:", err);
+            } finally {
+                setIsLoadingNutrition(false);
+            }
+        };
+
+        loadNutritionData();
+    }, [client?.id, coachPlan]);
+
+    // --- GUARDAR PLAN NUTRICIONAL ---
+    const handleSaveNutritionPlan = async () => {
+        if (!client?.id || !coachId) return;
+        setIsSavingNutrition(true);
+
+        try {
+            let planId = nutritionPlan?.id;
+
+            // 1. Upsert plan
+            if (planId) {
+                const { error: updateError } = await supabase
+                    .from('nutrition_plans')
+                    .update({
+                        daily_calories: dailyCalories,
+                        daily_protein: dailyProtein,
+                        daily_carbs: dailyCarbs,
+                        daily_fat: dailyFat,
+                        notes: nutritionNotes
+                    })
+                    .eq('id', planId);
+                if (updateError) throw updateError;
+            } else {
+                const { data: newPlan, error: insertError } = await supabase
+                    .from('nutrition_plans')
+                    .insert({
+                        client_id: client.id,
+                        coach_id: coachId,
+                        daily_calories: dailyCalories,
+                        daily_protein: dailyProtein,
+                        daily_carbs: dailyCarbs,
+                        daily_fat: dailyFat,
+                        notes: nutritionNotes
+                    })
+                    .select()
+                    .single();
+                if (insertError) throw insertError;
+                planId = newPlan.id;
+                setNutritionPlan(newPlan);
+            }
+
+            // 2. Guardar comidas (Eliminar todas las anteriores y re-insertar)
+            const { error: deleteError } = await supabase
+                .from('nutrition_meals')
+                .delete()
+                .eq('plan_id', planId);
+            if (deleteError) throw deleteError;
+
+            if (meals.length > 0) {
+                const mealsToInsert = meals.map(m => ({
+                    plan_id: planId,
+                    meal_name: m.meal_name,
+                    meal_time: m.meal_time,
+                    items: m.items || []
+                }));
+                const { error: insertMealsError } = await supabase
+                    .from('nutrition_meals')
+                    .insert(mealsToInsert);
+                if (insertMealsError) throw insertMealsError;
+            }
+
+            alert("¡Plan nutricional guardado con éxito! ✅");
+        } catch (e: any) {
+            alert("Error al guardar plan: " + e.message);
+        } finally {
+            setIsSavingNutrition(false);
+        }
+    };
 
     // --- FUNCIONES PLANIFICACIÓN SEMANAL ---
     const handleAssignRoutine = async (routineId: number) => {
@@ -420,18 +559,26 @@ const ClientProfile = () => {
 
                     {/* TABS */}
                     <div className="mt-10 pt-1 border-t border-zinc-800/50 flex flex-wrap gap-2 justify-center md:justify-start">
-                        {['overview', 'workouts', 'progress', 'finance'].map((tab) => (
+                        {['overview', 'workouts', 'progress', 'finance', 'nutrition', 'chat'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={cn(
-                                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                                    "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5",
                                     activeTab === tab 
                                         ? "bg-zinc-800 text-white shadow-sm" 
                                         : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50"
                                 )}
                             >
-                                {tab === 'overview' ? 'Resumen' : tab === 'workouts' ? 'Plan Semanal' : tab === 'finance' ? 'Finanzas' : 'Fotos y Métricas'}
+                                {tab === 'overview' ? 'Resumen' : 
+                                 tab === 'workouts' ? 'Plan Semanal' : 
+                                 tab === 'finance' ? 'Finanzas' : 
+                                 tab === 'nutrition' ? 'Nutrición' : 
+                                 tab === 'chat' ? 'Chat' : 'Fotos y Métricas'}
+                                
+                                {((tab === 'nutrition' || tab === 'chat') && coachPlan !== 'elite') && (
+                                    <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                                )}
                             </button>
                         ))}
                         
@@ -719,6 +866,244 @@ const ClientProfile = () => {
                         <p>Gestión de Finanzas disponible próximamente.</p>
                     </div>
                 )}
+
+                {/* PESTAÑA 5: NUTRICIÓN */}
+                {activeTab === 'nutrition' && (
+                    <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-zinc-800/60">
+                            <div>
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <Apple className="w-5 h-5 text-emerald-400" /> Plan de Nutrición
+                                </h3>
+                                <p className="text-xs text-zinc-400">Define los objetivos macro y las comidas diarias del atleta.</p>
+                            </div>
+                        </div>
+
+                        {isLoadingNutrition ? (
+                            <div className="flex flex-col items-center justify-center py-20">
+                                <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-2" />
+                                <p className="text-xs text-zinc-550">Cargando plan de nutrición...</p>
+                            </div>
+                        ) : coachPlan !== 'elite' ? (
+                            <div className="py-16 text-center max-w-sm mx-auto flex flex-col items-center">
+                                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl mb-4">
+                                    <Lock className="w-8 h-8" />
+                                </div>
+                                <h4 className="text-md font-bold text-white mb-2">Sección Exclusiva Plan Elite</h4>
+                                <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
+                                    La planificación de dietas, asignación de macronutrientes y comidas está disponible únicamente para suscriptores del Plan Elite de FitLeader.
+                                </p>
+                                <Button onClick={() => navigate('/dashboard/settings')} className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-400 hover:to-blue-400 text-black text-xs font-black py-2 px-6">
+                                    Mejorar a Plan Elite
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* Objetivos de Macronutrientes */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                                        <label className="text-[10px] text-zinc-400 font-bold block mb-1">Calorías Diarias (kcal)</label>
+                                        <input
+                                            type="number"
+                                            value={dailyCalories}
+                                            onChange={(e) => setDailyCalories(parseInt(e.target.value) || 0)}
+                                            className="w-full bg-zinc-950 border border-zinc-800 text-sm text-white font-bold rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+                                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                                        <label className="text-[10px] text-zinc-400 font-bold block mb-1">Proteínas (g)</label>
+                                        <input
+                                            type="number"
+                                            value={dailyProtein}
+                                            onChange={(e) => setDailyProtein(parseInt(e.target.value) || 0)}
+                                            className="w-full bg-zinc-950 border border-zinc-800 text-sm text-white font-bold rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+                                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                                        <label className="text-[10px] text-zinc-400 font-bold block mb-1">Carbohidratos (g)</label>
+                                        <input
+                                            type="number"
+                                            value={dailyCarbs}
+                                            onChange={(e) => setDailyCarbs(parseInt(e.target.value) || 0)}
+                                            className="w-full bg-zinc-950 border border-zinc-800 text-sm text-white font-bold rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+                                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                                        <label className="text-[10px] text-zinc-400 font-bold block mb-1">Grasas (g)</label>
+                                        <input
+                                            type="number"
+                                            value={dailyFat}
+                                            onChange={(e) => setDailyFat(parseInt(e.target.value) || 0)}
+                                            className="w-full bg-zinc-950 border border-zinc-800 text-sm text-white font-bold rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="text-[11px] text-zinc-500 bg-zinc-950 p-3 rounded-lg border border-zinc-900/50 flex justify-between">
+                                    <span>Macros calculados: <strong className="text-zinc-300">{(dailyProtein * 4) + (dailyCarbs * 4) + (dailyFat * 9)} kcal</strong></span>
+                                    <span>Objetivo fijado: <strong className="text-emerald-400">{dailyCalories} kcal</strong></span>
+                                </div>
+
+                                {/* Comidas */}
+                                <div className="space-y-4 pt-4 border-t border-zinc-800">
+                                    <div className="flex justify-between items-center">
+                                        <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                                            <Utensils className="w-4 h-4 text-emerald-400" /> Distribución de Comidas
+                                        </h4>
+                                        <Button 
+                                            onClick={() => {
+                                                const newMeal = {
+                                                    id: `temp-${Date.now()}`,
+                                                    meal_name: 'Nueva Comida',
+                                                    meal_time: '12:00',
+                                                    items: []
+                                                };
+                                                setMeals([...meals, newMeal]);
+                                            }}
+                                            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 hover:text-white text-xs py-1.5 px-3"
+                                        >
+                                            + Añadir Comida
+                                        </Button>
+                                    </div>
+
+                                    {meals.length === 0 ? (
+                                        <div className="p-8 text-center text-xs text-zinc-500 bg-zinc-900/30 rounded-2xl border border-dashed border-zinc-800">
+                                            Sin comidas en este plan nutricional. ¡Pulsa "+ Añadir Comida" para empezar!
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {meals.map((meal, index) => (
+                                                <MealCard
+                                                    key={meal.id}
+                                                    meal={meal}
+                                                    index={index}
+                                                    onUpdateHeader={(idx, name, time) => {
+                                                        setMeals(prev => prev.map((m, i) => i === idx ? { ...m, meal_name: name, meal_time: time } : m));
+                                                    }}
+                                                    onDeleteItem={(mIdx, iIdx) => {
+                                                        setMeals(prev => prev.map((m, i) => {
+                                                            if (i === mIdx) {
+                                                                return {
+                                                                    ...m,
+                                                                    items: (m.items || []).filter((_: any, j: number) => j !== iIdx)
+                                                                };
+                                                            }
+                                                            return m;
+                                                        }));
+                                                    }}
+                                                    onAddItem={(mIdx, item) => {
+                                                        setMeals(prev => prev.map((m, i) => {
+                                                            if (i === mIdx) {
+                                                                return {
+                                                                    ...m,
+                                                                    items: [...(m.items || []), item]
+                                                                };
+                                                            }
+                                                            return m;
+                                                        }));
+                                                    }}
+                                                    onDeleteMeal={(idx) => {
+                                                        setMeals(prev => prev.filter((_, i) => i !== idx));
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Notas del Entrenador */}
+                                <div className="space-y-2 pt-4 border-t border-zinc-800">
+                                    <label className="text-xs font-bold text-white">Notas e Indicaciones de Nutrición</label>
+                                    <textarea
+                                        value={nutritionNotes}
+                                        onChange={(e) => setNutritionNotes(e.target.value)}
+                                        className="w-full bg-zinc-900 border border-zinc-800 text-xs text-white rounded-xl p-3 h-24 focus:outline-none focus:border-emerald-500 placeholder:text-zinc-600"
+                                        placeholder="Pautas de hidratación, recomendaciones de suplementación..."
+                                    />
+                                </div>
+
+                                {/* Botón Guardar */}
+                                <div className="flex justify-end pt-4 border-t border-zinc-800">
+                                    <Button 
+                                        onClick={handleSaveNutritionPlan} 
+                                        disabled={isSavingNutrition} 
+                                        className="bg-emerald-500 hover:bg-emerald-600 text-black font-black px-8 py-2.5 text-xs shadow-lg shadow-emerald-500/10"
+                                    >
+                                        {isSavingNutrition ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Guardar Plan Nutricional'}
+                                    </Button>
+                                </div>
+
+                                {/* Historial de Registros Diarios */}
+                                {nutritionLogs.length > 0 && (
+                                    <div className="space-y-4 pt-6 border-t border-zinc-800">
+                                        <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                                            <TrendingUp className="w-4 h-4 text-emerald-400" /> Registro Diario del Atleta (Últimos 7 días)
+                                        </h4>
+                                        <div className="bg-zinc-950 border border-zinc-900 rounded-2xl overflow-hidden">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left text-xs">
+                                                    <thead>
+                                                        <tr className="bg-zinc-900/50 border-b border-zinc-800/80 text-zinc-400">
+                                                            <th className="p-3">Fecha</th>
+                                                            <th className="p-3 text-right">Calorías</th>
+                                                            <th className="p-3 text-right">Proteínas</th>
+                                                            <th className="p-3 text-right">Carbos</th>
+                                                            <th className="p-3 text-right">Grasas</th>
+                                                            <th className="p-3 text-right">Agua</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-zinc-900 text-zinc-300">
+                                                        {nutritionLogs.map((log) => (
+                                                            <tr key={log.id} className="hover:bg-zinc-900/10">
+                                                                <td className="p-3 font-semibold">{new Date(log.date).toLocaleDateString([], { day: 'numeric', month: 'short' })}</td>
+                                                                <td className="p-3 text-right text-emerald-400 font-bold">{log.calories} kcal</td>
+                                                                <td className="p-3 text-right">{log.protein}g</td>
+                                                                <td className="p-3 text-right">{log.carbs}g</td>
+                                                                <td className="p-3 text-right">{log.fat}g</td>
+                                                                <td className="p-3 text-right text-blue-400 font-medium">{log.water_ml} ml</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* PESTAÑA 6: CHAT DIRECTO */}
+                {activeTab === 'chat' && (
+                    <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-zinc-800/60">
+                            <div>
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <MessageSquare className="w-5 h-5 text-emerald-400" /> Chat con {client?.name}
+                                </h3>
+                                <p className="text-xs text-zinc-400">Comunícate en tiempo real y haz seguimiento.</p>
+                            </div>
+                        </div>
+
+                        {coachPlan !== 'elite' ? (
+                            <div className="py-16 text-center max-w-sm mx-auto flex flex-col items-center">
+                                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl mb-4">
+                                    <Lock className="w-8 h-8" />
+                                </div>
+                                <h4 className="text-md font-bold text-white mb-2">Sección Exclusiva Plan Elite</h4>
+                                <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
+                                    La mensajería instantánea directa con tus clientes está disponible únicamente para suscriptores del Plan Elite de FitLeader.
+                                </p>
+                                <Button onClick={() => navigate('/dashboard/settings')} className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-400 hover:to-blue-400 text-black text-xs font-black py-2 px-6">
+                                    Mejorar a Plan Elite
+                                </Button>
+                            </div>
+                        ) : (
+                             <ClientProfileChat coachId={coachId || ''} clientId={client?.id} clientName={client?.name || 'Atleta'} coachName={coachName} />
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* --- MODAL PARA ASIGNAR RUTINAS AL DÍA --- */}
@@ -813,3 +1198,366 @@ const ClientProfile = () => {
 };
 
 export default ClientProfile;
+
+// ==========================================
+// SUBCOMPONENTE: FICHA DE COMIDA INDIVIDUAL
+// ==========================================
+const MealCard = ({ 
+    meal, 
+    index, 
+    onUpdateHeader, 
+    onDeleteItem, 
+    onAddItem, 
+    onDeleteMeal 
+}: { 
+    meal: any, 
+    index: number, 
+    onUpdateHeader: (index: number, name: string, time: string) => void, 
+    onDeleteItem: (mealIndex: number, itemIndex: number) => void, 
+    onAddItem: (mealIndex: number, item: any) => void, 
+    onDeleteMeal: (index: number) => void 
+}) => {
+    const [itemName, setItemName] = useState('');
+    const [itemQty, setItemQty] = useState('');
+    const [itemUnit, setItemUnit] = useState('g');
+    const [itemKcal, setItemKcal] = useState('');
+    const [itemProt, setItemProt] = useState('');
+    const [itemCarb, setItemCarb] = useState('');
+    const [itemFat, setItemFat] = useState('');
+
+    const handleAdd = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!itemName.trim() || !itemQty) return;
+
+        const newItem = {
+            name: itemName.trim(),
+            qty: parseFloat(itemQty) || 0,
+            unit: itemUnit,
+            kcal: parseInt(itemKcal) || 0,
+            prot: parseInt(itemProt) || 0,
+            carb: parseInt(itemCarb) || 0,
+            fat: parseInt(itemFat) || 0
+        };
+
+        onAddItem(index, newItem);
+
+        // Reset
+        setItemName('');
+        setItemQty('');
+        setItemKcal('');
+        setItemProt('');
+        setItemCarb('');
+        setItemFat('');
+    };
+
+    return (
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-4 space-y-4">
+            <div className="flex flex-wrap gap-3 items-center justify-between">
+                <div className="flex gap-2 items-center flex-1 min-w-[200px]">
+                    <input
+                        type="text"
+                        value={meal.meal_name}
+                        onChange={(e) => onUpdateHeader(index, e.target.value, meal.meal_time)}
+                        className="bg-transparent text-sm font-bold text-white border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:outline-none py-0.5 px-1 w-32"
+                        placeholder="Nombre comida"
+                    />
+                    <input
+                        type="time"
+                        value={meal.meal_time}
+                        onChange={(e) => onUpdateHeader(index, meal.meal_name, e.target.value)}
+                        className="bg-zinc-800 text-xs text-zinc-300 rounded px-1.5 py-0.5 border border-zinc-700 focus:outline-none"
+                    />
+                </div>
+                <button 
+                    onClick={() => onDeleteMeal(index)}
+                    className="text-zinc-500 hover:text-red-400 text-xs flex items-center gap-1 transition-colors"
+                >
+                    <Trash2 className="w-3.5 h-3.5" /> Eliminar Comida
+                </button>
+            </div>
+
+            {/* Lista de Alimentos */}
+            <div className="space-y-1.5">
+                {(!meal.items || meal.items.length === 0) ? (
+                    <p className="text-[11px] text-zinc-500 italic">No hay alimentos en esta comida.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-zinc-850 text-[10px] text-zinc-550 font-semibold">
+                                    <th className="py-1 pr-2 text-zinc-500">Alimento</th>
+                                    <th className="py-1 px-2 text-right text-zinc-500">Cant.</th>
+                                    <th className="py-1 px-2 text-right text-zinc-500">Kcal</th>
+                                    <th className="py-1 px-2 text-right text-zinc-500">Prot</th>
+                                    <th className="py-1 px-2 text-right text-zinc-500">Carb</th>
+                                    <th className="py-1 px-2 text-right text-zinc-500">Grasa</th>
+                                    <th className="py-1 pl-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-800/40 text-[11px]">
+                                {meal.items.map((item: any, itemIdx: number) => (
+                                    <tr key={itemIdx} className="text-zinc-300">
+                                        <td className="py-1.5 pr-2 font-medium">{item.name}</td>
+                                        <td className="py-1.5 px-2 text-right text-zinc-400">{item.qty}{item.unit}</td>
+                                        <td className="py-1.5 px-2 text-right text-emerald-400 font-medium">{item.kcal} kcal</td>
+                                        <td className="py-1.5 px-2 text-right text-red-400">{item.prot}g</td>
+                                        <td className="py-1.5 px-2 text-right text-blue-400">{item.carb}g</td>
+                                        <td className="py-1.5 px-2 text-right text-yellow-400">{item.fat}g</td>
+                                        <td className="py-1.5 pl-2 text-right">
+                                            <button 
+                                                onClick={() => onDeleteItem(index, itemIdx)}
+                                                className="text-zinc-650 hover:text-red-400 transition-colors"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Formulario Añadir Alimento */}
+            <form onSubmit={handleAdd} className="pt-2 border-t border-zinc-800/40 flex flex-wrap gap-2 items-end">
+                <div className="flex-1 min-w-[120px] space-y-1">
+                    <label className="text-[9px] text-zinc-500 font-medium block">Alimento</label>
+                    <input
+                        type="text"
+                        placeholder="Ej. Pollo a la plancha"
+                        value={itemName}
+                        onChange={(e) => setItemName(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-800 text-[11px] text-white rounded px-2 py-1 focus:outline-none focus:border-zinc-700"
+                    />
+                </div>
+                <div className="w-16 space-y-1">
+                    <label className="text-[9px] text-zinc-500 font-medium block">Cant.</label>
+                    <input
+                        type="number"
+                        placeholder="100"
+                        value={itemQty}
+                        onChange={(e) => setItemQty(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-800 text-[11px] text-white rounded px-2 py-1 focus:outline-none focus:border-zinc-700 text-right"
+                    />
+                </div>
+                <div className="w-14 space-y-1">
+                    <label className="text-[9px] text-zinc-500 font-medium block">Unidad</label>
+                    <select
+                        value={itemUnit}
+                        onChange={(e) => setItemUnit(e.target.value)}
+                        className="w-full bg-zinc-955 border border-zinc-800 text-[11px] text-white rounded px-1 py-1 focus:outline-none focus:border-zinc-700"
+                    >
+                        <option value="g">g</option>
+                        <option value="ml">ml</option>
+                        <option value="uds">uds</option>
+                    </select>
+                </div>
+                <div className="w-14 space-y-1">
+                    <label className="text-[9px] text-zinc-500 font-medium block">Kcal</label>
+                    <input
+                        type="number"
+                        placeholder="120"
+                        value={itemKcal}
+                        onChange={(e) => setItemKcal(e.target.value)}
+                        className="w-full bg-zinc-955 border border-zinc-800 text-[11px] text-white rounded px-2 py-1 focus:outline-none focus:border-zinc-700 text-right"
+                    />
+                </div>
+                <div className="w-12 space-y-1">
+                    <label className="text-[9px] text-zinc-500 font-medium block">P (g)</label>
+                    <input
+                        type="number"
+                        placeholder="22"
+                        value={itemProt}
+                        onChange={(e) => setItemProt(e.target.value)}
+                        className="w-full bg-zinc-955 border border-zinc-800 text-[11px] text-white rounded px-2 py-1 focus:outline-none focus:border-zinc-700 text-right"
+                    />
+                </div>
+                <div className="w-12 space-y-1">
+                    <label className="text-[9px] text-zinc-500 font-medium block">C (g)</label>
+                    <input
+                        type="number"
+                        placeholder="0"
+                        value={itemCarb}
+                        onChange={(e) => setItemCarb(e.target.value)}
+                        className="w-full bg-zinc-955 border border-zinc-800 text-[11px] text-white rounded px-2 py-1 focus:outline-none focus:border-zinc-700 text-right"
+                    />
+                </div>
+                <div className="w-12 space-y-1">
+                    <label className="text-[9px] text-zinc-500 font-medium block">G (g)</label>
+                    <input
+                        type="number"
+                        placeholder="2"
+                        value={itemFat}
+                        onChange={(e) => setItemFat(e.target.value)}
+                        className="w-full bg-zinc-955 border border-zinc-800 text-[11px] text-white rounded px-2 py-1 focus:outline-none focus:border-zinc-700 text-right"
+                    />
+                </div>
+                <Button 
+                    type="submit"
+                    className="bg-zinc-800 hover:bg-zinc-700 text-[11px] font-bold py-1 px-3 h-7 rounded shrink-0 border border-zinc-700"
+                >
+                    + Add
+                </Button>
+            </form>
+        </div>
+    );
+};
+
+// ==========================================
+// SUBCOMPONENTE: CHAT DIRECTO CON UN CLIENTE
+// ==========================================
+const ClientProfileChat = ({ coachId, clientId, clientName, coachName }: { coachId: string, clientId: number, clientName: string, coachName: string }) => {
+    const [messages, setMessages] = useState<any[]>([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [isSending, setIsSending] = useState(false);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+
+    // Cargar mensajes
+    useEffect(() => {
+        const fetchMessages = async () => {
+            const { data } = await supabase
+                .from('chat_messages')
+                .select('*')
+                .eq('coach_id', coachId)
+                .eq('client_id', clientId)
+                .order('created_at', { ascending: true });
+            if (data) {
+                setMessages(data);
+                scrollToBottom();
+                
+                // Marcar como leídos
+                await supabase
+                    .from('chat_messages')
+                    .update({ is_read: true })
+                    .eq('coach_id', coachId)
+                    .eq('client_id', clientId)
+                    .eq('sender', 'client')
+                    .eq('is_read', false);
+            }
+        };
+        fetchMessages();
+    }, [coachId, clientId]);
+
+    // Escuchar mensajes nuevos en tiempo real
+    useEffect(() => {
+        const channel = supabase
+            .channel(`client_profile_chat_${clientId}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'chat_messages',
+                filter: `coach_id=eq.${coachId}`
+            }, (payload) => {
+                const newMsg = payload.new;
+                if (newMsg.client_id === clientId) {
+                    setMessages(prev => {
+                        if (prev.some(m => m.id === newMsg.id)) return prev;
+                        return [...prev, newMsg];
+                    });
+                    scrollToBottom();
+                    
+                    // Marcar como leído si viene del cliente
+                    if (newMsg.sender === 'client') {
+                        supabase.from('chat_messages').update({ is_read: true }).eq('id', newMsg.id).then();
+                    }
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [coachId, clientId]);
+
+    const scrollToBottom = () => {
+        setTimeout(() => {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 50);
+    };
+
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newMessage.trim() || isSending) return;
+
+        setIsSending(true);
+        const text = newMessage.trim();
+        setNewMessage('');
+
+        const { data, error } = await supabase
+            .from('chat_messages')
+            .insert({
+                coach_id: coachId,
+                client_id: clientId,
+                sender: 'coach',
+                message: text,
+                is_read: false
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error("Error sending message:", error);
+            setNewMessage(text);
+        } else if (data) {
+            setMessages(prev => [...prev, data]);
+            scrollToBottom();
+
+            // Enviar notificación Push al atleta
+            sendPushNotification(
+                null,
+                clientId,
+                coachName || "Tu Entrenador",
+                text,
+                '/client-app' // la app cliente entra a su portal/chat
+            ).catch(console.error);
+        }
+        setIsSending(false);
+    };
+
+    return (
+        <div className="flex flex-col h-[400px] border border-zinc-800 bg-[#0d0d0f] rounded-xl overflow-hidden">
+            {/* Mensajes */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {messages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center text-zinc-550 opacity-60">
+                        <MessageCircle className="w-8 h-8 mb-2" />
+                        <p className="text-xs">No hay mensajes. ¡Escribe el primero!</p>
+                    </div>
+                ) : (
+                    messages.map((msg) => {
+                        const isCoach = msg.sender === 'coach';
+                        const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        return (
+                            <div key={msg.id} className={`flex ${isCoach ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`p-3 rounded-2xl text-xs max-w-[80%] ${
+                                    isCoach ? 'bg-emerald-500 text-black rounded-tr-none' : 'bg-zinc-800 text-zinc-100 rounded-tl-none border border-zinc-700/40'
+                                }`}>
+                                    <p className="whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                                    <span className={`block text-[9px] mt-1 text-right ${isCoach ? 'text-black/60' : 'text-zinc-500'}`}>
+                                        {time}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+                <div ref={chatEndRef} />
+            </div>
+
+            {/* Input */}
+            <form onSubmit={handleSend} className="p-3 border-t border-zinc-850 bg-[#070708] flex gap-2">
+                <input
+                    type="text"
+                    placeholder={`Enviar mensaje a ${clientName.split(' ')[0]}...`}
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    className="flex-1 bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500/50"
+                />
+                <Button type="submit" disabled={!newMessage.trim() || isSending} className="bg-emerald-500 text-black hover:bg-emerald-400 font-bold px-3 py-2 rounded-lg">
+                    <Send className="w-4.5 h-4.5" />
+                </Button>
+            </form>
+        </div>
+    );
+};

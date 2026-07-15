@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useParams, useNavigate } from 'react-router-dom';
+import { sendMarketplaceLeadEmail } from '../services/emailService';
+import { sendPushNotification } from '../services/pushNotificationService';
 import {
     ArrowLeft, MapPin, BadgeCheck, Dumbbell, Instagram,
     Send, CheckCircle2, AlertCircle, Loader2, Zap,
@@ -13,6 +15,7 @@ interface CoachProfile {
     id: string;
     first_name: string;
     last_name: string;
+    email: string;
     business_name: string;
     avatar_url: string;
     biography: string;
@@ -23,6 +26,9 @@ interface CoachProfile {
     instagram_handle: string;
     is_promoted_marketplace: boolean;
     plan: string;
+    age?: number;
+    height?: number;
+    experience_desc?: string;
 }
 
 const CoachProfile = () => {
@@ -49,7 +55,7 @@ const CoachProfile = () => {
             setLoading(true);
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, business_name, avatar_url, biography, specialties, hourly_rate, location_address, modality, instagram_handle, is_promoted_marketplace, plan')
+                .select('id, first_name, last_name, email, business_name, avatar_url, biography, specialties, hourly_rate, location_address, modality, instagram_handle, is_promoted_marketplace, plan, age, height, experience_desc')
                 .eq('id', id)
                 .eq('is_public_marketplace', true)
                 .single();
@@ -84,6 +90,28 @@ const CoachProfile = () => {
             }]);
 
             if (error) throw error;
+
+            // Enviar email de notificación al coach
+            if (coach && coach.email) {
+                sendMarketplaceLeadEmail(
+                    coach.email,
+                    name.trim(),
+                    email.trim(),
+                    phone.trim() || null,
+                    goals.trim() || null,
+                    experienceLevel || null
+                ).catch(console.error);
+            }
+
+            // Enviar notificación Push al coach
+            sendPushNotification(
+                id || null,
+                null,
+                "Nuevo Lead en Marketplace 🌟",
+                `${name.trim()} está interesado en entrenar contigo.`,
+                '/dashboard/clients?tab=marketplace'
+            ).catch(console.error);
+
             setFormStatus('success');
             setName(''); setEmail(''); setPhone(''); setGoals(''); setExperienceLevel('');
         } catch (err: any) {
@@ -201,6 +229,18 @@ const CoachProfile = () => {
                                         {coach.instagram_handle.startsWith('@') ? coach.instagram_handle : `@${coach.instagram_handle}`}
                                     </a>
                                 )}
+                                {coach.age && (
+                                    <span className="flex items-center gap-1.5 text-zinc-500">
+                                        <span>•</span>
+                                        <span className="text-zinc-400">{coach.age} años</span>
+                                    </span>
+                                )}
+                                {coach.height && (
+                                    <span className="flex items-center gap-1.5 text-zinc-500">
+                                        <span>•</span>
+                                        <span className="text-zinc-400">{coach.height} cm</span>
+                                    </span>
+                                )}
                             </div>
 
                             {coach.hourly_rate && (
@@ -226,8 +266,16 @@ const CoachProfile = () => {
                         {/* Bio */}
                         {coach.biography && (
                             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-                                <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">Sobre mí</h2>
+                                <h2 className="text-sm font-semibold text-zinc-400 tracking-wider mb-3 uppercase">Sobre mí</h2>
                                 <p className="text-zinc-300 leading-relaxed text-sm whitespace-pre-line">{coach.biography}</p>
+                            </div>
+                        )}
+
+                        {/* Experience */}
+                        {coach.experience_desc && (
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                                <h2 className="text-sm font-semibold text-zinc-400 tracking-wider mb-3 uppercase">Experiencia Profesional</h2>
+                                <p className="text-zinc-300 leading-relaxed text-sm whitespace-pre-line">{coach.experience_desc}</p>
                             </div>
                         )}
 

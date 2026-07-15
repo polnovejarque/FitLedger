@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; 
+import { useNavigate, useSearchParams } from 'react-router-dom'; 
 import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { 
@@ -11,6 +11,8 @@ import { Button } from '../components/ui/Button';
 
 const Clients = () => {
     const navigate = useNavigate(); 
+    const [searchParams] = useSearchParams();
+    const tabParam = searchParams.get('tab');
     
     // ESTADOS
     const [clients, setClients] = useState<any[]>([]); 
@@ -19,7 +21,18 @@ const Clients = () => {
 
     // Filtros y Búsqueda
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeTab, setActiveTab] = useState<'active' | 'lead' | 'marketplace'>('active');
+    const [activeTab, setActiveTab] = useState<'active' | 'lead' | 'marketplace'>(
+        tabParam === 'marketplace' ? 'marketplace' : tabParam === 'lead' ? 'lead' : 'active'
+    );
+    
+    useEffect(() => {
+        if (tabParam === 'marketplace') {
+            setActiveTab('marketplace');
+        } else if (tabParam === 'lead') {
+            setActiveTab('lead');
+        }
+    }, [tabParam]);
+
     const [userRole, setUserRole] = useState<string | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [onlyAssigned, setOnlyAssigned] = useState(false);

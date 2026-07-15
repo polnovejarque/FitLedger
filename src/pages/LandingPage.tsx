@@ -10,8 +10,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
-import confetti from 'canvas-confetti';
+
 
 const faqs = [
     {
@@ -51,14 +50,10 @@ const Landing = () => {
     const [hoveredFeature, setHoveredFeature] = useState<number | null>(0);
     const [activePhoneTab, setActivePhoneTab] = useState<'inicio' | 'rutina' | 'racha' | 'progreso'>('inicio');
 
-    // Estados para la solicitud de demo de SaaS
-    const [demoModalOpen, setDemoModalOpen] = useState(false);
-    const [demoName, setDemoName] = useState('');
-    const [demoEmail, setDemoEmail] = useState('');
-    const [demoPhone, setDemoPhone] = useState('');
-    const [demoBusiness, setDemoBusiness] = useState('');
-    const [demoSubmitted, setDemoSubmitted] = useState(false);
-    const [isSubmittingDemo, setIsSubmittingDemo] = useState(false);
+    // Enlace a Calendly para agendar llamadas
+    const handleDemoClick = () => {
+        window.open('https://calendly.com/fitleaderapp/demo', '_blank');
+    };
 
     // Scroll al cambiar de vista
     useEffect(() => {
@@ -73,36 +68,7 @@ const Landing = () => {
         }
     };
 
-    const handleDemoSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!demoName.trim() || !demoEmail.trim()) return;
 
-        setIsSubmittingDemo(true);
-        try {
-            const { error } = await supabase.from('marketplace_leads').insert([{
-                coach_id: null,
-                name: demoName.trim(),
-                email: demoEmail.trim(),
-                phone: demoPhone.trim() || null,
-                goals: `Solicitud de Demo SaaS - Negocio: ${demoBusiness.trim() || 'N/A'}`,
-                experience_level: 'SaaS Demo',
-                status: 'new',
-            }]);
-
-            if (error) throw error;
-
-            setDemoSubmitted(true);
-            confetti({
-                particleCount: 120,
-                spread: 80,
-                origin: { y: 0.6 }
-            });
-        } catch (err) {
-            console.error('Error submitting demo:', err);
-        } finally {
-            setIsSubmittingDemo(false);
-        }
-    };
 
     return (
         <div className="min-h-screen bg-[#0c0c0c] text-white font-sans selection:bg-emerald-500/30 selection:text-white overflow-x-hidden relative">
@@ -183,7 +149,7 @@ const Landing = () => {
                             Iniciar Sesión
                         </button>
                         <button
-                            onClick={() => setDemoModalOpen(true)}
+                            onClick={handleDemoClick}
                             className="btn-apple-pill btn-apple-pill-green shadow-[0_0_20px_rgba(16,185,129,0.3)] !py-2 !px-5 !text-xs"
                         >
                             Solicitar Demo
@@ -229,7 +195,7 @@ const Landing = () => {
                             <button onClick={() => { setMobileMenuOpen(false); navigate('/auth'); }} className="w-full text-sm font-bold text-white border border-zinc-800 rounded-lg px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer bg-transparent">
                                 Iniciar Sesión
                             </button>
-                            <button onClick={() => { setMobileMenuOpen(false); setDemoModalOpen(true); }} className="w-full text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg px-4 py-3 transition-colors cursor-pointer border-none">
+                            <button onClick={() => { setMobileMenuOpen(false); handleDemoClick(); }} className="w-full text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg px-4 py-3 transition-colors cursor-pointer border-none">
                                 Solicitar Demo
                             </button>
                         </div>
@@ -363,7 +329,7 @@ const Landing = () => {
                                     </p>
                                     <div className="pt-4 flex flex-col sm:flex-row justify-center items-center gap-4">
                                         <button 
-                                            onClick={() => setDemoModalOpen(true)} 
+                                            onClick={handleDemoClick} 
                                             className="btn-apple-pill btn-apple-pill-green shadow-[0_0_30px_rgba(16,185,129,0.35)] text-base px-8 py-4"
                                         >
                                             Agendar Llamada de Explicación
@@ -412,7 +378,7 @@ const Landing = () => {
                                         {/* Barra lateral */}
                                         <div className="col-span-3 border-r border-white/5 bg-black/20 p-4 flex flex-col justify-between">
                                             <div className="space-y-6">
-                                                <button onClick={() => setDemoModalOpen(true)} className="w-full rounded-xl bg-white text-black text-xs font-bold py-2.5 px-4 flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors">
+                                                <button onClick={handleDemoClick} className="w-full rounded-xl bg-white text-black text-xs font-bold py-2.5 px-4 flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors">
                                                     <Sparkles className="w-3.5 h-3.5" /> Nueva Rutina
                                                 </button>
                                                 
@@ -539,7 +505,7 @@ const Landing = () => {
                                                     className="flex-1 bg-[#111] border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-650 outline-none"
                                                     readOnly
                                                 />
-                                                <Button onClick={() => setDemoModalOpen(true)} className="bg-emerald-500 text-black py-2 px-3 text-xs font-bold rounded-lg hover:bg-emerald-400">
+                                                <Button onClick={handleDemoClick} className="bg-emerald-500 text-black py-2 px-3 text-xs font-bold rounded-lg hover:bg-emerald-400">
                                                     Enviar
                                                 </Button>
                                             </div>
@@ -673,7 +639,7 @@ const Landing = () => {
                                                         {/* Botón dinámico */}
                                                         <div className="mt-6 relative z-10">
                                                             <button
-                                                                onClick={() => setDemoModalOpen(true)}
+                                                                onClick={handleDemoClick}
                                                                 className={`w-full h-10 text-xs font-bold rounded-xl transition-all duration-300 ${
                                                                     isActive 
                                                                         ? `bg-gradient-to-r ${feat.colorTheme} text-black opacity-100 shadow-md` 
@@ -1253,7 +1219,7 @@ const Landing = () => {
                                                     ))}
                                                 </ul>
                                                 <button
-                                                    onClick={() => setDemoModalOpen(true)}
+                                                    onClick={handleDemoClick}
                                                     className="mt-2 w-full h-11 bg-gradient-to-r from-emerald-500 to-teal-500 text-black text-xs font-black rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-emerald-500/20"
                                                 >
                                                     Solicitar Demo Gratuita →
@@ -1403,7 +1369,7 @@ const Landing = () => {
 
                                                         {/* CTA */}
                                                         <button
-                                                            onClick={() => setDemoModalOpen(true)}
+                                                            onClick={handleDemoClick}
                                                             className={`w-full h-11 bg-gradient-to-r ${plan.accentFrom} ${plan.accentTo} text-black text-xs font-black rounded-xl hover:opacity-90 transition-opacity shadow-lg mt-2`}
                                                         >
                                                             Reservar Demo →
@@ -1521,7 +1487,7 @@ const Landing = () => {
 
                                                         {/* CTA */}
                                                         <button
-                                                            onClick={() => setDemoModalOpen(true)}
+                                                            onClick={handleDemoClick}
                                                             className={`w-full h-11 bg-gradient-to-r ${plan.accentFrom} ${plan.accentTo} text-black text-xs font-black rounded-xl hover:opacity-90 transition-opacity shadow-lg mt-2`}
                                                         >
                                                             Reservar Demo →
@@ -1861,10 +1827,10 @@ const Landing = () => {
                         La plataforma líder que une la gestión profesional de tu negocio fitness con el mercado B2C y B2B.
                     </p>
                     <div className="pt-4">
-                        <button 
-                            onClick={() => setDemoModalOpen(true)}
-                            className="btn-apple-pill btn-apple-pill-green shadow-[0_0_40px_rgba(16,185,129,0.35)] text-lg px-10 py-5 font-black uppercase tracking-wide hover:scale-105 transition-transform duration-300"
-                        >
+                                                <button 
+                                                    onClick={handleDemoClick}
+                                                    className="btn-apple-pill btn-apple-pill-green shadow-[0_0_40px_rgba(16,185,129,0.35)] text-lg px-10 py-5 font-black uppercase tracking-wide hover:scale-105 transition-transform duration-300"
+                                                >
                             Agendar Llamada de Asesoría <ArrowRight className="w-6 h-6 ml-2" />
                         </button>
                     </div>
@@ -1885,124 +1851,7 @@ const Landing = () => {
                     </div>
                     <p>© {new Date().getFullYear()} FitLeader. Todos los derechos reservados.</p>
                 </div>
-            </footer>
-
-            {/* --- MODAL DE SOLICITUD DE LLAMADA / DEMO (B2B SaaS) --- */}
-            <AnimatePresence>
-                {demoModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#0c0c0e]/95 border border-zinc-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative backdrop-blur-xl"
-                        >
-                            {/* Cierre */}
-                            <button
-                                onClick={() => {
-                                    setDemoModalOpen(false);
-                                    setDemoSubmitted(false);
-                                    setDemoName(''); setDemoEmail(''); setDemoPhone(''); setDemoBusiness('');
-                                }}
-                                className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer bg-transparent border-none animate-pulse"
-                                aria-label="Cerrar modal"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-
-                            <div className="p-8 space-y-6">
-                                {!demoSubmitted ? (
-                                    <>
-                                        <div className="space-y-2 text-left">
-                                            <span className="text-[10px] uppercase font-extrabold tracking-widest text-emerald-450 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">ASESORÍA PERSONALIZADA</span>
-                                            <h3 className="text-2xl font-black text-white pt-2">Reserva tu Demo / Llamada de Explicación</h3>
-                                            <p className="text-zinc-400 text-sm leading-relaxed">
-                                                Déjanos tus datos de contacto y un especialista de FitLeader te llamará para mostrarte la plataforma y resolver tus dudas sin compromiso.
-                                            </p>
-                                        </div>
-
-                                        <form onSubmit={handleDemoSubmit} className="space-y-4 text-left">
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-zinc-300">Nombre Completo</label>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    value={demoName}
-                                                    onChange={(e) => setDemoName(e.target.value)}
-                                                    placeholder="Ej: Pol Novejarque"
-                                                    className="w-full bg-[#111]/80 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-650 outline-none transition-colors"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-zinc-300">Correo Electrónico</label>
-                                                <input
-                                                    type="email"
-                                                    required
-                                                    value={demoEmail}
-                                                    onChange={(e) => setDemoEmail(e.target.value)}
-                                                    placeholder="Ej: tuemail@negocio.com"
-                                                    className="w-full bg-[#111]/80 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-650 outline-none transition-colors"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-zinc-300">Teléfono (WhatsApp)</label>
-                                                <input
-                                                    type="tel"
-                                                    value={demoPhone}
-                                                    onChange={(e) => setDemoPhone(e.target.value)}
-                                                    placeholder="Ej: +34 600 000 000"
-                                                    className="w-full bg-[#111]/80 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-650 outline-none transition-colors"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-zinc-300">Nombre de tu Negocio / Gimnasio</label>
-                                                <input
-                                                    type="text"
-                                                    value={demoBusiness}
-                                                    onChange={(e) => setDemoBusiness(e.target.value)}
-                                                    placeholder="Ej: FitLife Studio"
-                                                    className="w-full bg-[#111]/80 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-650 outline-none transition-colors"
-                                                />
-                                            </div>
-
-                                            <Button
-                                                type="submit"
-                                                disabled={isSubmittingDemo}
-                                                className="w-full h-12 bg-emerald-500 text-black hover:bg-emerald-400 font-bold rounded-xl shadow-lg shadow-emerald-500/10 mt-6"
-                                            >
-                                                {isSubmittingDemo ? 'Enviando solicitud...' : 'Solicitar Llamada de Explicación'}
-                                            </Button>
-                                        </form>
-                                    </>
-                                ) : (
-                                    <div className="text-center py-8 space-y-4">
-                                        <div className="w-16 h-16 bg-emerald-500/15 rounded-full border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
-                                            <CheckCircle2 className="w-8 h-8" />
-                                        </div>
-                                        <h3 className="text-2xl font-black text-white">¡Solicitud recibida!</h3>
-                                        <p className="text-zinc-400 text-sm leading-relaxed max-w-sm mx-auto">
-                                            Gracias, {demoName}. Hemos registrado tu solicitud para agendar la llamada. Un especialista se pondrá en contacto contigo muy pronto.
-                                        </p>
-                                        <Button
-                                            onClick={() => {
-                                                setDemoModalOpen(false);
-                                                setDemoSubmitted(false);
-                                                setDemoName(''); setDemoEmail(''); setDemoPhone(''); setDemoBusiness('');
-                                            }}
-                                            className="bg-zinc-800 hover:bg-zinc-700 text-white font-bold h-11 text-xs px-6 rounded-xl mt-4"
-                                        >
-                                            Cerrar
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            </footer>            
         </div>
     );
 };

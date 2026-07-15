@@ -52,7 +52,7 @@ const Landing = () => {
 
     // Enlace a Calendly para agendar llamadas
     const handleDemoClick = () => {
-        window.open('https://calendly.com/fitleaderapp/demo', '_blank');
+        window.open('https://calendly.com/fitleader', '_blank');
     };
 
     // Scroll al cambiar de vista

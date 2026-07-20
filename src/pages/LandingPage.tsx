@@ -145,6 +145,9 @@ const Landing = () => {
 
                     {/* Acciones desktop */}
                     <div className="hidden md:flex items-center gap-4">
+                        <button onClick={() => navigate('/client-app')} className="text-sm font-medium text-zinc-400 hover:text-emerald-400 transition-colors px-4 py-2 cursor-pointer bg-transparent border-none">
+                            Acceso Atleta
+                        </button>
                         <button onClick={() => navigate('/auth')} className="text-sm font-bold text-white hover:text-emerald-400 transition-colors px-4 py-2 cursor-pointer bg-transparent border-none">
                             Iniciar Sesión
                         </button>
@@ -192,8 +195,11 @@ const Landing = () => {
                             </>
                         )}
                         <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+                            <button onClick={() => { setMobileMenuOpen(false); navigate('/client-app'); }} className="w-full text-sm font-bold text-zinc-400 border border-zinc-800 rounded-lg px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer bg-transparent">
+                                Acceso Atleta
+                            </button>
                             <button onClick={() => { setMobileMenuOpen(false); navigate('/auth'); }} className="w-full text-sm font-bold text-white border border-zinc-800 rounded-lg px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer bg-transparent">
-                                Iniciar Sesión
+                                Iniciar Sesión (Coach)
                             </button>
                             <button onClick={() => { setMobileMenuOpen(false); handleDemoClick(); }} className="w-full text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg px-4 py-3 transition-colors cursor-pointer border-none">
                                 Solicitar Demo

@@ -13,11 +13,16 @@ const Auth = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
+    const [userType, setUserType] = useState<'coach' | 'athlete'>('coach');
 
-    // Si llega con ?mode=register (desde CTAs de la landing), abre directamente en registro
+    // Inicializar estados con searchParams
     useEffect(() => {
         if (searchParams.get('mode') === 'register') {
             setIsLogin(false);
+        }
+        if (searchParams.get('role') === 'athlete') {
+            setUserType('athlete');
+            setIsLogin(true);
         }
     }, [searchParams]);
     
@@ -32,18 +37,51 @@ const Auth = () => {
         setMessage(null);
 
         try {
-            if (isResetting) {
-                // ✅ Lógica de recuperación de contraseña
+            if (isResetting && userType === 'coach') {
+                // ✅ Lógica de recuperación de contraseña (solo Coach)
                 const { error } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo: `${window.location.origin}/update-password`,
                 });
                 if (error) throw error;
                 setMessage("Te hemos enviado un enlace para recuperar tu contraseña. Revisa tu bandeja de entrada.");
             } else if (isLogin) {
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) throw error;
-                navigate('/dashboard'); 
+                if (userType === 'athlete') {
+                    // ✅ Lógica de inicio de sesión de Atleta (Email + Código de Acceso como password)
+                    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                        email: email.trim(),
+                        password: password.trim(),
+                    });
+
+                    if (authError || !authData.user) {
+                        throw new Error('Email o código de acceso incorrectos.');
+                    }
+
+                    // Buscamos sus datos en la tabla clients
+                    const { data: client, error: queryError } = await supabase
+                        .from('clients')
+                        .select('*')
+                        .ilike('email', email.trim())
+                        .single();
+
+                    if (queryError || !client) {
+                        throw new Error('Tu cuenta no está vinculada a ningún entrenador.');
+                    }
+
+                    // Guardamos sesión del atleta
+                    localStorage.setItem('fit_client_email', client.email); 
+                    localStorage.setItem('fitleader_client_id', client.id);
+                    localStorage.setItem('fitleader_client_name', client.name);
+                    localStorage.setItem('fitleader_client_img', client.image_url || '');
+
+                    navigate('/client-app/home');
+                } else {
+                    // ✅ Lógica de inicio de sesión de Coach
+                    const { error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    navigate('/dashboard'); 
+                }
             } else {
+                // Registro (solo Coach)
                 const { data, error } = await supabase.auth.signUp({ email, password });
                 if (error) throw error;
                 
@@ -86,16 +124,53 @@ const Auth = () => {
             </button>
 
             <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="text-center mb-10">
+                <div className="text-center mb-8">
                     <div className="w-16 h-16 bg-zinc-900 rounded-2xl border border-zinc-800 flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-emerald-900/10">
                         <img src="/logo.png" alt="FitLeader" className="w-10 h-10 object-contain" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
-                        {isResetting ? 'Recupera tu acceso' : (isLogin ? 'Bienvenido de nuevo' : 'Crea tu cuenta')}
+                        {userType === 'athlete' ? 'Acceso Atletas' : (isResetting ? 'Recupera tu acceso' : (isLogin ? 'Bienvenido de nuevo' : 'Crea tu cuenta'))}
                     </h1>
                     <p className="text-zinc-400">
-                        {isResetting ? 'Te enviaremos un enlace seguro.' : (isLogin ? 'Gestiona tu negocio fitness.' : 'Prueba FitLeader gratis 14 días.')}
+                        {userType === 'athlete' ? 'Entra a tu plan de entrenamiento y nutrición.' : (isResetting ? 'Te enviaremos un enlace seguro.' : (isLogin ? 'Gestiona tu negocio fitness.' : 'Prueba FitLeader gratis 14 días.'))}
                     </p>
+                </div>
+
+                {/* Selector de tipo de usuario */}
+                <div className="flex bg-zinc-900/80 border border-zinc-800 rounded-2xl p-1 mb-6 max-w-xs mx-auto">
+                    <button
+                        type="button"
+                        onClick={() => { 
+                            setUserType('coach'); 
+                            setError(null); 
+                            setMessage(null); 
+                            setIsResetting(false);
+                        }}
+                        className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-300 ${
+                            userType === 'coach'
+                                ? 'bg-emerald-500 text-black shadow-lg'
+                                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        Entrenador
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { 
+                            setUserType('athlete'); 
+                            setError(null); 
+                            setMessage(null); 
+                            setIsLogin(true); 
+                            setIsResetting(false);
+                        }}
+                        className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-300 ${
+                            userType === 'athlete'
+                                ? 'bg-emerald-500 text-black shadow-lg'
+                                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        Atleta / Alumno
+                    </button>
                 </div>
 
                 <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-3xl backdrop-blur-xl">
@@ -132,8 +207,10 @@ const Auth = () => {
                         {!isResetting && (
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center ml-1">
-                                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Contraseña</label>
-                                    {isLogin && (
+                                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                                        {userType === 'athlete' ? 'Código de Acceso' : 'Contraseña'}
+                                    </label>
+                                    {isLogin && userType === 'coach' && (
                                         <button 
                                             type="button"
                                             onClick={() => { setIsResetting(true); setError(null); setMessage(null); }}
@@ -150,14 +227,14 @@ const Auth = () => {
                                         required={!isResetting}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full bg-black/50 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white focus:border-emerald-500 focus:bg-zinc-900/50 outline-none transition-all placeholder:text-zinc-700"
-                                        placeholder="••••••••••••"
+                                        className="w-full bg-black/50 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white focus:border-emerald-500 focus:bg-zinc-900/50 outline-none transition-all placeholder:text-zinc-700 font-mono tracking-wide"
+                                        placeholder={userType === 'athlete' ? "FIT-XXXX" : "••••••••••••"}
                                     />
                                 </div>
                             </div>
                         )}
 
-                        {!isLogin && !isResetting && (
+                        {!isLogin && !isResetting && userType === 'coach' && (
                             <div className="flex items-start gap-3 bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
                                 <input 
                                     type="checkbox" 
@@ -174,31 +251,37 @@ const Auth = () => {
                         )}
 
                         <Button className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-lg rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)]" disabled={loading}>
-                            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isResetting ? 'Enviar enlace' : (isLogin ? 'Entrar' : 'Crear Cuenta'))}
+                            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isResetting ? 'Enviar enlace' : (isLogin ? (userType === 'athlete' ? 'Entrar a la App' : 'Entrar') : 'Crear Cuenta'))}
                         </Button>
                     </form>
 
                     <div className="mt-8 text-center border-t border-white/5 pt-6">
-                        <p className="text-zinc-500 text-sm">
-                            {isResetting ? (
-                                <button 
-                                    onClick={() => { setIsResetting(false); setError(null); setMessage(null); }} 
-                                    className="text-emerald-500 font-bold hover:text-emerald-400 transition-colors ml-1"
-                                >
-                                    Volver a iniciar sesión
-                                </button>
-                            ) : (
-                                <>
-                                    {isLogin ? "¿Aún no tienes cuenta? " : "¿Ya eres miembro? "}
+                        {userType === 'athlete' ? (
+                            <p className="text-zinc-500 text-xs italic">
+                                ¿No tienes código de acceso? Pídeselo directamente a tu entrenador.
+                            </p>
+                        ) : (
+                            <p className="text-zinc-500 text-sm">
+                                {isResetting ? (
                                     <button 
-                                        onClick={() => { setIsLogin(!isLogin); setError(null); setMessage(null); }} 
+                                        onClick={() => { setIsResetting(false); setError(null); setMessage(null); }} 
                                         className="text-emerald-500 font-bold hover:text-emerald-400 transition-colors ml-1"
                                     >
-                                        {isLogin ? 'Regístrate aquí' : 'Inicia sesión'}
+                                        Volver a iniciar sesión
                                     </button>
-                                </>
-                            )}
-                        </p>
+                                ) : (
+                                    <>
+                                        {isLogin ? "¿Aún no tienes cuenta? " : "¿Ya eres miembro? "}
+                                        <button 
+                                            onClick={() => { setIsLogin(!isLogin); setError(null); setMessage(null); }} 
+                                            className="text-emerald-500 font-bold hover:text-emerald-400 transition-colors ml-1"
+                                        >
+                                            {isLogin ? 'Regístrate aquí' : 'Inicia sesión'}
+                                        </button>
+                                    </>
+                                )}
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

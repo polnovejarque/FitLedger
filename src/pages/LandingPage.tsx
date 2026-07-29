@@ -87,13 +87,11 @@ const Landing = () => {
 
             {/* --- FIXED FULLSCREEN CINEMATIC BACKGROUND VIDEO --- */}
             {(currentProduct === 'saas' || currentProduct === 'marketplace') && (
-                <>
-                    <div className="fixed inset-0 z-0 pointer-events-none opacity-30" style={{ filter: 'hue-rotate(140deg) saturate(1.4)' }}>
-                        <video autoPlay loop muted playsInline
-                            className="w-full h-full object-cover pointer-events-none"
-                            src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260508_064122_c4750c0e-7476-4b44-94a2-a85a65c63bf2.mp4" />
-                    </div>
-                </>
+                <div className="fixed inset-0 z-0 pointer-events-none opacity-30 hidden md:block" style={{ filter: 'hue-rotate(140deg) saturate(1.4)' }}>
+                    <video autoPlay loop muted playsInline
+                        className="w-full h-full object-cover pointer-events-none"
+                        src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260508_064122_c4750c0e-7476-4b44-94a2-a85a65c63bf2.mp4" />
+                </div>
             )}
 
             {/* --- FONDO GLOW GENÉRICO PARA EL PORTAL --- */}
@@ -209,7 +207,6 @@ const Landing = () => {
                 )}
             </nav>
 
-            {/* --- CONTENIDO DINÁMICO --- */}
             <div className="pt-20">
                 <AnimatePresence mode="wait">
                     {currentProduct === 'gateway' && (
@@ -219,71 +216,450 @@ const Landing = () => {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.4 }}
-                            className="min-h-[calc(100vh-80px)] flex flex-col lg:flex-row relative overflow-hidden"
+                            className="min-h-screen flex flex-col relative z-10 w-full"
                         >
-                            {/* SECCIÓN IZQUIERDA: SAAS GESTIÓN (Verde con degradado) */}
-                            <div 
-                                onMouseEnter={() => setHoveredGate('saas')}
-                                onMouseLeave={() => setHoveredGate(null)}
-                                onClick={() => setProductView('saas')}
-                                className={`flex-1 min-h-[50vh] lg:min-h-0 flex flex-col justify-between p-8 lg:p-16 cursor-pointer relative overflow-hidden transition-all duration-500 bg-gradient-to-br from-emerald-950 via-emerald-800 to-teal-950 group ${
-                                    hoveredGate === 'saas' ? 'lg:flex-[1.5]' : hoveredGate === 'marketplace' ? 'lg:flex-[0.5] opacity-50' : ''
-                                }`}
-                            >
-                                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.05),transparent)] pointer-events-none" />
-                                
-                                {/* Texto de fondo gigantesco tipo EMBER de la imagen */}
-                                <div className="absolute top-10 left-10 text-white/5 text-7xl lg:text-9xl font-black uppercase tracking-tighter select-none pointer-events-none font-sans">
-                                    SOFTWARE
-                                </div>
-
-                                <div className="mt-28 lg:mt-40 relative z-10 space-y-6 max-w-xl">
-                                    <span className="text-[10px] uppercase font-extrabold tracking-widest text-emerald-200 bg-white/10 px-3 py-1 rounded-full border border-white/10">SaaS de Gestión</span>
-                                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-none uppercase">
-                                        FitLeader <br/><span className="text-emerald-350">SaaS</span>
-                                    </h2>
-                                    <p className="text-white/80 text-sm md:text-base leading-relaxed max-w-md">
-                                        Planifica entrenamientos y dietas, gestiona clientes en tu app y automatiza cobros de forma profesional.
+                            {/* --- HERO CON MOCKUPS DUALES (Portátil + Móvil) --- */}
+                            <section className="max-w-6xl mx-auto px-6 pt-16 pb-24 text-center space-y-12 relative z-10 w-full">
+                                {/* TÍTULO Y DESCRIPCIÓN UNIFICADA */}
+                                <div className="space-y-6 max-w-3xl mx-auto">
+                                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 animate-pulse">
+                                        ✦ EL ECOSISTEMA FITNESS TODO EN UNO
+                                    </span>
+                                    <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-tight uppercase">
+                                        Gestiona tu negocio. <br/>
+                                        <span className="bg-gradient-to-r from-emerald-400 via-teal-350 to-blue-400 bg-clip-text text-transparent">
+                                            Multiplica tus ingresos.
+                                        </span>
+                                    </h1>
+                                    <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-xl mx-auto">
+                                        La plataforma híbrida definitiva que unifica el <strong className="text-white font-bold">software de gestión profesional (SaaS)</strong> para entrenadores y centros deportivos con la <strong className="text-white font-bold">app móvil nativa de los atletas</strong>.
                                     </p>
                                 </div>
 
-                                <div className="mt-8 relative z-10 flex items-center gap-2 font-bold text-white text-sm">
-                                    <span>EXPLORAR SOFTWARE</span>
-                                    <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-2 transition-transform" />
-                                </div>
-                            </div>
+                                {/* CONTENEDOR DE MAQUETAS (MacBook + iPhone) */}
+                                <div className="relative max-w-4xl mx-auto flex flex-col md:flex-row justify-center items-center pt-8 pb-12">
+                                    {/* Mockup Portátil Coach (MacBook mockup réplica exacta de la imagen del usuario) */}
+                                    <div className="hidden md:block w-full max-w-3xl relative rounded-2xl overflow-hidden border border-white/10 bg-[#08080a] backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:scale-[1.01] hover:border-emerald-500/20">
+                                        {/* Cabecera macOS */}
+                                        <div className="h-7 bg-black/40 flex items-center px-4 justify-between border-b border-white/5">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
+                                                <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
+                                                <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+                                            </div>
+                                            <span className="text-[10px] font-bold text-zinc-500">FitLeader — Panel de Gestión del Coach</span>
+                                            <div className="w-12" />
+                                        </div>
+                                        
+                                        {/* Mockup Dashboard del Coach */}
+                                        <div className="grid grid-cols-12 min-h-[440px] text-left text-xs bg-[#09090b] text-white">
+                                            {/* SIDEBAR LATERAL (Izquierda - Col 3) */}
+                                            <div className="col-span-3 border-r border-white/5 p-3.5 flex flex-col justify-between bg-[#08080a]">
+                                                <div className="space-y-4">
+                                                    {/* Logo FitLeader */}
+                                                    <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+                                                        <img src="/logo.png" alt="FitLeader" className="w-5 h-5 object-contain" />
+                                                        <span className="font-extrabold text-xs tracking-wider text-white uppercase">FITLEADER</span>
+                                                    </div>
 
-                            {/* SECCIÓN DERECHA: MARKETPLACE B2C/B2B (Darkmode) */}
-                            <div 
-                                onMouseEnter={() => setHoveredGate('marketplace')}
-                                onMouseLeave={() => setHoveredGate(null)}
-                                onClick={() => setProductView('marketplace')}
-                                className={`flex-1 min-h-[50vh] lg:min-h-0 flex flex-col justify-between p-8 lg:p-16 cursor-pointer relative overflow-hidden transition-all duration-500 bg-[#060608] group ${
-                                    hoveredGate === 'marketplace' ? 'lg:flex-[1.5]' : hoveredGate === 'saas' ? 'lg:flex-[0.5] opacity-50' : ''
-                                }`}
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
-                                
-                                {/* Texto de fondo gigantesco tipo STUDIO de la imagen */}
-                                <div className="absolute top-10 left-10 text-white/5 text-7xl lg:text-9xl font-black uppercase tracking-tighter select-none pointer-events-none font-sans">
-                                    MARKET
-                                </div>
+                                                    {/* Items de Navegación */}
+                                                    <nav className="space-y-1 text-[11px] font-medium text-zinc-400">
+                                                        <div className="bg-emerald-500 text-black font-extrabold rounded-xl px-3 py-2 flex items-center gap-2 shadow-lg shadow-emerald-500/20">
+                                                            <LayoutDashboard className="w-3.5 h-3.5 text-black" /> Dashboard
+                                                        </div>
+                                                        <div className="hover:text-white rounded-xl px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer">
+                                                            <Users className="w-3.5 h-3.5 text-zinc-400" /> Clientes
+                                                        </div>
+                                                        <div className="hover:text-white rounded-xl px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer">
+                                                            <Dumbbell className="w-3.5 h-3.5 text-zinc-400" /> Entrenamientos
+                                                        </div>
+                                                        <div className="hover:text-white rounded-xl px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer">
+                                                            <Calendar className="w-3.5 h-3.5 text-zinc-400" /> Agenda
+                                                        </div>
+                                                        <div className="hover:text-white rounded-xl px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer">
+                                                            <MessageSquare className="w-3.5 h-3.5 text-zinc-400" /> Chat
+                                                        </div>
+                                                        <div className="hover:text-white rounded-xl px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer">
+                                                            <Globe className="w-3.5 h-3.5 text-zinc-400" /> Buscar Salas
+                                                        </div>
+                                                        <div className="hover:text-white rounded-xl px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer">
+                                                            <DollarSign className="w-3.5 h-3.5 text-zinc-400" /> Finanzas
+                                                        </div>
+                                                        <div className="hover:text-white rounded-xl px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer">
+                                                            <TrendingUp className="w-3.5 h-3.5 text-zinc-400" /> Reportes
+                                                        </div>
+                                                    </nav>
+                                                </div>
 
-                                <div className="mt-28 lg:mt-40 relative z-10 space-y-6 max-w-xl">
-                                    <span className="text-[10px] uppercase font-extrabold tracking-widest text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Directorio B2C/B2B</span>
-                                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-none uppercase">
-                                        FitLeader <br/><span className="text-blue-400">Market</span>
-                                    </h2>
-                                    <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-md">
-                                        Consigue clientes en nuestro buscador público de entrenadores o alquila salas equipadas por horas de forma flexible.
-                                    </p>
-                                </div>
+                                                {/* Bottom: Cerrar Sesión */}
+                                                <div className="pt-2 border-t border-white/5 text-[10px] text-zinc-500 font-semibold flex items-center gap-2 hover:text-white transition-colors cursor-pointer">
+                                                    <ArrowLeft className="w-3 h-3" /> Cerrar Sesión
+                                                </div>
+                                            </div>
 
-                                <div className="mt-8 relative z-10 flex items-center gap-2 font-bold text-white text-sm">
-                                    <span className="group-hover:text-blue-400 transition-colors">ENTRAR AL MARKETPLACE</span>
-                                    <ArrowRight className="w-4 h-4 text-blue-400 group-hover:translate-x-2 transition-transform" />
+                                            {/* CONTENIDO PRINCIPAL (Derecha - Col 9) */}
+                                            <div className="col-span-9 p-5 space-y-4 bg-[#050507]">
+                                                {/* Header Hola Coach */}
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
+                                                            Hola, Coach <span className="text-sm">👋</span>
+                                                        </h3>
+                                                        <p className="text-[10px] text-zinc-400">Aquí tienes el resumen de tu negocio hoy.</p>
+                                                    </div>
+                                                    <div className="w-7 h-7 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white">
+                                                        <span className="text-xs">🔔</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* FILA DE 4 KPI CARDS */}
+                                                <div className="grid grid-cols-4 gap-2.5">
+                                                    {/* Card 1: Ingresos Este Mes (Destacado Verde) */}
+                                                    <div className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-2xl p-3 text-white space-y-1 shadow-lg shadow-emerald-950/40 relative overflow-hidden">
+                                                        <div className="flex justify-between items-center text-white/80">
+                                                            <span className="text-[10px] font-bold">＄</span>
+                                                            <span className="text-[8px] font-extrabold bg-white/20 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                                                ↗ Este mes
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[8px] font-black tracking-widest text-emerald-100/90 uppercase">INGRESOS ESTE MES</p>
+                                                        <p className="text-base font-black tracking-tight leading-none pt-0.5">8.578 €</p>
+                                                    </div>
+
+                                                    {/* Card 2: Clientes Totales */}
+                                                    <div className="bg-[#101014] border border-white/5 rounded-2xl p-3 space-y-1 relative">
+                                                        <div className="flex justify-between items-center text-zinc-400">
+                                                            <Users className="w-3.5 h-3.5 text-blue-400" />
+                                                            <span className="text-[9px] text-zinc-500">↗</span>
+                                                        </div>
+                                                        <p className="text-[8px] font-extrabold tracking-widest text-zinc-500 uppercase">CLIENTES TOTALES</p>
+                                                        <p className="text-base font-black text-white leading-none pt-0.5">62</p>
+                                                    </div>
+
+                                                    {/* Card 3: Sesiones Hoy */}
+                                                    <div className="bg-[#101014] border border-white/5 rounded-2xl p-3 space-y-1 relative">
+                                                        <div className="flex justify-between items-center text-zinc-400">
+                                                            <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                                                            <span className="text-[8px] text-zinc-400 bg-zinc-800/80 px-1.5 py-0.5 rounded-full">Hoy</span>
+                                                        </div>
+                                                        <p className="text-[8px] font-extrabold tracking-widest text-zinc-500 uppercase">SESIONES HOY</p>
+                                                        <p className="text-base font-black text-white leading-none pt-0.5">17</p>
+                                                    </div>
+
+                                                    {/* Card 4: Sesiones del Mes */}
+                                                    <div className="bg-[#101014] border border-white/5 rounded-2xl p-3 space-y-1 relative">
+                                                        <div className="flex justify-between items-center text-zinc-400">
+                                                            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                                                            <span className="text-[8px] text-zinc-400 bg-zinc-800/80 px-1.5 py-0.5 rounded-full">Mes</span>
+                                                        </div>
+                                                        <p className="text-[8px] font-extrabold tracking-widest text-zinc-500 uppercase">SESIONES DEL MES</p>
+                                                        <p className="text-base font-black text-white leading-none pt-0.5">78</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* SECCIÓN INFERIOR (2 BLOQUES LADO A LADO) */}
+                                                <div className="grid grid-cols-12 gap-3 pt-1">
+                                                    {/* Bloque 1: Evolución de Ingresos (Col 7) */}
+                                                    <div className="col-span-7 bg-[#101014] border border-white/5 rounded-2xl p-3.5 space-y-3 flex flex-col justify-between">
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <h4 className="text-xs font-extrabold text-white leading-none">Evolución de Ingresos</h4>
+                                                                <p className="text-[9px] text-zinc-500 mt-0.5">Últimos 6 meses</p>
+                                                            </div>
+                                                            <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                                                ↑ Ingresos
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Gráfico Vectorial SVG de Curva Ascendente */}
+                                                        <div className="h-28 relative flex items-end w-full pt-2">
+                                                            <svg className="w-full h-full overflow-visible" viewBox="0 0 200 80">
+                                                                <defs>
+                                                                    <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                                                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
+                                                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                                                                    </linearGradient>
+                                                                </defs>
+                                                                {/* Área de relleno */}
+                                                                <path 
+                                                                    d="M 10,65 Q 60,50 100,32 T 190,10 L 190,75 L 10,75 Z" 
+                                                                    fill="url(#chartGrad)" 
+                                                                />
+                                                                {/* Línea verde brillante */}
+                                                                <path 
+                                                                    d="M 10,65 Q 60,50 100,32 T 190,10" 
+                                                                    fill="none" 
+                                                                    stroke="#10b981" 
+                                                                    strokeWidth="2.5" 
+                                                                    strokeLinecap="round" 
+                                                                />
+                                                                {/* Puntos en los meses */}
+                                                                <circle cx="10" cy="65" r="2.5" fill="#10b981" />
+                                                                <circle cx="70" cy="46" r="2.5" fill="#10b981" />
+                                                                <circle cx="130" cy="24" r="2.5" fill="#10b981" />
+                                                                <circle cx="190" cy="10" r="3.5" fill="#34d399" className="animate-pulse" />
+                                                            </svg>
+                                                        </div>
+
+                                                        {/* Eje X con los valores y meses */}
+                                                        <div className="flex justify-between items-center text-[8px] text-zinc-500 border-t border-white/5 pt-1.5">
+                                                            <div className="text-center">
+                                                                <span className="block font-bold text-zinc-300">5.698€</span>
+                                                                <span className="text-zinc-500">abr</span>
+                                                            </div>
+                                                            <div className="text-center">
+                                                                <span className="block font-bold text-zinc-300">7.542€</span>
+                                                                <span className="text-zinc-500">may</span>
+                                                            </div>
+                                                            <div className="text-center">
+                                                                <span className="block font-bold text-zinc-300">7.976€</span>
+                                                                <span className="text-zinc-500">jun</span>
+                                                            </div>
+                                                            <div className="text-center">
+                                                                <span className="block font-black text-emerald-400">8.578€</span>
+                                                                <span className="text-emerald-400 font-bold">jul</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Bloque 2: Agenda de Hoy (Col 5) */}
+                                                    <div className="col-span-5 bg-[#101014] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between text-left">
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-1.5 pb-1 border-b border-white/5">
+                                                                <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                                                                <h4 className="text-xs font-extrabold text-white">Agenda de Hoy</h4>
+                                                            </div>
+
+                                                            {/* Lista de Eventos / Seguimiento */}
+                                                            <div className="space-y-1.5 pt-1">
+                                                                <div className="p-1.5 bg-white/5 rounded-xl border border-white/5 space-y-0.5">
+                                                                    <div className="flex justify-between text-[8px]">
+                                                                        <span className="font-bold text-purple-300">10:00 - 10:30</span>
+                                                                        <span className="text-emerald-400 font-semibold">Confirmado</span>
+                                                                    </div>
+                                                                    <p className="text-[9px] font-bold text-white leading-tight">Seguimiento Semanal (Carlos R.)</p>
+                                                                </div>
+
+                                                                <div className="p-1.5 bg-white/5 rounded-xl border border-white/5 space-y-0.5">
+                                                                    <div className="flex justify-between text-[8px]">
+                                                                        <span className="font-bold text-purple-300">12:30 - 13:15</span>
+                                                                        <span className="text-emerald-400 font-semibold">Presencial</span>
+                                                                    </div>
+                                                                    <p className="text-[9px] font-bold text-white leading-tight">Evaluación Física (Laura M.)</p>
+                                                                </div>
+
+                                                                <div className="p-1.5 bg-white/5 rounded-xl border border-white/5 space-y-0.5">
+                                                                    <div className="flex justify-between text-[8px]">
+                                                                        <span className="font-bold text-purple-300">17:00 - 17:45</span>
+                                                                        <span className="text-blue-400 font-semibold">Online</span>
+                                                                    </div>
+                                                                    <p className="text-[9px] font-bold text-white leading-tight">Revisión Plan Nutricional (Marc V.)</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="pt-2 text-center border-t border-white/5">
+                                                            <span className="text-[9px] text-zinc-500 hover:text-white font-semibold cursor-pointer transition-colors">
+                                                                Ver agenda completa
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Mockup Móvil Atleta (iPhone mockup réplica exacta de la imagen del usuario) */}
+                                    <div className="md:absolute md:-right-6 md:-bottom-8 w-[215px] sm:w-[230px] aspect-[9/19.5] bg-[#000000] rounded-[38px] p-2.5 border-[4px] border-zinc-800 shadow-2xl z-20 transition-transform duration-300 hover:scale-[1.03]">
+                                        {/* Dynamic Island */}
+                                        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-black rounded-full flex items-center justify-center z-30 border border-zinc-900">
+                                            <div className="w-2 h-2 rounded-full bg-[#111] mr-2" />
+                                            <div className="w-1.5 h-1.5 rounded-full bg-[#0a1a10]" />
+                                        </div>
+                                        
+                                        {/* Pantalla del teléfono */}
+                                        <div className="w-full h-full bg-[#050505] rounded-[34px] overflow-hidden relative flex flex-col justify-between p-3.5 text-left pt-7 border border-white/5 select-none">
+                                            
+                                            {/* 1. Header: Logo FitLeader */}
+                                            <div className="flex items-center gap-1.5 pb-1">
+                                                <img src="/logo.png" alt="FitLeader Logo" className="w-4 h-4 object-contain" />
+                                                <span className="text-xs font-black tracking-tight text-white">FitLeader</span>
+                                            </div>
+
+                                            {/* 2. Saludo y Racha */}
+                                            <div className="flex justify-between items-start my-1">
+                                                <div>
+                                                    <h4 className="text-sm sm:text-base font-extrabold text-white leading-tight flex items-center gap-1">
+                                                        Hola, Campeón <span className="text-xs">👋</span>
+                                                    </h4>
+                                                    <p className="text-[9px] text-zinc-400">Vamos a por el objetivo de hoy.</p>
+                                                </div>
+                                                <div className="bg-zinc-900/90 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 text-amber-500 text-[10px] font-bold shadow-sm">
+                                                    <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                                    <span>12</span>
+                                                </div>
+                                            </div>
+
+                                            {/* 3. Card Objetivo Semanal */}
+                                            <div className="bg-gradient-to-br from-[#062014] to-[#0a1510] border border-emerald-500/20 rounded-2xl p-3 space-y-2 relative overflow-hidden my-1">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-emerald-400">Objetivo Semanal</span>
+                                                    <Trophy className="w-3.5 h-3.5 text-emerald-400/80" />
+                                                </div>
+                                                
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-xl font-black text-white">3</span>
+                                                    <span className="text-xs font-semibold text-zinc-400">/ 4 sesiones</span>
+                                                </div>
+                                                
+                                                <div className="space-y-1">
+                                                    <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-emerald-400 rounded-full w-[75%]" />
+                                                    </div>
+                                                    <div className="text-[8px] text-emerald-400/90 font-medium text-right">
+                                                        ¡Casi lo tienes!
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* 4. Card Tip del Día */}
+                                            <div className="bg-[#121217] border border-white/5 rounded-2xl p-2.5 flex gap-2.5 items-center my-1">
+                                                <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                                                    <span className="text-xs">💡</span>
+                                                </div>
+                                                <div className="space-y-0.5 text-left">
+                                                    <h5 className="text-[10px] font-bold text-white leading-none">Tip del Día</h5>
+                                                    <p className="text-[8px] text-zinc-400 leading-tight">
+                                                        La hidratación es clave para el rendimiento. Intenta beber 500ml de agua 30m antes.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* 5. Próxima Sesión */}
+                                            <div className="space-y-1 my-1">
+                                                <span className="text-[10px] font-bold text-white">Próxima sesión:</span>
+                                                <div className="bg-[#121217] border border-white/5 rounded-2xl p-2.5 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="w-7 h-7 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                                            <Dumbbell className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <h6 className="text-[10px] font-bold text-white leading-none">Pierna Hipertrofia</h6>
+                                                            <p className="text-[8px] text-zinc-400 mt-0.5">🕒 Mañana, 18:00</p>
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+                                                </div>
+                                            </div>
+
+                                            {/* FAB Chat Flotante */}
+                                            <div className="absolute bottom-12 right-3 w-7 h-7 rounded-full bg-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.5)] flex items-center justify-center text-black z-20">
+                                                <MessageSquare className="w-3.5 h-3.5 fill-black" />
+                                            </div>
+
+                                            {/* 6. Barra de Navegación Inferior (Bottom Bar) */}
+                                            <div className="pt-1.5 border-t border-white/10 flex items-center justify-between text-[8px] text-zinc-500 font-medium">
+                                                <div className="flex flex-col items-center gap-0.5 text-emerald-400 font-bold">
+                                                    <Home className="w-3.5 h-3.5" />
+                                                    <span>Inicio</span>
+                                                </div>
+                                                <div className="flex flex-col items-center gap-0.5 hover:text-white">
+                                                    <Dumbbell className="w-3.5 h-3.5" />
+                                                    <span>Rutina</span>
+                                                </div>
+                                                <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 -mt-3 flex items-center justify-center text-amber-500 shadow-md">
+                                                    <Flame className="w-3.5 h-3.5 fill-amber-500" />
+                                                </div>
+                                                <div className="flex flex-col items-center gap-0.5 hover:text-white">
+                                                    <TrendingUp className="w-3.5 h-3.5" />
+                                                    <span>Progreso</span>
+                                                </div>
+                                                <div className="flex flex-col items-center gap-0.5 hover:text-white">
+                                                    <User className="w-3.5 h-3.5" />
+                                                    <span>Perfil</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            </section>
+
+                            {/* --- TARJETAS INTERACTIVAS EN SCROLL (Enrutador de Entrada) --- */}
+                            <section className="w-full border-t border-white/5 relative z-10 bg-black/60 pt-20 pb-32">
+                                <div className="max-w-6xl mx-auto px-6 text-center space-y-12">
+                                    <div className="space-y-3">
+                                        <span className="text-[10px] uppercase font-extrabold tracking-widest text-emerald-450">ACCESO AL ECOSISTEMA</span>
+                                        <h2 className="text-3xl sm:text-4xl font-black text-white uppercase font-sans">Selecciona cómo deseas entrar</h2>
+                                        <p className="text-zinc-550 text-sm max-w-xl mx-auto leading-relaxed">
+                                            Explora las dos vertientes principales de FitLeader: nuestro potente software para profesionales o el directorio público de reservas.
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex flex-col lg:flex-row min-h-[500px] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+                                        {/* SECCIÓN IZQUIERDA: SAAS GESTIÓN (Verde con degradado) */}
+                                        <div 
+                                            onMouseEnter={() => setHoveredGate('saas')}
+                                            onMouseLeave={() => setHoveredGate(null)}
+                                            onClick={() => setProductView('saas')}
+                                            className={`flex-1 min-h-[400px] lg:min-h-0 flex flex-col justify-between p-8 lg:p-16 cursor-pointer relative overflow-hidden transition-all duration-500 bg-gradient-to-br from-emerald-950 via-emerald-800 to-teal-950 group ${
+                                                hoveredGate === 'saas' ? 'lg:flex-[1.5]' : hoveredGate === 'marketplace' ? 'lg:flex-[0.5] opacity-50' : ''
+                                            }`}
+                                        >
+                                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.05),transparent)] pointer-events-none" />
+                                            
+                                            <div className="absolute top-10 left-10 text-white/5 text-7xl lg:text-9xl font-black uppercase tracking-tighter select-none pointer-events-none font-sans">
+                                                SOFTWARE
+                                            </div>
+
+                                            <div className="mt-28 lg:mt-40 relative z-10 space-y-6 max-w-xl text-left">
+                                                <span className="text-[10px] uppercase font-extrabold tracking-widest text-emerald-200 bg-white/10 px-3 py-1 rounded-full border border-white/10">SaaS de Gestión</span>
+                                                <h3 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-none uppercase">
+                                                    FitLeader <br/><span className="text-emerald-350">SaaS</span>
+                                                </h3>
+                                                <p className="text-white/80 text-sm md:text-base leading-relaxed max-w-md">
+                                                    Planifica entrenamientos y dietas, gestiona clientes en tu app y automatiza cobros de forma profesional.
+                                                </p>
+                                            </div>
+
+                                            <div className="mt-8 relative z-10 flex items-center gap-2 font-bold text-white text-sm text-left">
+                                                <span>EXPLORAR SOFTWARE</span>
+                                                <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-2 transition-transform" />
+                                            </div>
+                                        </div>
+
+                                        {/* SECCIÓN DERECHA: MARKETPLACE B2C/B2B (Darkmode) */}
+                                        <div 
+                                            onMouseEnter={() => setHoveredGate('marketplace')}
+                                            onMouseLeave={() => setHoveredGate(null)}
+                                            onClick={() => setProductView('marketplace')}
+                                            className={`flex-1 min-h-[400px] lg:min-h-0 flex flex-col justify-between p-8 lg:p-16 cursor-pointer relative overflow-hidden transition-all duration-500 bg-[#060608] group ${
+                                                hoveredGate === 'marketplace' ? 'lg:flex-[1.5]' : hoveredGate === 'saas' ? 'lg:flex-[0.5] opacity-50' : ''
+                                            }`}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
+                                            
+                                            <div className="absolute top-10 left-10 text-white/5 text-7xl lg:text-9xl font-black uppercase tracking-tighter select-none pointer-events-none font-sans">
+                                                MARKET
+                                            </div>
+
+                                            <div className="mt-28 lg:mt-40 relative z-10 space-y-6 max-w-xl text-left">
+                                                <span className="text-[10px] uppercase font-extrabold tracking-widest text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Directorio B2C/B2B</span>
+                                                <h3 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-none uppercase">
+                                                    FitLeader <br/><span className="text-blue-400">Market</span>
+                                                </h3>
+                                                <p className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-md">
+                                                    Consigue clientes en nuestro buscador público de entrenadores o alquila salas equipadas por horas de forma flexible.
+                                                </p>
+                                            </div>
+
+                                            <div className="mt-8 relative z-10 flex items-center gap-2 font-bold text-white text-sm text-left">
+                                                <span className="group-hover:text-blue-400 transition-colors">ENTRAR AL MARKETPLACE</span>
+                                                <ArrowRight className="w-4 h-4 text-blue-400 group-hover:translate-x-2 transition-transform" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
                         </motion.div>
                     )}
 
@@ -366,7 +742,7 @@ const Landing = () => {
                             </div>
 
                             {/* --- INTERACTIVE FITLEADER DASHBOARD MOCKUP --- */}
-                            <section id="plataforma" className="max-w-6xl mx-auto px-6 py-16 md:py-24 z-10 relative">
+                            <section id="plataforma" className="hidden md:block max-w-6xl mx-auto px-6 py-16 md:py-24 z-10 relative">
                                 <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-[#0e1014]/90 backdrop-blur-2xl shadow-2xl">
                                     {/* Cabecera macOS */}
                                     <div className="h-10 bg-black/25 flex items-center px-4 justify-between border-b border-white/5">

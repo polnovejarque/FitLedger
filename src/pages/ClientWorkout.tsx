@@ -741,43 +741,87 @@ const ClientWorkout = () => {
     };
 
     const handleFinishWorkout = async () => {
-        if (!currentAssignmentId || !clientId) return;
+        if (!clientId) return;
 
         const hasLogs = Object.keys(workoutLogs).length > 0;
-        
+
         const finishAction = async () => {
             setConfirmDialog(null);
             setLoading(true);
             try {
                 const resultsToSave: any[] = [];
+
+                // Parse de IDs seguros
+                const safeAssignmentId = currentAssignmentId && !isNaN(Number(currentAssignmentId)) 
+                    ? Number(currentAssignmentId) 
+                    : null;
+                const safeRoutineId = todayWorkout?.id && !isNaN(Number(todayWorkout.id)) 
+                    ? Number(todayWorkout.id) 
+                    : null;
+
                 Object.entries(workoutLogs).forEach(([exerciseId, sets]: any) => {
-                    // Buscamos el nombre del ejercicio en la rutina actual para guardarlo directamente
                     const exerciseObj = todayWorkout?.routine_exercises?.find(
                         (ex: any) => String(ex.id) === String(exerciseId)
                     );
                     const exerciseName = exerciseObj?.exercise_name || null;
+                    const safeExerciseId = exerciseId && !isNaN(Number(exerciseId)) 
+                        ? Number(exerciseId) 
+                        : null;
 
                     Object.entries(sets).forEach(([setNumber, data]: any) => {
                         if (data.done || data.weight || data.reps) {
                             const parsedWeight = data.weight ? parseFloat(data.weight) : 0;
                             const parsedReps = data.reps ? parseFloat(data.reps) : 0;
+                            const parsedSetNum = setNumber ? parseInt(setNumber) : 1;
+
                             resultsToSave.push({
-                                assignment_id: parseInt(currentAssignmentId),
-                                exercise_id: parseInt(exerciseId),
+                                assignment_id: safeAssignmentId,
+                                exercise_id: safeExerciseId,
                                 exercise_name: exerciseName,
-                                set_number: parseInt(setNumber),
+                                set_number: isNaN(parsedSetNum) ? 1 : parsedSetNum,
                                 weight: isNaN(parsedWeight) ? 0 : parsedWeight,
                                 reps: isNaN(parsedReps) ? 0 : parsedReps,
                                 is_completed: data.done || false,
                                 client_id: clientId,
-                                routine_id: todayWorkout?.id || null
+                                routine_id: safeRoutineId
                             });
                         }
                     });
                 });
 
+                // Si no hay series con marcas pero el usuario pulsó finalizar, creamos 1 registro de sesión
+                if (resultsToSave.length === 0) {
+                    resultsToSave.push({
+                        assignment_id: safeAssignmentId,
+                        exercise_id: null,
+                        exercise_name: todayWorkout?.name || "Sesión Completada",
+                        set_number: 1,
+                        weight: 0,
+                        reps: 0,
+                        is_completed: true,
+                        client_id: clientId,
+                        routine_id: safeRoutineId
+                    });
+                }
+
                 if (resultsToSave.length > 0) {
-                    const { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
+                    // Intento 1: Inserción directa con todos los campos
+                    let { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
+
+                    // Fallback 1: Si falla porque no existe la columna exercise_name en Supabase
+                    if (resultsErr && (resultsErr.message?.includes('exercise_name') || resultsErr.code === 'PGRST204')) {
+                        const fallbackNoName = resultsToSave.map(({ exercise_name, ...rest }) => rest);
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoName);
+                        resultsErr = fallbackRes.error;
+                    }
+
+                    // Fallback 2: Si falla por Foreign Key en exercise_id
+                    if (resultsErr && (resultsErr.message?.includes('foreign key') || resultsErr.message?.includes('fkey') || resultsErr.code === '23503')) {
+                        const fallbackNoExId = resultsToSave.map(({ exercise_id, ...rest }) => ({ ...rest, exercise_id: null }));
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoExId);
+                        resultsErr = fallbackRes.error;
+                    }
+
                     if (resultsErr) throw resultsErr;
                 }
 
@@ -791,7 +835,8 @@ const ClientWorkout = () => {
                 setTimerActive(false);
                 
             } catch (error: any) {
-                showToast("Hubo un error al guardar: " + error.message, 'error');
+                console.error("Error al guardar rutina:", error);
+                showToast("Hubo un problema guardando los datos. Por favor reinténtalo.", 'error');
             } finally {
                 setLoading(false);
             }

@@ -752,10 +752,10 @@ const ClientWorkout = () => {
                 const resultsToSave: any[] = [];
 
                 // Parse de IDs seguros
-                const safeAssignmentId = currentAssignmentId && !isNaN(Number(currentAssignmentId)) 
+                const safeAssignmentId = (currentAssignmentId && !isNaN(Number(currentAssignmentId))) 
                     ? Number(currentAssignmentId) 
                     : null;
-                const safeRoutineId = todayWorkout?.id && !isNaN(Number(todayWorkout.id)) 
+                const safeRoutineId = (todayWorkout?.id && !isNaN(Number(todayWorkout.id))) 
                     ? Number(todayWorkout.id) 
                     : null;
 
@@ -764,7 +764,7 @@ const ClientWorkout = () => {
                         (ex: any) => String(ex.id) === String(exerciseId)
                     );
                     const exerciseName = exerciseObj?.exercise_name || null;
-                    const safeExerciseId = exerciseId && !isNaN(Number(exerciseId)) 
+                    const safeExerciseId = (exerciseId && !isNaN(Number(exerciseId))) 
                         ? Number(exerciseId) 
                         : null;
 
@@ -808,14 +808,21 @@ const ClientWorkout = () => {
                     // Intento 1: Inserción directa con todos los campos
                     let { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
 
-                    // Fallback 1: Si falla porque no existe la columna exercise_name en Supabase
+                    // Fallback 1: Si falla por assignment_id NOT NULL
+                    if (resultsErr && (resultsErr.message?.includes('assignment_id') || resultsErr.code === '23502')) {
+                        const fallbackWithAssigZero = resultsToSave.map(item => ({ ...item, assignment_id: item.assignment_id || 0 }));
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackWithAssigZero);
+                        resultsErr = fallbackRes.error;
+                    }
+
+                    // Fallback 2: Si falla porque no existe la columna exercise_name en Supabase
                     if (resultsErr && (resultsErr.message?.includes('exercise_name') || resultsErr.code === 'PGRST204')) {
                         const fallbackNoName = resultsToSave.map(({ exercise_name, ...rest }) => rest);
                         const fallbackRes = await supabase.from('workout_results').insert(fallbackNoName);
                         resultsErr = fallbackRes.error;
                     }
 
-                    // Fallback 2: Si falla por Foreign Key en exercise_id
+                    // Fallback 3: Si falla por Foreign Key en exercise_id
                     if (resultsErr && (resultsErr.message?.includes('foreign key') || resultsErr.message?.includes('fkey') || resultsErr.code === '23503')) {
                         const fallbackNoExId = resultsToSave.map(({ exercise_id, ...rest }) => ({ ...rest, exercise_id: null }));
                         const fallbackRes = await supabase.from('workout_results').insert(fallbackNoExId);
@@ -836,7 +843,8 @@ const ClientWorkout = () => {
                 
             } catch (error: any) {
                 console.error("Error al guardar rutina:", error);
-                showToast("Hubo un problema guardando los datos. Por favor reinténtalo.", 'error');
+                const errorMsg = error?.message ? `Error: ${error.message}` : "Hubo un problema guardando los datos. Por favor reinténtalo.";
+                showToast(errorMsg, 'error');
             } finally {
                 setLoading(false);
             }

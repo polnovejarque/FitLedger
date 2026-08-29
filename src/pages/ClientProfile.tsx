@@ -395,13 +395,49 @@ const ClientProfile = () => {
     };
 
     const handleUpdateClient = async (updatedData: any) => {
-        const { error } = await supabase.from('clients').update(updatedData).eq('id', id);
+        // Extraer únicamente las columnas válidas de la tabla 'clients'
+        const cleanPayload: any = {
+            name: updatedData.name,
+            email: updatedData.email,
+            phone: updatedData.phone,
+            plan: updatedData.plan,
+            status: updatedData.status,
+            goals: updatedData.goals,
+            limitations: updatedData.limitations
+        };
+
+        if (updatedData.service_type !== undefined) cleanPayload.service_type = updatedData.service_type;
+        if (updatedData.sessions_per_week !== undefined) cleanPayload.sessions_per_week = updatedData.sessions_per_week;
+        if (updatedData.checkin_frequency !== undefined) cleanPayload.checkin_frequency = updatedData.checkin_frequency;
+        if (updatedData.preferred_time_slots !== undefined) cleanPayload.preferred_time_slots = updatedData.preferred_time_slots;
+
+        const { error } = await supabase.from('clients').update(cleanPayload).eq('id', id);
         if (!error) {
-            setClient((prev: any) => ({ ...prev, ...updatedData }));
+            setClient((prev: any) => ({ ...prev, ...cleanPayload }));
             setEditModalOpen(false);
-            addToast('Perfil actualizado', 'success');
+            addToast('Perfil actualizado con éxito ✅', 'success');
         } else {
-            addToast('Error al actualizar', 'error');
+            console.error("Error al actualizar cliente:", error);
+            // Si el error es por columna inexistente (aún no se ejecutó el SQL), reintentar sin los nuevos campos para no bloquear al usuario
+            if (error.message && error.message.includes('column')) {
+                const basicPayload = {
+                    name: updatedData.name,
+                    email: updatedData.email,
+                    phone: updatedData.phone,
+                    plan: updatedData.plan,
+                    status: updatedData.status,
+                    goals: updatedData.goals,
+                    limitations: updatedData.limitations
+                };
+                const { error: retryError } = await supabase.from('clients').update(basicPayload).eq('id', id);
+                if (!retryError) {
+                    setClient((prev: any) => ({ ...prev, ...basicPayload }));
+                    setEditModalOpen(false);
+                    addToast('Perfil guardado (Recuerda añadir las columnas en Supabase) ⚠️', 'warning');
+                    return;
+                }
+            }
+            addToast(`Error: ${error.message || 'No se pudo actualizar'}`, 'error');
         }
     };
 

@@ -120,13 +120,16 @@ const Agenda = () => {
         if (profile?.working_hours) setWorkingHours(profile.working_hours);
         if (profile?.default_session_duration) setDefaultSessionDuration(profile.default_session_duration);
 
-        // 2. Cargar clientes del coach para la asignación inteligente
+        // 2. Cargar clientes activos para la asignación inteligente
         const { data: clientsData } = await supabase
             .from('clients')
-            .select('id, name, service_type, sessions_per_week, checkin_frequency, preferred_time_slots')
-            .eq('coach_id', user.id)
-            .eq('status', 'Active');
-        if (clientsData) setClientsList(clientsData);
+            .select('id, name, service_type, sessions_per_week, checkin_frequency, preferred_time_slots, status, user_id, studio_id, assigned_coach_id')
+            .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id},assigned_coach_id.eq.${user.id}`);
+        
+        if (clientsData) {
+            const activeClients = clientsData.filter(c => !c.status || c.status.toLowerCase() === 'active');
+            setClientsList(activeClients);
+        }
 
         // 2.1 Si es Admin, cargar su equipo y su inventario para los desplegables
         if (role === 'admin') {

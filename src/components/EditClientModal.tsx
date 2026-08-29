@@ -58,7 +58,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onUpdate({
-            ...client,
+            id: client?.id,
             name,
             email,
             phone,

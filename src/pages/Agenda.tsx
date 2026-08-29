@@ -358,26 +358,36 @@ const Agenda = () => {
         for (const client of clientsList) {
             const sessionsWanted = client.sessions_per_week || 2;
             let scheduledForClient = 0;
-
-            // Intentar agendar días preferentes si existen
+            // Intentar agendar días y horas preferentes del cliente si existen
             let preferredDaysIndices: number[] = [];
-            let preferredHourStart = 9;
-            let preferredHourEnd = 13;
+            let clientSlotsMap: { [dayKey: string]: number[] } = {};
 
             if (client.preferred_time_slots) {
-                const prefStr = typeof client.preferred_time_slots === 'string' 
-                    ? client.preferred_time_slots.toLowerCase() 
-                    : JSON.stringify(client.preferred_time_slots).toLowerCase();
+                let parsedSlots = client.preferred_time_slots;
+                if (typeof parsedSlots === 'string') {
+                    try { parsedSlots = JSON.parse(parsedSlots); } catch { /* noop */ }
+                }
 
-                if (prefStr.includes('lun')) preferredDaysIndices.push(0);
-                if (prefStr.includes('mar')) preferredDaysIndices.push(1);
-                if (prefStr.includes('mié') || prefStr.includes('mie')) preferredDaysIndices.push(2);
-                if (prefStr.includes('jue')) preferredDaysIndices.push(3);
-                if (prefStr.includes('vie')) preferredDaysIndices.push(4);
-                if (prefStr.includes('sáb') || prefStr.includes('sab')) preferredDaysIndices.push(5);
+                if (typeof parsedSlots === 'object' && !Array.isArray(parsedSlots)) {
+                    dayNames.forEach((dName, dIdx) => {
+                        const hours = parsedSlots[dName];
+                        if (Array.isArray(hours) && hours.length > 0) {
+                            preferredDaysIndices.push(dIdx);
+                            clientSlotsMap[dName] = hours.map((h: string) => parseInt(h.split(':')[0])).filter((n: number) => !isNaN(n));
+                        }
+                    });
+                } else if (typeof parsedSlots === 'string') {
+                    const prefStr = parsedSlots.toLowerCase();
+                    if (prefStr.includes('lun')) preferredDaysIndices.push(0);
+                    if (prefStr.includes('mar')) preferredDaysIndices.push(1);
+                    if (prefStr.includes('mié') || prefStr.includes('mie')) preferredDaysIndices.push(2);
+                    if (prefStr.includes('jue')) preferredDaysIndices.push(3);
+                    if (prefStr.includes('vie')) preferredDaysIndices.push(4);
+                    if (prefStr.includes('sáb') || prefStr.includes('sab')) preferredDaysIndices.push(5);
+                }
             }
 
-            // Si no tiene días preferidos, repartir en días alternos (Lun, Mié, Vie o Mar, Jue)
+            // Si no tiene días preferidos configurados, repartir en días alternos
             if (preferredDaysIndices.length === 0) {
                 preferredDaysIndices = sessionsWanted <= 2 ? [1, 3] : [0, 2, 4];
             }
@@ -393,8 +403,13 @@ const Agenda = () => {
                 const startLimit = parseInt(dayConfig.start.split(':')[0]) || 8;
                 const endLimit = parseInt(dayConfig.end.split(':')[0]) || 20;
 
-                // Buscar primer slot libre dentro de las horas laborables
-                for (let h = Math.max(startLimit, preferredHourStart); h < Math.min(endLimit, preferredHourEnd + 1); h++) {
+                // Si el cliente especificó horas concretas para este día, probar esas primero
+                const explicitHours = clientSlotsMap[dayKey] || [];
+                const candidateHours = explicitHours.length > 0
+                    ? explicitHours.filter(h => h >= startLimit && h < endLimit)
+                    : Array.from({ length: Math.max(0, endLimit - startLimit) }, (_, i) => startLimit + i);
+
+                for (const h of candidateHours) {
                     const slotKey = `${dayIdx}-${h}`;
                     if (!occupiedSlots.has(slotKey)) {
                         // Slot encontrado

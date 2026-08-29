@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, CreditCard, Save } from 'lucide-react';
+import { X, User, Mail, Phone, CreditCard, Save, Calendar, Clock, Check } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 
@@ -10,14 +10,30 @@ interface EditClientModalProps {
     onUpdate: (updatedData: any) => void;
 }
 
+const DAYS_LIST = [
+    { key: 'monday', label: 'Lunes', short: 'Lun' },
+    { key: 'tuesday', label: 'Martes', short: 'Mar' },
+    { key: 'wednesday', label: 'Miércoles', short: 'Mié' },
+    { key: 'thursday', label: 'Jueves', short: 'Jue' },
+    { key: 'friday', label: 'Viernes', short: 'Vie' },
+    { key: 'saturday', label: 'Sábado', short: 'Sáb' },
+    { key: 'sunday', label: 'Domingo', short: 'Dom' }
+];
+
+const AVAILABLE_HOURS = [
+    '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', 
+    '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', 
+    '19:00', '20:00', '21:00'
+];
+
 const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalProps) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [plan, setPlan] = useState('');
-    const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
+    const [status, setStatus] = useState<'active' | 'inactive'>('active');
     
-    // Nuevos estados para Objetivos y Limitaciones
+    // Objetivos y Limitaciones
     const [goals, setGoals] = useState('');
     const [limitations, setLimitations] = useState('');
 
@@ -25,7 +41,10 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
     const [serviceType, setServiceType] = useState('presencial');
     const [sessionsPerWeek, setSessionsPerWeek] = useState(2);
     const [checkinFrequency, setCheckinFrequency] = useState('monthly');
-    const [preferredTimeSlotsStr, setPreferredTimeSlotsStr] = useState('');
+    
+    // Selector interactivo de horarios
+    const [activeDayKey, setActiveDayKey] = useState('monday');
+    const [slotsByDay, setSlotsByDay] = useState<{ [day: string]: string[] }>({});
 
     useEffect(() => {
         if (isOpen && client) {
@@ -33,27 +52,76 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             setEmail(client.email || '');
             setPhone(client.phone || '');
             setPlan(client.plan || '');
-            setStatus(client.status || 'Active');
+            setStatus(client.status ? client.status.toLowerCase() : 'active');
             
-            // Convertimos la lista a texto (uno por línea) para poder editarlo
-            setGoals(client.goals ? client.goals.join('\n') : '');
-            setLimitations(client.limitations ? client.limitations.join('\n') : '');
+            // Cargar objetivos y limitaciones (tolerando array o texto)
+            const initialGoals = client.goals 
+                ? (Array.isArray(client.goals) ? client.goals.join('\n') : client.goals)
+                : (client.objective || '');
+            setGoals(initialGoals);
+
+            const initialLim = client.limitations 
+                ? (Array.isArray(client.limitations) ? client.limitations.join('\n') : client.limitations)
+                : '';
+            setLimitations(initialLim);
 
             // Cargar datos de servicio inteligente
             setServiceType(client.service_type || 'presencial');
             setSessionsPerWeek(client.sessions_per_week || 2);
             setCheckinFrequency(client.checkin_frequency || 'monthly');
-            setPreferredTimeSlotsStr(
-                client.preferred_time_slots 
-                    ? (typeof client.preferred_time_slots === 'string' 
-                        ? client.preferred_time_slots 
-                        : JSON.stringify(client.preferred_time_slots))
-                    : ''
-            );
+
+            // Cargar franjas horarias
+            if (client.preferred_time_slots) {
+                if (typeof client.preferred_time_slots === 'object' && !Array.isArray(client.preferred_time_slots)) {
+                    setSlotsByDay(client.preferred_time_slots);
+                } else if (typeof client.preferred_time_slots === 'string') {
+                    try {
+                        const parsed = JSON.parse(client.preferred_time_slots);
+                        if (typeof parsed === 'object') setSlotsByDay(parsed);
+                    } catch {
+                        setSlotsByDay({});
+                    }
+                }
+            } else {
+                setSlotsByDay({});
+            }
         }
     }, [isOpen, client]);
 
     if (!isOpen) return null;
+
+    const toggleHour = (hour: string) => {
+        setSlotsByDay(prev => {
+            const currentHours = prev[activeDayKey] || [];
+            const exists = currentHours.includes(hour);
+            const newHours = exists 
+                ? currentHours.filter(h => h !== hour)
+                : [...currentHours, hour].sort();
+            
+            if (newHours.length === 0) {
+                const copy = { ...prev };
+                delete copy[activeDayKey];
+                return copy;
+            }
+            return { ...prev, [activeDayKey]: newHours };
+        });
+    };
+
+    const applyPreset = (preset: 'morning' | 'afternoon' | 'all' | 'clear') => {
+        setSlotsByDay(prev => {
+            if (preset === 'clear') {
+                const copy = { ...prev };
+                delete copy[activeDayKey];
+                return copy;
+            }
+            let targetHours: string[] = [];
+            if (preset === 'morning') targetHours = ['09:00', '10:00', '11:00', '12:00', '13:00'];
+            if (preset === 'afternoon') targetHours = ['16:00', '17:00', '18:00', '19:00', '20:00'];
+            if (preset === 'all') targetHours = ['08:00', '09:00', '10:00', '11:00', '12:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+
+            return { ...prev, [activeDayKey]: targetHours };
+        });
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,44 +135,46 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             service_type: serviceType,
             sessions_per_week: Number(sessionsPerWeek),
             checkin_frequency: checkinFrequency,
-            preferred_time_slots: preferredTimeSlotsStr,
-            // Convertimos el texto de vuelta a lista (separando por saltos de línea)
-            goals: goals.split('\n').filter(line => line.trim() !== ''),
-            limitations: limitations.split('\n').filter(line => line.trim() !== '')
+            preferred_time_slots: Object.keys(slotsByDay).length > 0 ? slotsByDay : null,
+            objective: goals,
+            limitations: limitations
         });
         onClose();
     };
 
+    const selectedHoursForActiveDay = slotsByDay[activeDayKey] || [];
+    const activeDaysCount = Object.keys(slotsByDay).length;
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-            <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl p-6 animate-in fade-in zoom-in duration-200 overflow-y-auto max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl p-6 animate-in fade-in zoom-in duration-200 overflow-y-auto max-h-[90vh] custom-scrollbar">
                 
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <User className="w-5 h-5 text-accent" />
-                        Editar Perfil
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                        <User className="w-5 h-5 text-emerald-400" />
+                        Editar Perfil del Atleta
                     </h2>
-                    <button onClick={onClose} className="p-1 hover:bg-secondary rounded-full transition-colors">
-                        <X className="w-5 h-5 text-muted-foreground" />
+                    <button onClick={onClose} className="p-1.5 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-muted-foreground">Nombre</label>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Nombre Completo</label>
                         <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-background" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-muted-foreground">Email</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground">Email</label>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input value={email} onChange={(e) => setEmail(e.target.value)} className="pl-9 bg-background" />
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground">Teléfono</label>
                             <div className="relative">
                                 <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="pl-9 bg-background" />
@@ -113,27 +183,27 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-muted-foreground">Plan</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground">Plan Contratado</label>
                             <div className="relative">
                                 <CreditCard className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input value={plan} onChange={(e) => setPlan(e.target.value)} className="pl-9 bg-background" />
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-muted-foreground">Estado</label>
-                            <div className="flex bg-secondary/30 p-1 rounded-lg">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground">Estado del Atleta</label>
+                            <div className="flex bg-secondary/40 p-1 rounded-lg border border-border">
                                 <button
                                     type="button"
-                                    onClick={() => setStatus('Active')}
-                                    className={`flex-1 flex justify-center items-center rounded-md text-xs font-medium transition-all py-2 ${status === 'Active' ? 'bg-green-600 text-white shadow' : 'text-muted-foreground hover:bg-secondary'}`}
+                                    onClick={() => setStatus('active')}
+                                    className={`flex-1 flex justify-center items-center rounded-md text-xs font-bold transition-all py-1.5 ${status === 'active' ? 'bg-emerald-500 text-black shadow' : 'text-muted-foreground hover:bg-secondary'}`}
                                 >
                                     Activo
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setStatus('Inactive')}
-                                    className={`flex-1 flex justify-center items-center rounded-md text-xs font-medium transition-all py-2 ${status === 'Inactive' ? 'bg-red-500 text-white shadow' : 'text-muted-foreground hover:bg-secondary'}`}
+                                    onClick={() => setStatus('inactive')}
+                                    className={`flex-1 flex justify-center items-center rounded-md text-xs font-bold transition-all py-1.5 ${status === 'inactive' ? 'bg-red-500 text-white shadow' : 'text-muted-foreground hover:bg-secondary'}`}
                                 >
                                     Inactivo
                                 </button>
@@ -141,98 +211,178 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                         </div>
                     </div>
 
-                    {/* NUEVOS CAMPOS - PREFERENCIAS DE AGENDAMIENTO INTELIGENTE */}
-                    <div className="p-4 rounded-xl bg-secondary/20 border border-border/50 space-y-4">
+                    {/* SECCIÓN: SERVICIO Y HORARIOS INTELIGENTES */}
+                    <div className="p-4 rounded-xl bg-secondary/20 border border-border/60 space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                                📅 Servicio y Agenda Inteligente
+                                <Calendar className="w-4 h-4 text-emerald-400" /> Servicio y Agenda Inteligente
                             </h3>
-                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                 Opcional
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Tipo de Servicio</label>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-medium text-muted-foreground">Tipo de Servicio</label>
                                 <select
                                     value={serviceType}
                                     onChange={(e) => setServiceType(e.target.value)}
-                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
                                     <option value="presencial">Presencial</option>
                                     <option value="online">Online</option>
                                     <option value="hibrido">Híbrido</option>
                                 </select>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Sesiones / semana</label>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-medium text-muted-foreground">Sesiones / sem</label>
                                 <select
                                     value={sessionsPerWeek}
                                     onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
-                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
-                                    <option value={1}>1 sesión / semana</option>
-                                    <option value={2}>2 sesiones / semana</option>
-                                    <option value={3}>3 sesiones / semana</option>
-                                    <option value={4}>4 sesiones / semana</option>
-                                    <option value={5}>5 sesiones / semana</option>
+                                    <option value={1}>1 sesión</option>
+                                    <option value={2}>2 sesiones</option>
+                                    <option value={3}>3 sesiones</option>
+                                    <option value={4}>4 sesiones</option>
+                                    <option value={5}>5 sesiones</option>
                                 </select>
                             </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Frecuencia de Revisiones</label>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-medium text-muted-foreground">Revisiones</label>
                                 <select
                                     value={checkinFrequency}
                                     onChange={(e) => setCheckinFrequency(e.target.value)}
-                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                    className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
-                                    <option value="none">Sin revisiones</option>
+                                    <option value="none">Sin revisión</option>
                                     <option value="weekly">Semanal</option>
-                                    <option value="biweekly">Quincenal (Cada 2 sem)</option>
+                                    <option value="biweekly">Quincenal</option>
                                     <option value="monthly">Mensual</option>
                                 </select>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Franjas preferidas (opcional)</label>
-                                <Input
-                                    value={preferredTimeSlotsStr}
-                                    onChange={(e) => setPreferredTimeSlotsStr(e.target.value)}
-                                    placeholder="Ej: Lun 09-13, Jue 16-20"
-                                    className="bg-background text-xs h-9"
-                                />
+                        </div>
+
+                        {/* SELECTOR INTERACTIVO DE FRANJAS HORARIAS */}
+                        <div className="space-y-3 pt-2 border-t border-border/40">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-emerald-400" /> Franjas preferentes del atleta:
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                    {activeDaysCount > 0 ? `${activeDaysCount} días configurados` : 'Disponibilidad abierta'}
+                                </span>
+                            </div>
+
+                            {/* Selector de Día */}
+                            <div className="flex flex-wrap gap-1.5">
+                                {DAYS_LIST.map(d => {
+                                    const hasHours = slotsByDay[d.key] && slotsByDay[d.key].length > 0;
+                                    const isSelected = activeDayKey === d.key;
+                                    return (
+                                        <button
+                                            key={d.key}
+                                            type="button"
+                                            onClick={() => setActiveDayKey(d.key)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all relative ${
+                                                isSelected 
+                                                    ? 'bg-emerald-500 text-black shadow' 
+                                                    : hasHours 
+                                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
+                                                        : 'bg-background text-muted-foreground hover:bg-secondary border border-border'
+                                            }`}
+                                        >
+                                            {d.label}
+                                            {hasHours && !isSelected && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute top-1 right-1" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Checklist de horas para el día seleccionado */}
+                            <div className="p-3 bg-background/80 rounded-xl border border-border space-y-2.5">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold text-foreground">
+                                        Horas disponibles el <span className="text-emerald-400">{DAYS_LIST.find(d => d.key === activeDayKey)?.label}</span>:
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPreset('morning')}
+                                            className="text-[10px] px-2 py-0.5 rounded bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                                        >
+                                            09-13h
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPreset('afternoon')}
+                                            className="text-[10px] px-2 py-0.5 rounded bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                                        >
+                                            16-20h
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyPreset('clear')}
+                                            className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                                        >
+                                            Borrar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-5 gap-1.5 pt-1">
+                                    {AVAILABLE_HOURS.map(hour => {
+                                        const isChecked = selectedHoursForActiveDay.includes(hour);
+                                        return (
+                                            <button
+                                                key={hour}
+                                                type="button"
+                                                onClick={() => toggleHour(hour)}
+                                                className={`py-1.5 px-2 rounded-md text-xs font-semibold transition-all text-center flex items-center justify-center gap-1 ${
+                                                    isChecked
+                                                        ? 'bg-emerald-500 text-black font-bold shadow'
+                                                        : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground border border-border/50'
+                                                }`}
+                                            >
+                                                {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                                                {hour}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* NUEVOS CAMPOS */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-muted-foreground">Objetivos (uno por línea)</label>
+                    {/* OBJETIVOS Y LIMITACIONES */}
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Objetivos del Atleta</label>
                         <textarea
                             value={goals}
                             onChange={(e) => setGoals(e.target.value)}
-                            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                            placeholder="Ganar masa muscular&#10;Perder grasa"
+                            className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+                            placeholder="Ganar masa muscular, Perder grasa..."
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-muted-foreground">Limitaciones / Lesiones</label>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Limitaciones / Lesiones</label>
                         <textarea
                             value={limitations}
                             onChange={(e) => setLimitations(e.target.value)}
-                            className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                            placeholder="Dolor de espalda&#10;Asma"
+                            className="flex min-h-[50px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+                            placeholder="Tendinitis hombro derecho, dolor lumbar..."
                         />
                     </div>
 
-                    <div className="pt-4 flex gap-3 border-t border-border/50">
-                        <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+                    <div className="pt-3 flex gap-3 border-t border-border">
+                        <Button type="button" variant="outline" onClick={onClose} className="flex-1 text-xs">
                             Cancelar
                         </Button>
-                        <Button type="submit" className="flex-1 gap-2">
+                        <Button type="submit" className="flex-1 gap-2 bg-emerald-500 text-black font-bold hover:bg-emerald-400 text-xs">
                             <Save className="w-4 h-4" />
                             Guardar Cambios
                         </Button>

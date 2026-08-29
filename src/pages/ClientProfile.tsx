@@ -396,14 +396,24 @@ const ClientProfile = () => {
 
     const handleUpdateClient = async (updatedData: any) => {
         // Extraer únicamente las columnas válidas de la tabla 'clients'
+        const objText = updatedData.objective !== undefined 
+            ? updatedData.objective 
+            : (Array.isArray(updatedData.goals) ? updatedData.goals.join('\n') : (updatedData.goals || ''));
+
+        const limText = Array.isArray(updatedData.limitations) 
+            ? updatedData.limitations.join('\n') 
+            : (updatedData.limitations || '');
+
+        const safeStatus = updatedData.status ? updatedData.status.toLowerCase() : 'active';
+
         const cleanPayload: any = {
             name: updatedData.name,
             email: updatedData.email,
             phone: updatedData.phone,
             plan: updatedData.plan,
-            status: updatedData.status,
-            goals: updatedData.goals,
-            limitations: updatedData.limitations
+            status: safeStatus,
+            objective: objText,
+            limitations: limText
         };
 
         if (updatedData.service_type !== undefined) cleanPayload.service_type = updatedData.service_type;
@@ -413,27 +423,37 @@ const ClientProfile = () => {
 
         const { error } = await supabase.from('clients').update(cleanPayload).eq('id', id);
         if (!error) {
-            setClient((prev: any) => ({ ...prev, ...cleanPayload }));
+            setClient((prev: any) => ({
+                ...prev,
+                ...cleanPayload,
+                goals: objText ? objText.split('\n').filter(Boolean) : [],
+                limitations: limText ? limText.split('\n').filter(Boolean) : []
+            }));
             setEditModalOpen(false);
             addToast('Perfil actualizado con éxito ✅', 'success');
         } else {
             console.error("Error al actualizar cliente:", error);
-            // Si el error es por columna inexistente (aún no se ejecutó el SQL), reintentar sin los nuevos campos para no bloquear al usuario
+            // Si el error es por columna inexistente (aún no se ejecutó el SQL), reintentar con payload básico
             if (error.message && error.message.includes('column')) {
                 const basicPayload = {
                     name: updatedData.name,
                     email: updatedData.email,
                     phone: updatedData.phone,
                     plan: updatedData.plan,
-                    status: updatedData.status,
-                    goals: updatedData.goals,
-                    limitations: updatedData.limitations
+                    status: safeStatus,
+                    objective: objText,
+                    limitations: limText
                 };
                 const { error: retryError } = await supabase.from('clients').update(basicPayload).eq('id', id);
                 if (!retryError) {
-                    setClient((prev: any) => ({ ...prev, ...basicPayload }));
+                    setClient((prev: any) => ({
+                        ...prev,
+                        ...basicPayload,
+                        goals: objText ? objText.split('\n').filter(Boolean) : [],
+                        limitations: limText ? limText.split('\n').filter(Boolean) : []
+                    }));
                     setEditModalOpen(false);
-                    addToast('Perfil guardado (Recuerda añadir las columnas en Supabase) ⚠️', 'warning');
+                    addToast('Perfil guardado ✅ (Añade las columnas en Supabase para activar la agenda inteligente)', 'warning');
                     return;
                 }
             }

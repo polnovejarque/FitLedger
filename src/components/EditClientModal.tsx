@@ -41,6 +41,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
     const [serviceType, setServiceType] = useState('presencial');
     const [sessionsPerWeek, setSessionsPerWeek] = useState(2);
     const [checkinFrequency, setCheckinFrequency] = useState('monthly');
+    const [checkinType, setCheckinType] = useState<'videocall' | 'async'>('videocall');
     const [checkinDuration, setCheckinDuration] = useState(30);
     
     // Selector interactivo de horarios
@@ -70,6 +71,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             setServiceType(client.service_type || 'presencial');
             setSessionsPerWeek(client.sessions_per_week || 2);
             setCheckinFrequency(client.checkin_frequency || 'monthly');
+            setCheckinType(client.checkin_type || 'videocall');
             setCheckinDuration(client.checkin_duration || 30);
 
             // Cargar franjas horarias
@@ -137,7 +139,8 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             service_type: serviceType,
             sessions_per_week: serviceType === 'online' ? 0 : Number(sessionsPerWeek),
             checkin_frequency: checkinFrequency,
-            checkin_duration: Number(checkinDuration),
+            checkin_type: checkinType,
+            checkin_duration: checkinType === 'videocall' ? Number(checkinDuration) : 15,
             preferred_time_slots: serviceType !== 'online' && Object.keys(slotsByDay).length > 0 ? slotsByDay : null,
             objective: goals,
             limitations: limitations
@@ -225,7 +228,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <label className="text-[11px] font-medium text-muted-foreground">Tipo de Servicio</label>
                                 <select
@@ -242,7 +245,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                             {serviceType !== 'online' && (
                                 <div className="space-y-1">
                                     <label className="text-[11px] font-medium text-muted-foreground">
-                                        {serviceType === 'hibrido' ? 'Presenciales / sem' : 'Sesiones / sem'}
+                                        {serviceType === 'hibrido' ? 'Sesiones Presenciales / sem' : 'Sesiones / sem'}
                                     </label>
                                     <select
                                         value={sessionsPerWeek}
@@ -259,7 +262,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                             )}
 
                             <div className="space-y-1">
-                                <label className="text-[11px] font-medium text-muted-foreground">Frecuencia Revisiones</label>
+                                <label className="text-[11px] font-medium text-muted-foreground">Frecuencia de Revisiones</label>
                                 <select
                                     value={checkinFrequency}
                                     onChange={(e) => setCheckinFrequency(e.target.value)}
@@ -273,6 +276,20 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                             </div>
 
                             {checkinFrequency !== 'none' && (
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground">Modalidad de Revisión</label>
+                                    <select
+                                        value={checkinType}
+                                        onChange={(e: any) => setCheckinType(e.target.value)}
+                                        className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                                    >
+                                        <option value="videocall">📞 Videollamada (1 a 1 en directo)</option>
+                                        <option value="async">📝 Check-in Asíncrono (Fotos/Peso)</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            {checkinFrequency !== 'none' && checkinType === 'videocall' && (
                                 <div className="space-y-1">
                                     <label className="text-[11px] font-medium text-muted-foreground">Duración Videollamada</label>
                                     <select
@@ -296,7 +313,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                                 <div>
                                     <p className="font-semibold text-emerald-400">Atleta 100% Online</p>
                                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                                        El atleta entrena de forma autónoma siguiendo su <strong>Plan Semanal</strong>. La Agenda Inteligente solo programará sus <strong>videollamadas de revisión ({checkinDuration} min)</strong>.
+                                        El atleta entrena de forma autónoma siguiendo su <strong>Plan Semanal</strong>. {checkinType === 'videocall' ? `La Agenda Inteligente programará sus videollamadas de revisión (${checkinDuration} min).` : 'La Agenda creará una tarea de revisión de métricas para dar feedback por la app.'}
                                     </p>
                                 </div>
                             </div>

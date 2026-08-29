@@ -446,8 +446,9 @@ const Agenda = () => {
 
             // Programar Revisión / Videollamada si corresponde
             if (client.checkin_frequency && client.checkin_frequency !== 'none') {
+                const isAsyncCheckin = client.checkin_type === 'async';
                 const checkinDayIdx = 4; // Viernes por defecto o último día activo
-                const checkinDurationMins = client.checkin_duration || defaultCheckinDuration || 30;
+                const checkinDurationMins = isAsyncCheckin ? 15 : (client.checkin_duration || defaultCheckinDuration || 30);
 
                 // Buscar hueco libre para la revisión (probando viernes a diferentes horas)
                 for (let ch = 12; ch < 19; ch++) {
@@ -463,12 +464,14 @@ const Agenda = () => {
                         newDbEvents.push({
                             coach_id: user.id,
                             studio_id: studioId,
-                            title: `Videollamada & Revisión: ${client.name}`,
-                            type: 'call',
+                            title: isAsyncCheckin ? `📝 Check-in Asíncrono: ${client.name}` : `📞 Videollamada: ${client.name}`,
+                            type: isAsyncCheckin ? 'checkin' : 'call',
                             date: checkinDate.toISOString(),
                             duration: checkinDurationMins / 60,
-                            location: 'Online / Videollamada',
-                            description: `Check-in de evolución (${client.checkin_frequency} - ${checkinDurationMins} min)`
+                            location: isAsyncCheckin ? 'App / Asíncrono' : 'Online / Videollamada',
+                            description: isAsyncCheckin 
+                                ? `Revisar progreso, fotos y métricas del atleta (${client.checkin_frequency})`
+                                : `Videollamada 1 a 1 de seguimiento (${client.checkin_frequency} - ${checkinDurationMins} min)`
                         });
                         break;
                     }

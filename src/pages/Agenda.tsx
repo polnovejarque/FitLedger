@@ -127,7 +127,7 @@ const Agenda = () => {
         // 2. Cargar clientes activos para la asignación inteligente
         const { data: clientsData } = await supabase
             .from('clients')
-            .select('id, name, service_type, sessions_per_week, checkin_frequency, preferred_time_slots, status, user_id, studio_id, assigned_coach_id')
+            .select('id, name, service_type, sessions_per_week, checkin_frequency, checkin_day, videocall_frequency, videocall_duration, preferred_time_slots, status, user_id, studio_id, assigned_coach_id')
             .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id},assigned_coach_id.eq.${user.id}`);
         
         if (clientsData) {
@@ -444,38 +444,58 @@ const Agenda = () => {
                 }
             }
 
-            // Programar Revisión / Videollamada si corresponde
-            if (client.checkin_frequency && client.checkin_frequency !== 'none') {
-                const isAsyncCheckin = client.checkin_type === 'async';
-                const checkinDayIdx = 4; // Viernes por defecto o último día activo
-                const checkinDurationMins = isAsyncCheckin ? 15 : (client.checkin_duration || defaultCheckinDuration || 30);
+            const dayKeyToIdx: any = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
 
-                // Buscar hueco libre para la revisión (probando viernes a diferentes horas)
-                for (let ch = 12; ch < 19; ch++) {
-                    const chSlot = `${checkinDayIdx}-${ch}`;
+            // 1. Programar Videollamada 1 a 1 si corresponde
+            const vFreq = client.videocall_frequency || (client.checkin_type === 'videocall' ? client.checkin_frequency : 'none');
+            if (vFreq && vFreq !== 'none') {
+                const callDayIdx = 4; // Viernes por defecto
+                const callDurationMins = client.videocall_duration || client.checkin_duration || defaultCheckinDuration || 30;
+
+                // Buscar hueco libre para la videollamada
+                for (let ch = 11; ch < 19; ch++) {
+                    const chSlot = `${callDayIdx}-${ch}`;
                     if (!occupiedSlots.has(chSlot)) {
                         occupiedSlots.add(chSlot);
                         checkinCount++;
 
-                        const checkinDate = new Date(monday);
-                        checkinDate.setDate(monday.getDate() + checkinDayIdx);
-                        checkinDate.setHours(ch, 0, 0, 0);
+                        const callDate = new Date(monday);
+                        callDate.setDate(monday.getDate() + callDayIdx);
+                        callDate.setHours(ch, 0, 0, 0);
 
                         newDbEvents.push({
                             coach_id: user.id,
                             studio_id: studioId,
-                            title: isAsyncCheckin ? `📝 Check-in Asíncrono: ${client.name}` : `📞 Videollamada: ${client.name}`,
-                            type: isAsyncCheckin ? 'checkin' : 'call',
-                            date: checkinDate.toISOString(),
-                            duration: checkinDurationMins / 60,
-                            location: isAsyncCheckin ? 'App / Asíncrono' : 'Online / Videollamada',
-                            description: isAsyncCheckin 
-                                ? `Revisar progreso, fotos y métricas del atleta (${client.checkin_frequency})`
-                                : `Videollamada 1 a 1 de seguimiento (${client.checkin_frequency} - ${checkinDurationMins} min)`
+                            title: `📞 Videollamada: ${client.name}`,
+                            type: 'call',
+                            date: callDate.toISOString(),
+                            duration: callDurationMins / 60,
+                            location: 'Online / Videollamada',
+                            description: `Videollamada 1 a 1 de seguimiento (${vFreq} - ${callDurationMins} min)`
                         });
                         break;
                     }
                 }
+            }
+
+            // 2. Programar Tarea de Check-in Asíncrono & Fotos si corresponde
+            if (client.checkin_frequency && client.checkin_frequency !== 'none') {
+                const checkinDayIdx = dayKeyToIdx[client.checkin_day || 'sunday'] ?? 6;
+
+                const checkinDate = new Date(monday);
+                checkinDate.setDate(monday.getDate() + checkinDayIdx);
+                checkinDate.setHours(9, 0, 0, 0);
+
+                newDbEvents.push({
+                    coach_id: user.id,
+                    studio_id: studioId,
+                    title: `📸 Revisar Check-in & Fotos: ${client.name}`,
+                    type: 'checkin',
+                    date: checkinDate.toISOString(),
+                    duration: 0.25,
+                    location: 'App / Asíncrono',
+                    description: `Revisar progreso, fotos y métricas del atleta (${client.checkin_frequency})`
+                });
             }
         }
 
@@ -484,7 +504,7 @@ const Agenda = () => {
             if (error) {
                 alert("Error al auto-programar: " + error.message);
             } else {
-                setGenerationSummary(`¡Éxito! Se han generado ${createdCount} entrenamientos presenciales y ${checkinCount} videollamadas de revisión sin colisiones.`);
+                setGenerationSummary(`¡Éxito! Se han generado ${createdCount} entrenamientos presenciales, ${checkinCount} videollamadas y recordatorios de check-in sin colisiones.`);
                 const lastDay = new Date(monday);
                 lastDay.setDate(monday.getDate() + 6);
                 loadInitialData(monday, lastDay);

@@ -169,6 +169,8 @@ const ClientWorkout = () => {
     const [activeProfileModal, setActiveProfileModal] = useState<'notifications' | 'settings' | null>(null);
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
+    const [clientCheckinFreq, setClientCheckinFreq] = useState<string | null>(null);
+    const [clientCheckinDay, setClientCheckinDay] = useState<string>('sunday');
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [_fileToUpload, setFileToUpload] = useState<File | null>(null);
 
@@ -210,7 +212,7 @@ const ClientWorkout = () => {
             try {
                 const { data: clientData, error: clientError } = await supabase
                     .from('clients')
-                    .select('id, name, email, image_url, stripe_link, user_id')
+                    .select('id, name, email, image_url, stripe_link, user_id, checkin_frequency, checkin_day')
                     .ilike('email', storedEmail) 
                     .single();
                 
@@ -218,6 +220,8 @@ const ClientWorkout = () => {
             
             if (clientData) {
                 setClientId(clientData.id);
+                if (clientData.checkin_frequency) setClientCheckinFreq(clientData.checkin_frequency);
+                if (clientData.checkin_day) setClientCheckinDay(clientData.checkin_day);
                 // Suscribir al atleta a recibir notificaciones push en segundo plano
                 subscribeToPush(null, clientData.id).catch(err => console.log('Push subscription skipped:', err));
 
@@ -1120,12 +1124,55 @@ const ClientWorkout = () => {
 
     const renderInicio = () => {
         const progressPercent = Math.min((weeklyWorkouts / weeklyGoal) * 100, 100);
+        const dayKeyToNumber: Record<string, number> = {
+            monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7
+        };
+        const isCheckinDayToday = clientCheckinFreq && clientCheckinFreq !== 'none' && (dayKeyToNumber[clientCheckinDay] || 7) === todayDayId;
+
         return (
             <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
                 <div className="flex justify-between items-center mb-2"><div><h1 className="text-3xl font-bold text-white">Hola, {clientName} 👋</h1><p className="text-zinc-400 text-xs mt-1">Vamos a por el objetivo de hoy.</p></div><button className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-800"><Flame className="w-4 h-4 text-orange-500" /><span className="text-white font-bold text-sm">{monthlyWorkouts}</span></button></div>
                 
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 relative overflow-hidden"><div className="flex justify-between items-start mb-4 relative z-10"><div><h3 className="text-emerald-400 font-bold text-xs mb-1 uppercase tracking-wider">Objetivo Semanal</h3><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-white">{weeklyWorkouts}</span><span className="text-zinc-400 text-sm">/ {weeklyGoal} sesiones</span></div></div><Trophy className="w-6 h-6 text-emerald-600" /></div><div className="h-1.5 w-full bg-zinc-800 rounded-full mb-1 relative z-10"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }} /></div><p className="text-right text-[10px] text-emerald-500 font-medium relative z-10">{weeklyWorkouts >= weeklyGoal ? "¡Objetivo cumplido! 🔥" : "¡Casi lo tienes!"}</p></div>
                 
+                {/* BANNER DESTACADO: DÍA DE CHECK-IN Y FOTOS */}
+                {isCheckinDayToday && (
+                    <div className="bg-gradient-to-r from-emerald-950/60 via-zinc-900 to-zinc-900 border-2 border-emerald-500/60 rounded-2xl p-5 shadow-xl relative overflow-hidden animate-in fade-in zoom-in">
+                        <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-black flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/20">
+                                <Camera className="w-6 h-6" />
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500 text-black">
+                                        📸 Día de Check-in
+                                    </span>
+                                    <span className="text-xs text-zinc-400 font-medium">Revisión {clientCheckinFreq === 'weekly' ? 'Semanal' : clientCheckinFreq === 'biweekly' ? 'Quincenal' : 'Mensual'}</span>
+                                </div>
+                                <h3 className="text-white font-bold text-base mt-1.5">¡Toca enviar fotos y peso de la semana!</h3>
+                                <p className="text-zinc-300 text-xs mt-1 leading-relaxed">
+                                    Tu coach necesita tus fotos de evolución y peso en ayunas para evaluar tus resultados y reajustar tu plan.
+                                </p>
+                                <div className="flex flex-wrap gap-2.5 mt-4">
+                                    <Button 
+                                        onClick={() => setShowPhotoModal(true)} 
+                                        className="bg-emerald-500 text-black font-bold text-xs h-9 px-4 hover:bg-emerald-400 flex items-center gap-1.5 shadow"
+                                    >
+                                        <Camera className="w-4 h-4" /> Subir Fotos de Progreso
+                                    </Button>
+                                    <Button 
+                                        onClick={() => setShowCheckinModal(true)} 
+                                        variant="outline" 
+                                        className="border-zinc-700 text-white font-semibold text-xs h-9 px-3.5 hover:bg-zinc-800 flex items-center gap-1.5"
+                                    >
+                                        <Scale className="w-4 h-4" /> Registrar Peso y Medidas
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-4 items-start"><div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center flex-shrink-0"><Lightbulb className="w-5 h-5 text-yellow-500" /></div><div><h3 className="text-white font-bold text-sm mb-1">Tip del Día</h3><p className="text-zinc-400 text-xs leading-relaxed">{DAILY_TIPS[todayDayId % 7]}</p></div></div>
                 
                 <div>
@@ -1174,6 +1221,10 @@ const ClientWorkout = () => {
             { id: 1, name: 'Lunes' }, { id: 2, name: 'Martes' }, { id: 3, name: 'Miércoles' },
             { id: 4, name: 'Jueves' }, { id: 5, name: 'Viernes' }, { id: 6, name: 'Sábado' }, { id: 7, name: 'Domingo' }
         ];
+        const dayKeyToNumber: Record<string, number> = {
+            monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7
+        };
+        const checkinDayNumber = clientCheckinFreq && clientCheckinFreq !== 'none' ? (dayKeyToNumber[clientCheckinDay] || 7) : null;
 
         return (
             <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
@@ -1183,9 +1234,10 @@ const ClientWorkout = () => {
                 </div>
 
                 <div className="space-y-4">
-                    {weeklyPlan.length > 0 ? DAYS.map(day => {
+                    {DAYS.map(day => {
                         const isToday = day.id === todayDayId;
                         const dayPlans = weeklyPlan.filter(p => p.day_of_week === day.id);
+                        const isCheckinScheduledDay = checkinDayNumber === day.id;
 
                         return (
                             <div key={day.id} className={`bg-zinc-900 border ${isToday ? 'border-emerald-500' : 'border-zinc-800'} rounded-xl p-4`}>
@@ -1194,6 +1246,21 @@ const ClientWorkout = () => {
                                         {day.name} {isToday && '(Hoy)'}
                                     </h3>
                                 </div>
+
+                                {isCheckinScheduledDay && (
+                                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-2">
+                                        <div className="flex items-center gap-2.5">
+                                            <Camera className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                            <div>
+                                                <span className="font-bold text-xs text-white block">📸 Check-in Asíncrono & Fotos</span>
+                                                <span className="text-[10px] text-zinc-400">Subida de fotos de evolución y peso</span>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setShowPhotoModal(true)} className="px-3 py-1 text-[11px] font-bold rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 transition-colors">
+                                            Subir
+                                        </button>
+                                    </div>
+                                )}
 
                                 {dayPlans.length > 0 ? (
                                     <div className="space-y-2 mt-2">
@@ -1227,18 +1294,8 @@ const ClientWorkout = () => {
                                     </div>
                                 )}
                             </div>
-                        )
-                    }) : (
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
-                            <CalendarIcon className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
-                            <p className="text-zinc-400 text-sm mb-4">No tienes una planificación semanal asignada.</p>
-                            {todayPlans.length > 0 && (
-                                <button onClick={() => startWorkout(todayPlans[0].routines, todayPlans[0].id.toString())} className="bg-emerald-500 text-black font-bold text-sm px-6 py-2 rounded-lg">
-                                    Ver Mi Rutina Base
-                                </button>
-                            )}
-                        </div>
-                    )}
+                        );
+                    })}
                 </div>
             </div>
         );

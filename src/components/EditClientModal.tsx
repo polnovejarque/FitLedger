@@ -37,12 +37,17 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
     const [goals, setGoals] = useState('');
     const [limitations, setLimitations] = useState('');
 
-    // Estados para Agenda Inteligente
+    // Estados para Agenda Inteligente y Revisiones
     const [serviceType, setServiceType] = useState('presencial');
     const [sessionsPerWeek, setSessionsPerWeek] = useState(2);
-    const [checkinFrequency, setCheckinFrequency] = useState('monthly');
-    const [checkinType, setCheckinType] = useState<'videocall' | 'async'>('videocall');
-    const [checkinDuration, setCheckinDuration] = useState(30);
+    
+    // 1. Check-in Asíncrono & Fotos
+    const [checkinFrequency, setCheckinFrequency] = useState('weekly');
+    const [checkinDay, setCheckinDay] = useState('sunday');
+
+    // 2. Videollamadas 1 a 1
+    const [videocallFrequency, setVideocallFrequency] = useState('monthly');
+    const [videocallDuration, setVideocallDuration] = useState(30);
     
     // Selector interactivo de horarios
     const [activeDayKey, setActiveDayKey] = useState('monday');
@@ -70,9 +75,14 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             // Cargar datos de servicio inteligente
             setServiceType(client.service_type || 'presencial');
             setSessionsPerWeek(client.sessions_per_week || 2);
-            setCheckinFrequency(client.checkin_frequency || 'monthly');
-            setCheckinType(client.checkin_type || 'videocall');
-            setCheckinDuration(client.checkin_duration || 30);
+            
+            // Check-in Asíncrono
+            setCheckinFrequency(client.checkin_frequency || 'weekly');
+            setCheckinDay(client.checkin_day || 'sunday');
+
+            // Videollamadas 1 a 1
+            setVideocallFrequency(client.videocall_frequency || (client.checkin_type === 'videocall' ? client.checkin_frequency : 'none') || 'monthly');
+            setVideocallDuration(client.videocall_duration || client.checkin_duration || 30);
 
             // Cargar franjas horarias
             if (client.preferred_time_slots) {
@@ -139,8 +149,9 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             service_type: serviceType,
             sessions_per_week: serviceType === 'online' ? 0 : Number(sessionsPerWeek),
             checkin_frequency: checkinFrequency,
-            checkin_type: checkinType,
-            checkin_duration: checkinType === 'videocall' ? Number(checkinDuration) : 15,
+            checkin_day: checkinDay,
+            videocall_frequency: videocallFrequency,
+            videocall_duration: Number(videocallDuration),
             preferred_time_slots: serviceType !== 'online' && Object.keys(slotsByDay).length > 0 ? slotsByDay : null,
             objective: goals,
             limitations: limitations
@@ -221,13 +232,14 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                     <div className="p-4 rounded-xl bg-secondary/20 border border-border/60 space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-emerald-400" /> Servicio y Agenda Inteligente
+                                <Calendar className="w-4 h-4 text-emerald-400" /> Servicio y Revisiones
                             </h3>
                             <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                 Opcional
                             </span>
                         </div>
 
+                        {/* TIPO DE SERVICIO */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <label className="text-[11px] font-medium text-muted-foreground">Tipo de Servicio</label>
@@ -260,50 +272,91 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                                     </select>
                                 </div>
                             )}
+                        </div>
 
-                            <div className="space-y-1">
-                                <label className="text-[11px] font-medium text-muted-foreground">Frecuencia de Revisiones</label>
-                                <select
-                                    value={checkinFrequency}
-                                    onChange={(e) => setCheckinFrequency(e.target.value)}
-                                    className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                >
-                                    <option value="none">Sin revisión</option>
-                                    <option value="weekly">Semanal</option>
-                                    <option value="biweekly">Quincenal</option>
-                                    <option value="monthly">Mensual</option>
-                                </select>
+                        {/* BLOQUE 1: CHECK-IN ASÍNCRONO & FOTOS */}
+                        <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    📸 Check-in Asíncrono & Fotos (App Atleta)
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">Fotos + Peso</span>
                             </div>
-
-                            {checkinFrequency !== 'none' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-medium text-muted-foreground">Modalidad de Revisión</label>
+                                    <label className="text-[10px] font-medium text-muted-foreground">Frecuencia de Check-in</label>
                                     <select
-                                        value={checkinType}
-                                        onChange={(e: any) => setCheckinType(e.target.value)}
-                                        className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                                        value={checkinFrequency}
+                                        onChange={(e) => setCheckinFrequency(e.target.value)}
+                                        className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                     >
-                                        <option value="videocall">📞 Videollamada (1 a 1 en directo)</option>
-                                        <option value="async">📝 Check-in Asíncrono (Fotos/Peso)</option>
+                                        <option value="none">Sin check-in</option>
+                                        <option value="weekly">Semanal</option>
+                                        <option value="biweekly">Quincenal</option>
+                                        <option value="monthly">Mensual</option>
                                     </select>
                                 </div>
-                            )}
 
-                            {checkinFrequency !== 'none' && checkinType === 'videocall' && (
+                                {checkinFrequency !== 'none' && (
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-medium text-muted-foreground">Día de entrega del atleta</label>
+                                        <select
+                                            value={checkinDay}
+                                            onChange={(e) => setCheckinDay(e.target.value)}
+                                            className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        >
+                                            <option value="sunday">Domingo (Recomendado)</option>
+                                            <option value="saturday">Sábado</option>
+                                            <option value="friday">Viernes</option>
+                                            <option value="monday">Lunes</option>
+                                            <option value="tuesday">Martes</option>
+                                            <option value="wednesday">Miércoles</option>
+                                            <option value="thursday">Jueves</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* BLOQUE 2: VIDEOLLAMADAS 1 A 1 */}
+                        <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    📞 Videollamadas 1 a 1 (En Directo)
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">Cita en Agenda</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-medium text-muted-foreground">Duración Videollamada</label>
+                                    <label className="text-[10px] font-medium text-muted-foreground">Frecuencia de Videollamadas</label>
                                     <select
-                                        value={checkinDuration}
-                                        onChange={(e) => setCheckinDuration(Number(e.target.value))}
-                                        className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        value={videocallFrequency}
+                                        onChange={(e) => setVideocallFrequency(e.target.value)}
+                                        className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                     >
-                                        <option value={15}>15 minutos</option>
-                                        <option value={30}>30 minutos (Estándar)</option>
-                                        <option value={45}>45 minutos</option>
-                                        <option value={60}>60 minutos (1 hora)</option>
+                                        <option value="none">Sin videollamadas</option>
+                                        <option value="weekly">Semanal</option>
+                                        <option value="biweekly">Quincenal</option>
+                                        <option value="monthly">Mensual</option>
                                     </select>
                                 </div>
-                            )}
+
+                                {videocallFrequency !== 'none' && (
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-medium text-muted-foreground">Duración Videollamada</label>
+                                        <select
+                                            value={videocallDuration}
+                                            onChange={(e) => setVideocallDuration(Number(e.target.value))}
+                                            className="w-full h-8 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        >
+                                            <option value={15}>15 minutos</option>
+                                            <option value={30}>30 minutos (Base)</option>
+                                            <option value={45}>45 minutos</option>
+                                            <option value={60}>60 minutos (1 hora)</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* MENSAJE EXPLICATIVO PARA ONLINE */}
@@ -313,7 +366,9 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                                 <div>
                                     <p className="font-semibold text-emerald-400">Atleta 100% Online</p>
                                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                                        El atleta entrena de forma autónoma siguiendo su <strong>Plan Semanal</strong>. {checkinType === 'videocall' ? `La Agenda Inteligente programará sus videollamadas de revisión (${checkinDuration} min).` : 'La Agenda creará una tarea de revisión de métricas para dar feedback por la app.'}
+                                        El atleta entrena de forma autónoma con su <strong>Plan Semanal</strong>. 
+                                        {checkinFrequency !== 'none' ? ` Recibirá aviso los ${checkinDay === 'sunday' ? 'domingos' : checkinDay === 'saturday' ? 'sábados' : checkinDay === 'friday' ? 'viernes' : checkinDay} para subir fotos/peso.` : ''}
+                                        {videocallFrequency !== 'none' ? ` Su videollamada (${videocallDuration} min) se auto-agendará de forma ${videocallFrequency === 'weekly' ? 'semanal' : videocallFrequency === 'biweekly' ? 'quincenal' : 'mensual'}.` : ''}
                                     </p>
                                 </div>
                             </div>

@@ -419,8 +419,9 @@ const ClientProfile = () => {
         if (updatedData.service_type !== undefined) cleanPayload.service_type = updatedData.service_type;
         if (updatedData.sessions_per_week !== undefined) cleanPayload.sessions_per_week = updatedData.sessions_per_week;
         if (updatedData.checkin_frequency !== undefined) cleanPayload.checkin_frequency = updatedData.checkin_frequency;
-        if (updatedData.checkin_type !== undefined) cleanPayload.checkin_type = updatedData.checkin_type;
-        if (updatedData.checkin_duration !== undefined) cleanPayload.checkin_duration = updatedData.checkin_duration;
+        if (updatedData.checkin_day !== undefined) cleanPayload.checkin_day = updatedData.checkin_day;
+        if (updatedData.videocall_frequency !== undefined) cleanPayload.videocall_frequency = updatedData.videocall_frequency;
+        if (updatedData.videocall_duration !== undefined) cleanPayload.videocall_duration = updatedData.videocall_duration;
         if (updatedData.preferred_time_slots !== undefined) cleanPayload.preferred_time_slots = updatedData.preferred_time_slots;
 
         const { error } = await supabase.from('clients').update(cleanPayload).eq('id', id);
@@ -699,24 +700,30 @@ const ClientProfile = () => {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-4 text-xs">
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                         <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl">
                                             <span className="text-zinc-500 block mb-1">
                                                 {client.service_type === 'online' ? 'Tipo de Plan' : 'Sesiones Presenciales'}
                                             </span>
                                             <span className="font-bold text-white text-sm">
                                                 {client.service_type === 'online' 
-                                                    ? 'Autónomo (Plan Semanal)' 
+                                                    ? 'Autónomo (Online)' 
                                                     : `${client.sessions_per_week || 2} sesiones / sem`}
                                             </span>
                                         </div>
                                         <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl">
-                                            <span className="text-zinc-500 block mb-1">Revisiones</span>
+                                            <span className="text-zinc-500 block mb-1">📸 Check-in & Fotos</span>
                                             <span className="font-bold text-white text-sm capitalize">
-                                                {client.checkin_frequency === 'none' || !client.checkin_frequency ? 'Sin revisión' : (
-                                                    client.checkin_type === 'async' 
-                                                        ? `${client.checkin_frequency === 'weekly' ? 'Semanal' : client.checkin_frequency === 'biweekly' ? 'Quincenal' : 'Mensual'} (Asíncrona)`
-                                                        : `${client.checkin_frequency === 'weekly' ? 'Semanal' : client.checkin_frequency === 'biweekly' ? 'Quincenal' : 'Mensual'} (Videollamada ${client.checkin_duration || 30}m)`
+                                                {client.checkin_frequency === 'none' || !client.checkin_frequency ? 'Sin check-in' : (
+                                                    `${client.checkin_frequency === 'weekly' ? 'Semanal' : client.checkin_frequency === 'biweekly' ? 'Quincenal' : 'Mensual'} (${client.checkin_day === 'sunday' ? 'Dom' : client.checkin_day === 'saturday' ? 'Sáb' : client.checkin_day === 'friday' ? 'Vie' : client.checkin_day === 'monday' ? 'Lun' : client.checkin_day || 'Dom'})`
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl">
+                                            <span className="text-zinc-500 block mb-1">📞 Videollamadas</span>
+                                            <span className="font-bold text-white text-sm capitalize">
+                                                {client.videocall_frequency === 'none' || !client.videocall_frequency ? 'Sin videollamada' : (
+                                                    `${client.videocall_frequency === 'weekly' ? 'Semanal' : client.videocall_frequency === 'biweekly' ? 'Quincenal' : 'Mensual'} (${client.videocall_duration || client.checkin_duration || 30}m)`
                                                 )}
                                             </span>
                                         </div>

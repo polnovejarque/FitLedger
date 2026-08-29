@@ -6,7 +6,7 @@ import {
     ArrowLeft, Mail, MapPin, AlertCircle, 
     Lock, Copy, Check, Loader2, CreditCard, 
     Scale, Camera, ImageIcon, Trophy, User, 
-    CalendarDays, Dumbbell, Plus, Trash2, X,
+    CalendarDays, Calendar, Dumbbell, Plus, Trash2, X,
     MessageSquare, Send, Apple, Utensils, TrendingUp, MessageCircle
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -630,10 +630,47 @@ const ClientProfile = () => {
                         
                         <div className="space-y-6">
                             <Card className="bg-[#111] border-zinc-800">
-                                <CardHeader><CardTitle className="text-white text-base">Detalles del Plan</CardTitle></CardHeader>
-                                <CardContent className="space-y-6">
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-white text-base flex items-center gap-2">
+                                            <Calendar className="w-4 h-4 text-emerald-400" /> Servicio y Agenda Inteligente
+                                        </CardTitle>
+                                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                            {client.service_type || 'Presencial'}
+                                        </span>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4 text-xs">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl">
+                                            <span className="text-zinc-500 block mb-1">Sesiones semanales</span>
+                                            <span className="font-bold text-white text-sm">
+                                                {client.sessions_per_week || 2} días / sem
+                                            </span>
+                                        </div>
+                                        <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl">
+                                            <span className="text-zinc-500 block mb-1">Revisiones</span>
+                                            <span className="font-bold text-white text-sm capitalize">
+                                                {client.checkin_frequency === 'weekly' ? 'Semanal' :
+                                                 client.checkin_frequency === 'biweekly' ? 'Quincenal' :
+                                                 client.checkin_frequency === 'monthly' ? 'Mensual' : 'Sin revisión'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {client.preferred_time_slots && (
+                                        <div className="p-3 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
+                                            <span className="text-zinc-500 block mb-1">Franja horaria preferida (Opcional):</span>
+                                            <span className="font-medium text-emerald-400">
+                                                {typeof client.preferred_time_slots === 'string' 
+                                                    ? client.preferred_time_slots 
+                                                    : JSON.stringify(client.preferred_time_slots)}
+                                            </span>
+                                        </div>
+                                    )}
+
                                     <div>
-                                        <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Limitaciones / Lesiones</h4>
+                                        <h4 className="text-xs font-bold text-zinc-500 uppercase mb-2">Limitaciones / Lesiones</h4>
                                         {client.limitations && client.limitations.length > 0 && client.limitations[0] !== "Ninguna" ? (
                                             <div className="flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                                                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />

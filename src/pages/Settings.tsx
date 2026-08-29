@@ -227,16 +227,19 @@ const Settings = () => {
         setIsSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('profiles')
                 .update({ 
                     plan: newPlan,
                     subscription_plan: newPlan 
                 })
-                .eq('id', user.id);
+                .eq('id', user.id)
+                .select();
                 
             if (error) {
                 alert("Error al cambiar plan: " + error.message);
+            } else if (!data || data.length === 0) {
+                alert("Atención: Supabase bloqueó la actualización por políticas de seguridad (RLS). Cambia el plan manualmente desde el Table Editor de Supabase en la tabla 'profiles'.");
             } else {
                 setPlan(newPlan);
                 alert(`¡Plan actualizado con éxito a FitLeader ${newPlan.toUpperCase()}! ✅`);

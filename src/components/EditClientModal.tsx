@@ -21,6 +21,12 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
     const [goals, setGoals] = useState('');
     const [limitations, setLimitations] = useState('');
 
+    // Estados para Agenda Inteligente
+    const [serviceType, setServiceType] = useState('presencial');
+    const [sessionsPerWeek, setSessionsPerWeek] = useState(2);
+    const [checkinFrequency, setCheckinFrequency] = useState('monthly');
+    const [preferredTimeSlotsStr, setPreferredTimeSlotsStr] = useState('');
+
     useEffect(() => {
         if (isOpen && client) {
             setName(client.name || '');
@@ -32,6 +38,18 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             // Convertimos la lista a texto (uno por línea) para poder editarlo
             setGoals(client.goals ? client.goals.join('\n') : '');
             setLimitations(client.limitations ? client.limitations.join('\n') : '');
+
+            // Cargar datos de servicio inteligente
+            setServiceType(client.service_type || 'presencial');
+            setSessionsPerWeek(client.sessions_per_week || 2);
+            setCheckinFrequency(client.checkin_frequency || 'monthly');
+            setPreferredTimeSlotsStr(
+                client.preferred_time_slots 
+                    ? (typeof client.preferred_time_slots === 'string' 
+                        ? client.preferred_time_slots 
+                        : JSON.stringify(client.preferred_time_slots))
+                    : ''
+            );
         }
     }, [isOpen, client]);
 
@@ -46,6 +64,10 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             phone,
             plan,
             status,
+            service_type: serviceType,
+            sessions_per_week: Number(sessionsPerWeek),
+            checkin_frequency: checkinFrequency,
+            preferred_time_slots: preferredTimeSlotsStr,
             // Convertimos el texto de vuelta a lista (separando por saltos de línea)
             goals: goals.split('\n').filter(line => line.trim() !== ''),
             limitations: limitations.split('\n').filter(line => line.trim() !== '')
@@ -115,6 +137,72 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                                 >
                                     Inactivo
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* NUEVOS CAMPOS - PREFERENCIAS DE AGENDAMIENTO INTELIGENTE */}
+                    <div className="p-4 rounded-xl bg-secondary/20 border border-border/50 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                📅 Servicio y Agenda Inteligente
+                            </h3>
+                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                Opcional
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Tipo de Servicio</label>
+                                <select
+                                    value={serviceType}
+                                    onChange={(e) => setServiceType(e.target.value)}
+                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                >
+                                    <option value="presencial">Presencial</option>
+                                    <option value="online">Online</option>
+                                    <option value="hibrido">Híbrido</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Sesiones / semana</label>
+                                <select
+                                    value={sessionsPerWeek}
+                                    onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
+                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                >
+                                    <option value={1}>1 sesión / semana</option>
+                                    <option value={2}>2 sesiones / semana</option>
+                                    <option value={3}>3 sesiones / semana</option>
+                                    <option value={4}>4 sesiones / semana</option>
+                                    <option value={5}>5 sesiones / semana</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Frecuencia de Revisiones</label>
+                                <select
+                                    value={checkinFrequency}
+                                    onChange={(e) => setCheckinFrequency(e.target.value)}
+                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                >
+                                    <option value="none">Sin revisiones</option>
+                                    <option value="weekly">Semanal</option>
+                                    <option value="biweekly">Quincenal (Cada 2 sem)</option>
+                                    <option value="monthly">Mensual</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Franjas preferidas (opcional)</label>
+                                <Input
+                                    value={preferredTimeSlotsStr}
+                                    onChange={(e) => setPreferredTimeSlotsStr(e.target.value)}
+                                    placeholder="Ej: Lun 09-13, Jue 16-20"
+                                    className="bg-background text-xs h-9"
+                                />
                             </div>
                         </div>
                     </div>

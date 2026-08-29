@@ -419,6 +419,7 @@ const ClientProfile = () => {
         if (updatedData.service_type !== undefined) cleanPayload.service_type = updatedData.service_type;
         if (updatedData.sessions_per_week !== undefined) cleanPayload.sessions_per_week = updatedData.sessions_per_week;
         if (updatedData.checkin_frequency !== undefined) cleanPayload.checkin_frequency = updatedData.checkin_frequency;
+        if (updatedData.checkin_duration !== undefined) cleanPayload.checkin_duration = updatedData.checkin_duration;
         if (updatedData.preferred_time_slots !== undefined) cleanPayload.preferred_time_slots = updatedData.preferred_time_slots;
 
         const { error } = await supabase.from('clients').update(cleanPayload).eq('id', id);
@@ -699,29 +700,44 @@ const ClientProfile = () => {
                                 <CardContent className="space-y-4 text-xs">
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl">
-                                            <span className="text-zinc-500 block mb-1">Sesiones semanales</span>
+                                            <span className="text-zinc-500 block mb-1">
+                                                {client.service_type === 'online' ? 'Tipo de Plan' : 'Sesiones Presenciales'}
+                                            </span>
                                             <span className="font-bold text-white text-sm">
-                                                {client.sessions_per_week || 2} días / sem
+                                                {client.service_type === 'online' 
+                                                    ? 'Autónomo (Plan Semanal)' 
+                                                    : `${client.sessions_per_week || 2} sesiones / sem`}
                                             </span>
                                         </div>
                                         <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl">
                                             <span className="text-zinc-500 block mb-1">Revisiones</span>
                                             <span className="font-bold text-white text-sm capitalize">
-                                                {client.checkin_frequency === 'weekly' ? 'Semanal' :
-                                                 client.checkin_frequency === 'biweekly' ? 'Quincenal' :
-                                                 client.checkin_frequency === 'monthly' ? 'Mensual' : 'Sin revisión'}
+                                                {client.checkin_frequency === 'weekly' ? `Semanal (${client.checkin_duration || 30} min)` :
+                                                 client.checkin_frequency === 'biweekly' ? `Quincenal (${client.checkin_duration || 30} min)` :
+                                                 client.checkin_frequency === 'monthly' ? `Mensual (${client.checkin_duration || 30} min)` : 'Sin revisión'}
                                             </span>
                                         </div>
                                     </div>
 
-                                    {client.preferred_time_slots && (
+                                    {client.service_type !== 'online' && client.preferred_time_slots && (
                                         <div className="p-3 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
-                                            <span className="text-zinc-500 block mb-1">Franja horaria preferida (Opcional):</span>
-                                            <span className="font-medium text-emerald-400">
-                                                {typeof client.preferred_time_slots === 'string' 
-                                                    ? client.preferred_time_slots 
-                                                    : JSON.stringify(client.preferred_time_slots)}
-                                            </span>
+                                            <span className="text-zinc-500 block mb-1.5 font-medium">Franjas horarias preferidas:</span>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {typeof client.preferred_time_slots === 'object' && !Array.isArray(client.preferred_time_slots) ? (
+                                                    Object.entries(client.preferred_time_slots).map(([dayKey, hours]: [string, any]) => {
+                                                        const dayNamesMap: any = { monday: 'Lun', tuesday: 'Mar', wednesday: 'Mié', thursday: 'Jue', friday: 'Vie', saturday: 'Sáb', sunday: 'Dom' };
+                                                        const dayLabel = dayNamesMap[dayKey] || dayKey;
+                                                        const hoursStr = Array.isArray(hours) ? hours.join(', ') : String(hours);
+                                                        return (
+                                                            <span key={dayKey} className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
+                                                                <strong className="text-white">{dayLabel}:</strong> {hoursStr}
+                                                            </span>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <span className="text-emerald-400 font-medium">{String(client.preferred_time_slots)}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
 

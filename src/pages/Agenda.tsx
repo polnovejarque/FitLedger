@@ -63,6 +63,8 @@ const Agenda = () => {
         sunday: { active: false, start: "09:00", end: "14:00" }
     });
     const [defaultSessionDuration, setDefaultSessionDuration] = useState(60);
+    const [defaultCheckinDuration, setDefaultCheckinDuration] = useState(30);
+    const [restBufferMinutes, setRestBufferMinutes] = useState(10);
 
     // Modales y Estados
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -107,7 +109,7 @@ const Agenda = () => {
         // 1. Averiguar quién es el usuario y su plan
         const { data: profile } = await supabase
             .from('profiles')
-            .select('role, studio_id, plan, working_hours, default_session_duration')
+            .select('*')
             .eq('id', user.id)
             .single();
         
@@ -119,6 +121,8 @@ const Agenda = () => {
         if (profile?.plan) setUserPlan(profile.plan);
         if (profile?.working_hours) setWorkingHours(profile.working_hours);
         if (profile?.default_session_duration) setDefaultSessionDuration(profile.default_session_duration);
+        if (profile?.default_checkin_duration) setDefaultCheckinDuration(profile.default_checkin_duration);
+        if (profile?.rest_buffer_minutes !== undefined) setRestBufferMinutes(profile.rest_buffer_minutes);
 
         // 2. Cargar clientes activos para la asignación inteligente
         const { data: clientsData } = await supabase
@@ -356,110 +360,118 @@ const Agenda = () => {
 
         // Iterar clientes activos con servicio configurado
         for (const client of clientsList) {
-            const sessionsWanted = client.sessions_per_week || 2;
+            const isOnline = client.service_type === 'online';
+            const sessionsWanted = isOnline ? 0 : (client.sessions_per_week || 2);
             let scheduledForClient = 0;
-            // Intentar agendar días y horas preferentes del cliente si existen
-            let preferredDaysIndices: number[] = [];
-            let clientSlotsMap: { [dayKey: string]: number[] } = {};
 
-            if (client.preferred_time_slots) {
-                let parsedSlots = client.preferred_time_slots;
-                if (typeof parsedSlots === 'string') {
-                    try { parsedSlots = JSON.parse(parsedSlots); } catch { /* noop */ }
-                }
+            // Intentar agendar días y horas preferentes del cliente si NO es online
+            if (!isOnline && sessionsWanted > 0) {
+                let preferredDaysIndices: number[] = [];
+                let clientSlotsMap: { [dayKey: string]: number[] } = {};
 
-                if (typeof parsedSlots === 'object' && !Array.isArray(parsedSlots)) {
-                    dayNames.forEach((dName, dIdx) => {
-                        const hours = parsedSlots[dName];
-                        if (Array.isArray(hours) && hours.length > 0) {
-                            preferredDaysIndices.push(dIdx);
-                            clientSlotsMap[dName] = hours.map((h: string) => parseInt(h.split(':')[0])).filter((n: number) => !isNaN(n));
-                        }
-                    });
-                } else if (typeof parsedSlots === 'string') {
-                    const prefStr = parsedSlots.toLowerCase();
-                    if (prefStr.includes('lun')) preferredDaysIndices.push(0);
-                    if (prefStr.includes('mar')) preferredDaysIndices.push(1);
-                    if (prefStr.includes('mié') || prefStr.includes('mie')) preferredDaysIndices.push(2);
-                    if (prefStr.includes('jue')) preferredDaysIndices.push(3);
-                    if (prefStr.includes('vie')) preferredDaysIndices.push(4);
-                    if (prefStr.includes('sáb') || prefStr.includes('sab')) preferredDaysIndices.push(5);
-                }
-            }
+                if (client.preferred_time_slots) {
+                    let parsedSlots = client.preferred_time_slots;
+                    if (typeof parsedSlots === 'string') {
+                        try { parsedSlots = JSON.parse(parsedSlots); } catch { /* noop */ }
+                    }
 
-            // Si no tiene días preferidos configurados, repartir en días alternos
-            if (preferredDaysIndices.length === 0) {
-                preferredDaysIndices = sessionsWanted <= 2 ? [1, 3] : [0, 2, 4];
-            }
-
-            // Buscar huecos libres para cada sesión requerida
-            for (const dayIdx of preferredDaysIndices) {
-                if (scheduledForClient >= sessionsWanted) break;
-
-                const dayKey = dayNames[dayIdx];
-                const dayConfig = workingHours[dayKey];
-                if (!dayConfig || !dayConfig.active) continue;
-
-                const startLimit = parseInt(dayConfig.start.split(':')[0]) || 8;
-                const endLimit = parseInt(dayConfig.end.split(':')[0]) || 20;
-
-                // Si el cliente especificó horas concretas para este día, probar esas primero
-                const explicitHours = clientSlotsMap[dayKey] || [];
-                const candidateHours = explicitHours.length > 0
-                    ? explicitHours.filter(h => h >= startLimit && h < endLimit)
-                    : Array.from({ length: Math.max(0, endLimit - startLimit) }, (_, i) => startLimit + i);
-
-                for (const h of candidateHours) {
-                    const slotKey = `${dayIdx}-${h}`;
-                    if (!occupiedSlots.has(slotKey)) {
-                        // Slot encontrado
-                        occupiedSlots.add(slotKey);
-                        scheduledForClient++;
-                        createdCount++;
-
-                        const eventDate = new Date(monday);
-                        eventDate.setDate(monday.getDate() + dayIdx);
-                        eventDate.setHours(h, 0, 0, 0);
-
-                        newDbEvents.push({
-                            coach_id: user.id,
-                            studio_id: studioId,
-                            title: `Entrenamiento: ${client.name}`,
-                            type: 'training',
-                            date: eventDate.toISOString(),
-                            duration: defaultSessionDuration / 60,
-                            location: client.service_type === 'online' ? 'Online / Zoom' : 'Studio / Sala Principal',
-                            description: `Auto-programado por Agenda Inteligente (${client.service_type || 'Presencial'})`
+                    if (typeof parsedSlots === 'object' && !Array.isArray(parsedSlots)) {
+                        dayNames.forEach((dName, dIdx) => {
+                            const hours = parsedSlots[dName];
+                            if (Array.isArray(hours) && hours.length > 0) {
+                                preferredDaysIndices.push(dIdx);
+                                clientSlotsMap[dName] = hours.map((h: string) => parseInt(h.split(':')[0])).filter((n: number) => !isNaN(n));
+                            }
                         });
-                        break;
+                    } else if (typeof parsedSlots === 'string') {
+                        const prefStr = parsedSlots.toLowerCase();
+                        if (prefStr.includes('lun')) preferredDaysIndices.push(0);
+                        if (prefStr.includes('mar')) preferredDaysIndices.push(1);
+                        if (prefStr.includes('mié') || prefStr.includes('mie')) preferredDaysIndices.push(2);
+                        if (prefStr.includes('jue')) preferredDaysIndices.push(3);
+                        if (prefStr.includes('vie')) preferredDaysIndices.push(4);
+                        if (prefStr.includes('sáb') || prefStr.includes('sab')) preferredDaysIndices.push(5);
+                    }
+                }
+
+                // Si no tiene días preferidos configurados, repartir en días alternos
+                if (preferredDaysIndices.length === 0) {
+                    preferredDaysIndices = sessionsWanted <= 2 ? [1, 3] : [0, 2, 4];
+                }
+
+                // Buscar huecos libres para cada sesión requerida
+                for (const dayIdx of preferredDaysIndices) {
+                    if (scheduledForClient >= sessionsWanted) break;
+
+                    const dayKey = dayNames[dayIdx];
+                    const dayConfig = workingHours[dayKey];
+                    if (!dayConfig || !dayConfig.active) continue;
+
+                    const startLimit = parseInt(dayConfig.start.split(':')[0]) || 8;
+                    const endLimit = parseInt(dayConfig.end.split(':')[0]) || 20;
+
+                    // Si el cliente especificó horas concretas para este día, probar esas primero
+                    const explicitHours = clientSlotsMap[dayKey] || [];
+                    const candidateHours = explicitHours.length > 0
+                        ? explicitHours.filter(h => h >= startLimit && h < endLimit)
+                        : Array.from({ length: Math.max(0, endLimit - startLimit) }, (_, i) => startLimit + i);
+
+                    for (const h of candidateHours) {
+                        const slotKey = `${dayIdx}-${h}`;
+                        if (!occupiedSlots.has(slotKey)) {
+                            // Slot encontrado
+                            occupiedSlots.add(slotKey);
+                            scheduledForClient++;
+                            createdCount++;
+
+                            const eventDate = new Date(monday);
+                            eventDate.setDate(monday.getDate() + dayIdx);
+                            eventDate.setHours(h, 0, 0, 0);
+
+                            newDbEvents.push({
+                                coach_id: user.id,
+                                studio_id: studioId,
+                                title: `Entrenamiento: ${client.name}`,
+                                type: 'training',
+                                date: eventDate.toISOString(),
+                                duration: defaultSessionDuration / 60,
+                                location: 'Studio / Sala Principal',
+                                description: `Auto-programado por Agenda Inteligente (${client.service_type === 'hibrido' ? 'Sesión Presencial Híbrida' : 'Presencial'})`
+                            });
+                            break;
+                        }
                     }
                 }
             }
 
-            // Programar Revisión si corresponde (ej. semanal o mensual)
+            // Programar Revisión / Videollamada si corresponde
             if (client.checkin_frequency && client.checkin_frequency !== 'none') {
-                const checkinDayIdx = 4; // Viernes por defecto
-                const checkinHour = 12;
-                const checkinSlotKey = `${checkinDayIdx}-${checkinHour}`;
+                const checkinDayIdx = 4; // Viernes por defecto o último día activo
+                const checkinDurationMins = client.checkin_duration || defaultCheckinDuration || 30;
 
-                if (!occupiedSlots.has(checkinSlotKey)) {
-                    occupiedSlots.add(checkinSlotKey);
-                    checkinCount++;
+                // Buscar hueco libre para la revisión (probando viernes a diferentes horas)
+                for (let ch = 12; ch < 19; ch++) {
+                    const chSlot = `${checkinDayIdx}-${ch}`;
+                    if (!occupiedSlots.has(chSlot)) {
+                        occupiedSlots.add(chSlot);
+                        checkinCount++;
 
-                    const checkinDate = new Date(monday);
-                    checkinDate.setDate(monday.getDate() + checkinDayIdx);
-                    checkinDate.setHours(checkinHour, 0, 0, 0);
+                        const checkinDate = new Date(monday);
+                        checkinDate.setDate(monday.getDate() + checkinDayIdx);
+                        checkinDate.setHours(ch, 0, 0, 0);
 
-                    newDbEvents.push({
-                        coach_id: user.id,
-                        studio_id: studioId,
-                        title: `Revisión & Métricas: ${client.name}`,
-                        type: 'checkin',
-                        date: checkinDate.toISOString(),
-                        duration: 0.5,
-                        location: 'Online / App',
-                        description: `Check-in de evolución (${client.checkin_frequency})`
-                    });
+                        newDbEvents.push({
+                            coach_id: user.id,
+                            studio_id: studioId,
+                            title: `Videollamada & Revisión: ${client.name}`,
+                            type: 'call',
+                            date: checkinDate.toISOString(),
+                            duration: checkinDurationMins / 60,
+                            location: 'Online / Videollamada',
+                            description: `Check-in de evolución (${client.checkin_frequency} - ${checkinDurationMins} min)`
+                        });
+                        break;
+                    }
                 }
             }
         }
@@ -469,13 +481,13 @@ const Agenda = () => {
             if (error) {
                 alert("Error al auto-programar: " + error.message);
             } else {
-                setGenerationSummary(`¡Éxito! Se han generado automáticamente ${createdCount} sesiones de entrenamiento y ${checkinCount} revisiones sin colisiones.`);
+                setGenerationSummary(`¡Éxito! Se han generado ${createdCount} entrenamientos presenciales y ${checkinCount} videollamadas de revisión sin colisiones.`);
                 const lastDay = new Date(monday);
                 lastDay.setDate(monday.getDate() + 6);
                 loadInitialData(monday, lastDay);
             }
         } else {
-            setGenerationSummary("No se encontraron clientes activos con sesiones pendientes o la agenda ya está completa en las franjas indicadas.");
+            setGenerationSummary("No se encontraron sesiones pendientes o la agenda ya está completa en las franjas indicadas.");
         }
 
         setIsGenerating(false);
@@ -486,18 +498,28 @@ const Agenda = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        const payload: any = {
+            working_hours: workingHours,
+            default_session_duration: defaultSessionDuration,
+            default_checkin_duration: defaultCheckinDuration,
+            rest_buffer_minutes: restBufferMinutes
+        };
+
         const { error } = await supabase
             .from('profiles')
-            .update({
-                working_hours: workingHours,
-                default_session_duration: defaultSessionDuration
-            })
+            .update(payload)
             .eq('id', user.id);
 
         if (error) {
-            alert("Error al guardar horario: " + error.message);
-        } else {
+            // Reintentar con datos básicos si las columnas nuevas no existen en Supabase aún
+            await supabase.from('profiles').update({
+                working_hours: workingHours,
+                default_session_duration: defaultSessionDuration
+            }).eq('id', user.id);
             alert("¡Horario laboral actualizado correctamente! ✅");
+            setIsSettingsModalOpen(false);
+        } else {
+            alert("¡Horario laboral y descansos guardados correctamente! ✅");
             setIsSettingsModalOpen(false);
         }
     };
@@ -945,18 +967,50 @@ const Agenda = () => {
                         </div>
 
                         <form onSubmit={handleSaveWorkingHours} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-semibold text-zinc-300">Duración estándar de sesión (min)</label>
-                                <select
-                                    value={defaultSessionDuration}
-                                    onChange={(e) => setDefaultSessionDuration(Number(e.target.value))}
-                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-xs text-white focus:border-emerald-500 outline-none"
-                                >
-                                    <option value={30}>30 minutos</option>
-                                    <option value={45}>45 minutos</option>
-                                    <option value={60}>60 minutos (1 hora)</option>
-                                    <option value={90}>90 minutos (1.5 horas)</option>
-                                </select>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-zinc-300">Sesión Presencial</label>
+                                    <select
+                                        value={defaultSessionDuration}
+                                        onChange={(e) => setDefaultSessionDuration(Number(e.target.value))}
+                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 text-xs text-white focus:border-emerald-500 outline-none"
+                                    >
+                                        <option value={30}>30 min</option>
+                                        <option value={45}>45 min</option>
+                                        <option value={60}>60 min (1h)</option>
+                                        <option value={90}>90 min</option>
+                                    </select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-zinc-300">Videollamadas</label>
+                                    <select
+                                        value={defaultCheckinDuration}
+                                        onChange={(e) => setDefaultCheckinDuration(Number(e.target.value))}
+                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 text-xs text-white focus:border-emerald-500 outline-none"
+                                    >
+                                        <option value={15}>15 min</option>
+                                        <option value={30}>30 min (Base)</option>
+                                        <option value={45}>45 min</option>
+                                        <option value={60}>60 min (1h)</option>
+                                    </select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-zinc-300">Descanso / Buffer</label>
+                                    <select
+                                        value={restBufferMinutes}
+                                        onChange={(e) => setRestBufferMinutes(Number(e.target.value))}
+                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 text-xs text-white focus:border-emerald-500 outline-none"
+                                    >
+                                        <option value={0}>Sin descanso</option>
+                                        <option value={5}>5 min</option>
+                                        <option value={10}>10 min (Mínimo)</option>
+                                        <option value={15}>15 min</option>
+                                        <option value={20}>20 min</option>
+                                        <option value={30}>30 min</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar pr-1">

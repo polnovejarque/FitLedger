@@ -41,6 +41,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
     const [serviceType, setServiceType] = useState('presencial');
     const [sessionsPerWeek, setSessionsPerWeek] = useState(2);
     const [checkinFrequency, setCheckinFrequency] = useState('monthly');
+    const [checkinDuration, setCheckinDuration] = useState(30);
     
     // Selector interactivo de horarios
     const [activeDayKey, setActiveDayKey] = useState('monday');
@@ -69,6 +70,7 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             setServiceType(client.service_type || 'presencial');
             setSessionsPerWeek(client.sessions_per_week || 2);
             setCheckinFrequency(client.checkin_frequency || 'monthly');
+            setCheckinDuration(client.checkin_duration || 30);
 
             // Cargar franjas horarias
             if (client.preferred_time_slots) {
@@ -133,9 +135,10 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
             plan,
             status,
             service_type: serviceType,
-            sessions_per_week: Number(sessionsPerWeek),
+            sessions_per_week: serviceType === 'online' ? 0 : Number(sessionsPerWeek),
             checkin_frequency: checkinFrequency,
-            preferred_time_slots: Object.keys(slotsByDay).length > 0 ? slotsByDay : null,
+            checkin_duration: Number(checkinDuration),
+            preferred_time_slots: serviceType !== 'online' && Object.keys(slotsByDay).length > 0 ? slotsByDay : null,
             objective: goals,
             limitations: limitations
         });
@@ -222,35 +225,41 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             <div className="space-y-1">
                                 <label className="text-[11px] font-medium text-muted-foreground">Tipo de Servicio</label>
                                 <select
                                     value={serviceType}
                                     onChange={(e) => setServiceType(e.target.value)}
-                                    className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
                                 >
-                                    <option value="presencial">Presencial</option>
-                                    <option value="online">Online</option>
-                                    <option value="hibrido">Híbrido</option>
+                                    <option value="presencial">📍 Presencial (1 a 1)</option>
+                                    <option value="online">🌐 Online (Asesoría)</option>
+                                    <option value="hibrido">⚡ Híbrido (Mixto)</option>
                                 </select>
                             </div>
+
+                            {serviceType !== 'online' && (
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground">
+                                        {serviceType === 'hibrido' ? 'Presenciales / sem' : 'Sesiones / sem'}
+                                    </label>
+                                    <select
+                                        value={sessionsPerWeek}
+                                        onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
+                                        className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    >
+                                        <option value={1}>1 sesión / sem</option>
+                                        <option value={2}>2 sesiones / sem</option>
+                                        <option value={3}>3 sesiones / sem</option>
+                                        <option value={4}>4 sesiones / sem</option>
+                                        <option value={5}>5 sesiones / sem</option>
+                                    </select>
+                                </div>
+                            )}
+
                             <div className="space-y-1">
-                                <label className="text-[11px] font-medium text-muted-foreground">Sesiones / sem</label>
-                                <select
-                                    value={sessionsPerWeek}
-                                    onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
-                                    className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                >
-                                    <option value={1}>1 sesión</option>
-                                    <option value={2}>2 sesiones</option>
-                                    <option value={3}>3 sesiones</option>
-                                    <option value={4}>4 sesiones</option>
-                                    <option value={5}>5 sesiones</option>
-                                </select>
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-[11px] font-medium text-muted-foreground">Revisiones</label>
+                                <label className="text-[11px] font-medium text-muted-foreground">Frecuencia Revisiones</label>
                                 <select
                                     value={checkinFrequency}
                                     onChange={(e) => setCheckinFrequency(e.target.value)}
@@ -262,99 +271,130 @@ const EditClientModal = ({ isOpen, onClose, client, onUpdate }: EditClientModalP
                                     <option value="monthly">Mensual</option>
                                 </select>
                             </div>
+
+                            {checkinFrequency !== 'none' && (
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground">Duración Videollamada</label>
+                                    <select
+                                        value={checkinDuration}
+                                        onChange={(e) => setCheckinDuration(Number(e.target.value))}
+                                        className="w-full h-9 rounded-lg border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    >
+                                        <option value={15}>15 minutos</option>
+                                        <option value={30}>30 minutos (Estándar)</option>
+                                        <option value={45}>45 minutos</option>
+                                        <option value={60}>60 minutos (1 hora)</option>
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
-                        {/* SELECTOR INTERACTIVO DE FRANJAS HORARIAS */}
-                        <div className="space-y-3 pt-2 border-t border-border/40">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                    <Clock className="w-3.5 h-3.5 text-emerald-400" /> Franjas preferentes del atleta:
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                    {activeDaysCount > 0 ? `${activeDaysCount} días configurados` : 'Disponibilidad abierta'}
-                                </span>
+                        {/* MENSAJE EXPLICATIVO PARA ONLINE */}
+                        {serviceType === 'online' && (
+                            <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-xs text-zinc-300 flex items-start gap-2">
+                                <span className="text-base">🌐</span>
+                                <div>
+                                    <p className="font-semibold text-emerald-400">Atleta 100% Online</p>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                        El atleta entrena de forma autónoma siguiendo su <strong>Plan Semanal</strong>. La Agenda Inteligente solo programará sus <strong>videollamadas de revisión ({checkinDuration} min)</strong>.
+                                    </p>
+                                </div>
                             </div>
+                        )}
 
-                            {/* Selector de Día */}
-                            <div className="flex flex-wrap gap-1.5">
-                                {DAYS_LIST.map(d => {
-                                    const hasHours = slotsByDay[d.key] && slotsByDay[d.key].length > 0;
-                                    const isSelected = activeDayKey === d.key;
-                                    return (
-                                        <button
-                                            key={d.key}
-                                            type="button"
-                                            onClick={() => setActiveDayKey(d.key)}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all relative ${
-                                                isSelected 
-                                                    ? 'bg-emerald-500 text-black shadow' 
-                                                    : hasHours 
-                                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
-                                                        : 'bg-background text-muted-foreground hover:bg-secondary border border-border'
-                                            }`}
-                                        >
-                                            {d.label}
-                                            {hasHours && !isSelected && (
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute top-1 right-1" />
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Checklist de horas para el día seleccionado */}
-                            <div className="p-3 bg-background/80 rounded-xl border border-border space-y-2.5">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold text-foreground">
-                                        Horas disponibles el <span className="text-emerald-400">{DAYS_LIST.find(d => d.key === activeDayKey)?.label}</span>:
+                        {/* SELECTOR INTERACTIVO DE FRANJAS HORARIAS (SÓLO PRESENCIAL E HÍBRIDO) */}
+                        {serviceType !== 'online' && (
+                            <div className="space-y-3 pt-2 border-t border-border/40">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-emerald-400" /> Franjas preferentes {serviceType === 'hibrido' ? 'para sesiones presenciales' : 'del atleta'}:
                                     </span>
-                                    <div className="flex items-center gap-1.5">
-                                        <button
-                                            type="button"
-                                            onClick={() => applyPreset('morning')}
-                                            className="text-[10px] px-2 py-0.5 rounded bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
-                                        >
-                                            09-13h
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => applyPreset('afternoon')}
-                                            className="text-[10px] px-2 py-0.5 rounded bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
-                                        >
-                                            16-20h
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => applyPreset('clear')}
-                                            className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                                        >
-                                            Borrar
-                                        </button>
-                                    </div>
+                                    <span className="text-[10px] text-muted-foreground">
+                                        {activeDaysCount > 0 ? `${activeDaysCount} días configurados` : 'Disponibilidad abierta'}
+                                    </span>
                                 </div>
 
-                                <div className="grid grid-cols-5 gap-1.5 pt-1">
-                                    {AVAILABLE_HOURS.map(hour => {
-                                        const isChecked = selectedHoursForActiveDay.includes(hour);
+                                {/* Selector de Día */}
+                                <div className="flex flex-wrap gap-1.5">
+                                    {DAYS_LIST.map(d => {
+                                        const hasHours = slotsByDay[d.key] && slotsByDay[d.key].length > 0;
+                                        const isSelected = activeDayKey === d.key;
                                         return (
                                             <button
-                                                key={hour}
+                                                key={d.key}
                                                 type="button"
-                                                onClick={() => toggleHour(hour)}
-                                                className={`py-1.5 px-2 rounded-md text-xs font-semibold transition-all text-center flex items-center justify-center gap-1 ${
-                                                    isChecked
-                                                        ? 'bg-emerald-500 text-black font-bold shadow'
-                                                        : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground border border-border/50'
+                                                onClick={() => setActiveDayKey(d.key)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all relative ${
+                                                    isSelected 
+                                                        ? 'bg-emerald-500 text-black shadow' 
+                                                        : hasHours 
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
+                                                            : 'bg-background text-muted-foreground hover:bg-secondary border border-border'
                                                 }`}
                                             >
-                                                {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                                                {hour}
+                                                {d.label}
+                                                {hasHours && !isSelected && (
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute top-1 right-1" />
+                                                )}
                                             </button>
                                         );
                                     })}
                                 </div>
+
+                                {/* Checklist de horas para el día seleccionado */}
+                                <div className="p-3 bg-background/80 rounded-xl border border-border space-y-2.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="font-semibold text-foreground">
+                                            Horas disponibles el <span className="text-emerald-400">{DAYS_LIST.find(d => d.key === activeDayKey)?.label}</span>:
+                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => applyPreset('morning')}
+                                                className="text-[10px] px-2 py-0.5 rounded bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                                            >
+                                                09-13h
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => applyPreset('afternoon')}
+                                                className="text-[10px] px-2 py-0.5 rounded bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                                            >
+                                                16-20h
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => applyPreset('clear')}
+                                                className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                                            >
+                                                Borrar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-5 gap-1.5 pt-1">
+                                        {AVAILABLE_HOURS.map(hour => {
+                                            const isChecked = selectedHoursForActiveDay.includes(hour);
+                                            return (
+                                                <button
+                                                    key={hour}
+                                                    type="button"
+                                                    onClick={() => toggleHour(hour)}
+                                                    className={`py-1.5 px-2 rounded-md text-xs font-semibold transition-all text-center flex items-center justify-center gap-1 ${
+                                                        isChecked
+                                                            ? 'bg-emerald-500 text-black font-bold shadow'
+                                                            : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground border border-border/50'
+                                                    }`}
+                                                >
+                                                    {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                                                    {hour}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* OBJETIVOS Y LIMITACIONES */}

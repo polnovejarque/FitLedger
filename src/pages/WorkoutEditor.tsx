@@ -62,8 +62,17 @@ const WorkoutEditor = () => {
             setIsLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             
-            const { data: clientsData } = await supabase.from('clients').select('id, name, image_url');
-            if (clientsData) setClients(clientsData);
+            if (user) {
+                const { data: profile } = await supabase.from('profiles').select('studio_id').eq('id', user.id).single();
+                const currentStudioId = profile?.studio_id || user.id;
+
+                const { data: clientsData } = await supabase
+                    .from('clients')
+                    .select('id, name, image_url')
+                    .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id},assigned_coach_id.eq.${user.id}`)
+                    .eq('status', 'active');
+                if (clientsData) setClients(clientsData);
+            }
 
             if (user) {
                 const { data: customExData } = await supabase.from('exercises').select('*').eq('coach_id', user.id);

@@ -66,8 +66,19 @@ const Reports = () => {
             setFullData(processedMonths);
 
             // C. Métricas de Clientes y Sesiones (Citas)
-            const { count: clientsCount } = await supabase.from('clients').select('*', { count: 'exact', head: true });
-            const { count: sessionsCount } = await supabase.from('calendar_events').select('*', { count: 'exact', head: true }).eq('coach_id', user.id);
+            const { data: profile } = await supabase.from('profiles').select('studio_id').eq('id', user.id).single();
+            const currentStudioId = profile?.studio_id || user.id;
+
+            const { count: clientsCount } = await supabase
+                .from('clients')
+                .select('*', { count: 'exact', head: true })
+                .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id},assigned_coach_id.eq.${user.id}`)
+                .eq('status', 'active');
+
+            const { count: sessionsCount } = await supabase
+                .from('calendar_events')
+                .select('*', { count: 'exact', head: true })
+                .eq('coach_id', user.id);
             
             setMetrics({
                 totalClients: clientsCount || 0,

@@ -39,8 +39,15 @@ const Finance = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // A. Cargar Clientes (para el select)
-        const { data: clientsData } = await supabase.from('clients').select('id, name');
+        // A. Cargar Clientes del Coach (para el select)
+        const { data: profile } = await supabase.from('profiles').select('studio_id').eq('id', user.id).single();
+        const currentStudioId = profile?.studio_id || user.id;
+
+        const { data: clientsData } = await supabase
+            .from('clients')
+            .select('id, name')
+            .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id},assigned_coach_id.eq.${user.id}`)
+            .eq('status', 'active');
         if (clientsData) setClients(clientsData);
 
         // B. Cargar Pagos (Uniendo con tabla clientes para saber el nombre)

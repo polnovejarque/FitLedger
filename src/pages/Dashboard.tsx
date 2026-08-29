@@ -42,12 +42,14 @@ const Dashboard = () => {
 
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
-                    .select('role, plan, business_name, logo_url')
+                    .select('role, plan, business_name, logo_url, studio_id')
                     .eq('id', user.id)
                     .single();
 
                 if (profileError) console.warn('Error cargando perfil:', profileError.message);
                 if (profile?.role) setUserRole(profile.role);
+
+                const currentStudioId = profile?.studio_id || user.id;
 
                 const now = new Date();
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -85,8 +87,14 @@ const Dashboard = () => {
                     setCashFlowData(Object.values(monthsMap).sort((a: any, b: any) => a.sort - b.sort));
                 }
 
-                const { data: clients } = await supabase.from('clients').select('id');
-                const totalClients = clients?.length || 0;
+                // Cargar únicamente los clientes asignados o creados por este coach/studio
+                const { data: clients } = await supabase
+                    .from('clients')
+                    .select('id, status')
+                    .or(`studio_id.eq.${currentStudioId},user_id.eq.${user.id},assigned_coach_id.eq.${user.id}`);
+
+                const activeClientsCount = clients?.filter(c => !c.status || c.status.toLowerCase() === 'active').length || 0;
+                const totalClients = activeClientsCount;
 
                 const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
                 const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);

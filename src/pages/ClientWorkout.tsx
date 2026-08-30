@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { 
     Home, ClipboardList, TrendingUp, User, LogOut, Flame, 
     Calendar as CalendarIcon, Trophy, Activity, Dumbbell,
-    Bell, Settings, ChevronRight, Plus, Scale, X, Camera, Ruler, RefreshCw,
+    Bell, Settings, ChevronRight, ChevronLeft, Plus, Scale, X, Camera, Ruler, RefreshCw,
     ArrowLeft, Check, Clock, Play, SkipForward, Lightbulb, Upload, ExternalLink,
     CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers, RefreshCcw,
     Apple, Send, MessageSquare, Utensils, MessageCircle, PlusCircle
@@ -171,8 +171,16 @@ const ClientWorkout = () => {
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [clientCheckinFreq, setClientCheckinFreq] = useState<string | null>(null);
     const [clientCheckinDay, setClientCheckinDay] = useState<string>('sunday');
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [_fileToUpload, setFileToUpload] = useState<File | null>(null);
+    
+    // --- ESTADOS PARA CHECK-IN DE FOTOS MULTI-PASO (FRONTAL, ESPALDA, PERFIL) ---
+    const [photoStep, setPhotoStep] = useState<'front' | 'back' | 'side'>('front');
+    const [frontFile, setFrontFile] = useState<File | null>(null);
+    const [frontPreview, setFrontPreview] = useState<string | null>(null);
+    const [backFile, setBackFile] = useState<File | null>(null);
+    const [backPreview, setBackPreview] = useState<string | null>(null);
+    const [sideFile, setSideFile] = useState<File | null>(null);
+    const [sidePreview, setSidePreview] = useState<string | null>(null);
+    const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
     const [notifSettings, setNotifSettings] = useState(() => {
         const saved = localStorage.getItem('fit_client_notifs');
@@ -937,6 +945,124 @@ const ClientWorkout = () => {
             setSaving(false);
         }
     };
+
+    // --- COMPRESIÓN Y SUBIDA INTELIGENTE DE FOTOS DE PROGRESO ---
+    const compressImage = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1200;
+                    const MAX_HEIGHT = 1600;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                    resolve(dataUrl);
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
+        });
+    };
+
+    const uploadPhotoFile = async (file: File | string, angleName: string, clientIdentifier: string): Promise<string> => {
+        const dataUrl = typeof file === 'string' ? file : await compressImage(file);
+        try {
+            const fileName = `progress_${clientIdentifier}_${angleName}_${Date.now()}.jpg`;
+            const res = await fetch(dataUrl);
+            const blob = await res.blob();
+            const { error } = await supabase.storage.from('avatars').upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+            if (!error) {
+                const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                if (data?.publicUrl) return data.publicUrl;
+            }
+        } catch (e) {
+            console.warn('Storage fallback to dataUrl:', e);
+        }
+        return dataUrl;
+    };
+
+    const handleSavePhotosCheckin = async () => {
+        if (!clientId) return;
+        if (!frontPreview && !backPreview && !sidePreview) {
+            showToast("Por favor selecciona al menos 1 foto para guardar.", 'info');
+            return;
+        }
+
+        setUploadingPhotos(true);
+        try {
+            let frontUrl: string | null = null;
+            let backUrl: string | null = null;
+            let sideUrl: string | null = null;
+
+            if (frontFile) {
+                frontUrl = await uploadPhotoFile(frontFile, 'front', clientId);
+            } else if (frontPreview && frontPreview.startsWith('http')) {
+                frontUrl = frontPreview;
+            }
+
+            if (backFile) {
+                backUrl = await uploadPhotoFile(backFile, 'back', clientId);
+            } else if (backPreview && backPreview.startsWith('http')) {
+                backUrl = backPreview;
+            }
+
+            if (sideFile) {
+                sideUrl = await uploadPhotoFile(sideFile, 'side', clientId);
+            } else if (sidePreview && sidePreview.startsWith('http')) {
+                sideUrl = sidePreview;
+            }
+
+            const payload: any = {
+                client_id: clientId,
+                date: new Date().toISOString()
+            };
+
+            if (frontUrl) payload.front_photo = frontUrl;
+            if (backUrl) payload.back_photo = backUrl;
+            if (sideUrl) payload.side_photo = sideUrl;
+
+            const { error } = await supabase.from('client_progress').insert([payload]);
+            if (error) throw error;
+
+            showToast("📸 ¡Fotos de evolución guardadas con éxito! Tu coach ya puede revisarlas.", 'success');
+            setShowPhotoModal(false);
+            
+            // Limpiar estados
+            setFrontFile(null); setFrontPreview(null);
+            setBackFile(null); setBackPreview(null);
+            setSideFile(null); setSidePreview(null);
+            setPhotoStep('front');
+
+            await fetchProgress(clientId);
+        } catch (error: any) {
+            console.error("Error al subir fotos:", error);
+            showToast("Error al guardar las fotos. Inténtalo de nuevo.", 'error');
+        } finally {
+            setUploadingPhotos(false);
+        }
+    };
     
     // Funciones en mantenimiento ocultadas (CA5)
     // const handleDeleteBefore = async () => { alert("Borrado en mantenimiento"); };
@@ -1418,9 +1544,9 @@ const ClientWorkout = () => {
             <div className="grid grid-cols-2 gap-3">
                 <div className="relative aspect-[3/4] bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden group">
                     <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-white/10">ANTES</div>
-                    {photos[viewAngle].before ? (<img src={photos[viewAngle].before!} alt="Antes" className="w-full h-full object-cover opacity-80" />) : (<div onClick={() => { setFileToUpload(null); setPreviewUrl(null); setShowPhotoModal(true); }} className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-2 cursor-pointer hover:bg-zinc-800"><User className="w-8 h-8 opacity-20" /><span className="text-[10px] text-center px-2">Sin foto inicial</span></div>)}
+                    {photos[viewAngle].before ? (<img src={photos[viewAngle].before!} alt="Antes" className="w-full h-full object-cover opacity-80" />) : (<div onClick={() => { setPhotoStep(viewAngle); setShowPhotoModal(true); }} className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-2 cursor-pointer hover:bg-zinc-800"><User className="w-8 h-8 opacity-20" /><span className="text-[10px] text-center px-2">Sin foto inicial</span></div>)}
                 </div>
-                {photos[viewAngle].now ? (<div className="relative aspect-[3/4] bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden group"><div className="absolute top-2 left-2 bg-emerald-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">AHORA</div><img src={photos[viewAngle].now!} alt="Ahora" className="w-full h-full object-cover" /><button onClick={() => { setFileToUpload(null); setPreviewUrl(null); setShowPhotoModal(true); }} className="absolute bottom-2 right-2 p-2 bg-emerald-500 rounded-full shadow-lg text-black hover:scale-105 transition-transform"><RefreshCw className="w-4 h-4" /></button></div>) : (<button onClick={() => { setFileToUpload(null); setPreviewUrl(null); setShowPhotoModal(true); }} className="aspect-[3/4] bg-zinc-900 rounded-xl border border-emerald-500/30 border-dashed flex flex-col items-center justify-center gap-3 hover:bg-emerald-500/5 group relative"><div className="absolute top-2 left-2 bg-emerald-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">AHORA</div><div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform"><Plus className="w-5 h-5 text-emerald-500" /></div><span className="text-xs font-bold text-emerald-500">Subir {viewAngle === 'front' ? 'Frontal' : viewAngle === 'back' ? 'Espalda' : 'Perfil'}</span></button>)}
+                {photos[viewAngle].now ? (<div className="relative aspect-[3/4] bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden group"><div className="absolute top-2 left-2 bg-emerald-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">AHORA</div><img src={photos[viewAngle].now!} alt="Ahora" className="w-full h-full object-cover" /><button onClick={() => { setPhotoStep(viewAngle); setShowPhotoModal(true); }} className="absolute bottom-2 right-2 p-2 bg-emerald-500 rounded-full shadow-lg text-black hover:scale-105 transition-transform"><RefreshCw className="w-4 h-4" /></button></div>) : (<button onClick={() => { setPhotoStep(viewAngle); setShowPhotoModal(true); }} className="aspect-[3/4] bg-zinc-900 rounded-xl border border-emerald-500/30 border-dashed flex flex-col items-center justify-center gap-3 hover:bg-emerald-500/5 group relative"><div className="absolute top-2 left-2 bg-emerald-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">AHORA</div><div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform"><Plus className="w-5 h-5 text-emerald-500" /></div><span className="text-xs font-bold text-emerald-500">Subir {viewAngle === 'front' ? 'Frontal' : viewAngle === 'back' ? 'Espalda' : 'Perfil'}</span></button>)}
             </div>
             <h3 className="text-sm font-bold text-emerald-500 flex items-center gap-2 mt-4"><Ruler className="w-4 h-4"/> Datos Actuales</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -1823,35 +1949,179 @@ const ClientWorkout = () => {
                     </div>
                 )}
                 
-                {/* MODAL DE SUBIDA DE FOTOS */}
+                {/* MODAL DE SUBIDA DE FOTOS MULTI-PASO (FRONTAL, ESPALDA, PERFIL) */}
                 {showPhotoModal && (
-                    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-                         <div className="bg-zinc-900 w-full max-w-sm rounded-xl border border-zinc-800 overflow-hidden relative p-6">
-                             <button onClick={() => setShowPhotoModal(false)} className="absolute top-4 right-4 text-zinc-500"><X className="w-6 h-6"/></button>
-                             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Camera className="w-5 h-5 text-emerald-500"/> Subir Foto</h3>
-                             <p className="text-xs text-zinc-400 mb-4">Sube tu progreso actual para este ángulo.</p>
-                             
-                             <div className="w-full aspect-[3/4] bg-black border-2 border-dashed border-zinc-800 rounded-xl flex flex-col items-center justify-center mb-4 overflow-hidden relative group">
-                                 {previewUrl ? (
-                                     <img src={previewUrl} className="w-full h-full object-cover" alt="Preview"/>
-                                 ) : (
-                                     <>
-                                         <Upload className="w-7 h-7 text-zinc-700 mb-2 group-hover:text-emerald-500"/>
-                                         <span className="text-xs text-zinc-600 group-hover:text-emerald-500">Haz clic o arrastra</span>
-                                     </>
-                                 )}
-                                 <input type="file" accept="image/*" onChange={(e) => {
-                                     if(e.target.files?.[0]){
-                                         setFileToUpload(e.target.files[0]);
-                                         setPreviewUrl(URL.createObjectURL(e.target.files[0]));
-                                     }
-                                 }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
-                             </div>
-                             
-                             <Button disabled={true} className="w-full bg-emerald-500 text-black font-bold h-12 rounded-lg disabled:opacity-50">
-                                Próximamente
-                             </Button>
-                         </div>
+                    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in overflow-y-auto">
+                        <div className="bg-zinc-900 w-full max-w-md rounded-2xl border border-zinc-800 overflow-hidden relative p-6 my-auto shadow-2xl">
+                            <button 
+                                onClick={() => {
+                                    if (uploadingPhotos) return;
+                                    setShowPhotoModal(false);
+                                }} 
+                                className="absolute top-4 right-4 text-zinc-500 hover:text-white p-1 rounded-lg transition-colors"
+                            >
+                                <X className="w-6 h-6"/>
+                            </button>
+
+                            <div className="flex items-center gap-2.5 mb-1">
+                                <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                                    <Camera className="w-5 h-5"/>
+                                </span>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white leading-tight">Check-in de Fotos</h3>
+                                    <p className="text-xs text-zinc-400">Completa tus 3 ángulos para tu coach.</p>
+                                </div>
+                            </div>
+
+                            {/* PESTAÑAS DE PASOS INTERACTIVAS */}
+                            <div className="grid grid-cols-3 gap-2 mt-4 mb-5">
+                                <button
+                                    onClick={() => setPhotoStep('front')}
+                                    className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${photoStep === 'front' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-sm' : frontPreview ? 'bg-zinc-800/80 border-emerald-500/40 text-zinc-300' : 'bg-zinc-800/40 border-zinc-700/60 text-zinc-500'}`}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        <span>1. Frontal</span>
+                                        {frontPreview && <Check className="w-3 h-3 text-emerald-400 stroke-[3]" />}
+                                    </div>
+                                    <span className="text-[10px] font-normal text-zinc-400">{frontPreview ? 'Cargada ✓' : 'Pendiente'}</span>
+                                </button>
+
+                                <button
+                                    onClick={() => setPhotoStep('back')}
+                                    className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${photoStep === 'back' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-sm' : backPreview ? 'bg-zinc-800/80 border-emerald-500/40 text-zinc-300' : 'bg-zinc-800/40 border-zinc-700/60 text-zinc-500'}`}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        <span>2. Espalda</span>
+                                        {backPreview && <Check className="w-3 h-3 text-emerald-400 stroke-[3]" />}
+                                    </div>
+                                    <span className="text-[10px] font-normal text-zinc-400">{backPreview ? 'Cargada ✓' : 'Pendiente'}</span>
+                                </button>
+
+                                <button
+                                    onClick={() => setPhotoStep('side')}
+                                    className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${photoStep === 'side' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-sm' : sidePreview ? 'bg-zinc-800/80 border-emerald-500/40 text-zinc-300' : 'bg-zinc-800/40 border-zinc-700/60 text-zinc-500'}`}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        <span>3. Perfil</span>
+                                        {sidePreview && <Check className="w-3 h-3 text-emerald-400 stroke-[3]" />}
+                                    </div>
+                                    <span className="text-[10px] font-normal text-zinc-400">{sidePreview ? 'Cargada ✓' : 'Pendiente'}</span>
+                                </button>
+                            </div>
+
+                            {/* CONTENEDOR DE LA FOTO DEL PASO ACTUAL */}
+                            {(() => {
+                                const currentPreview = photoStep === 'front' ? frontPreview : photoStep === 'back' ? backPreview : sidePreview;
+                                const setFile = photoStep === 'front' ? setFrontFile : photoStep === 'back' ? setBackFile : setSideFile;
+                                const setPreview = photoStep === 'front' ? setFrontPreview : photoStep === 'back' ? setBackPreview : setSidePreview;
+                                const stepTitle = photoStep === 'front' ? 'Foto Frontal' : photoStep === 'back' ? 'Foto de Espalda' : 'Foto de Perfil';
+                                const stepDesc = photoStep === 'front' ? 'Ponte de pie mirando a la cámara, brazos relajados y postura recta.' : photoStep === 'back' ? 'De espaldas a la cámara con la espalda recta para evaluar la musculatura posterior.' : 'De perfil lateral (izquierdo o derecho) con postura corporal natural.';
+
+                                return (
+                                    <div className="space-y-4">
+                                        <div className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/80">
+                                            <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                                                <Camera className="w-4 h-4 text-emerald-400" /> {stepTitle}
+                                            </h4>
+                                            <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">{stepDesc}</p>
+                                        </div>
+
+                                        <div className="w-full aspect-[3/4] max-h-[320px] bg-black border-2 border-dashed border-zinc-800 rounded-2xl flex flex-col items-center justify-center overflow-hidden relative group hover:border-emerald-500/50 transition-colors">
+                                            {currentPreview ? (
+                                                <>
+                                                    <img src={currentPreview} className="w-full h-full object-cover" alt="Preview"/>
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                                        <span className="bg-emerald-500 text-black text-xs font-bold px-3 py-1.5 rounded-lg shadow flex items-center gap-1.5">
+                                                            <Upload className="w-3.5 h-3.5" /> Cambiar Foto
+                                                        </span>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="text-center p-6 flex flex-col items-center">
+                                                    <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3 group-hover:scale-105 group-hover:border-emerald-500/40 transition-all">
+                                                        <Upload className="w-6 h-6 text-zinc-500 group-hover:text-emerald-400 transition-colors"/>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
+                                                        Toca aquí para seleccionar o tomar foto
+                                                    </span>
+                                                    <span className="text-[10px] text-zinc-500 mt-1">Cámara o Galería</span>
+                                                </div>
+                                            )}
+                                            <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                onChange={(e) => {
+                                                    if (e.target.files?.[0]) {
+                                                        const file = e.target.files[0];
+                                                        setFile(file);
+                                                        setPreview(URL.createObjectURL(file));
+                                                    }
+                                                }} 
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            />
+                                        </div>
+
+                                        {/* BOTONES DE NAVEGACIÓN Y CONFIRMACIÓN */}
+                                        <div className="space-y-2 pt-2">
+                                            <div className="flex gap-2">
+                                                {photoStep !== 'front' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPhotoStep(photoStep === 'side' ? 'back' : 'front')}
+                                                        className="px-4 py-3 bg-zinc-800 text-zinc-300 font-bold rounded-xl text-xs hover:bg-zinc-700 transition-colors flex items-center gap-1.5"
+                                                    >
+                                                        <ChevronLeft className="w-4 h-4" /> Anterior
+                                                    </button>
+                                                )}
+
+                                                {photoStep === 'front' && (
+                                                    <Button
+                                                        onClick={() => setPhotoStep('back')}
+                                                        className="flex-1 bg-emerald-500 text-black font-bold h-12 rounded-xl hover:bg-emerald-400 flex items-center justify-center gap-2"
+                                                    >
+                                                        Continuar a Espalda (Paso 2/3) <ChevronRight className="w-4 h-4 stroke-[3]" />
+                                                    </Button>
+                                                )}
+
+                                                {photoStep === 'back' && (
+                                                    <Button
+                                                        onClick={() => setPhotoStep('side')}
+                                                        className="flex-1 bg-emerald-500 text-black font-bold h-12 rounded-xl hover:bg-emerald-400 flex items-center justify-center gap-2"
+                                                    >
+                                                        Continuar a Perfil (Paso 3/3) <ChevronRight className="w-4 h-4 stroke-[3]" />
+                                                    </Button>
+                                                )}
+
+                                                {photoStep === 'side' && (
+                                                    <Button
+                                                        onClick={handleSavePhotosCheckin}
+                                                        disabled={uploadingPhotos}
+                                                        className="flex-1 bg-emerald-500 text-black font-bold h-12 rounded-xl hover:bg-emerald-400 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+                                                    >
+                                                        {uploadingPhotos ? (
+                                                            <><Activity className="w-5 h-5 animate-spin"/> Subiendo Fotos...</>
+                                                        ) : (
+                                                            <>Finalizar y Guardar Check-in 🎉</>
+                                                        )}
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {/* ATAJO PARA GUARDAR SI YA TIENE AL MENOS 1 FOTO */}
+                                            {(frontPreview || backPreview || sidePreview) && photoStep !== 'side' && (
+                                                <button
+                                                    onClick={handleSavePhotosCheckin}
+                                                    disabled={uploadingPhotos}
+                                                    className="w-full text-center text-xs text-emerald-400 font-bold py-2 hover:underline transition-all block"
+                                                >
+                                                    {uploadingPhotos ? "Guardando fotos..." : "O guardar ahora con las fotos seleccionadas ➔"}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </div>
                 )}
             </div>

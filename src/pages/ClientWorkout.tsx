@@ -1295,6 +1295,12 @@ const ClientWorkout = () => {
         };
         const isCheckinDayToday = clientCheckinFreq && clientCheckinFreq !== 'none' && (dayKeyToNumber[clientCheckinDay] || 7) === todayDayId;
 
+        const { start: startWeek, end: endWeek } = getWeekRange();
+        const checkinThisWeek = progressHistory.find(
+            p => p.date && p.date >= startWeek && p.date <= endWeek && (p.front_photo || p.back_photo || p.side_photo || p.weight)
+        );
+        const isCheckinSubmittedThisWeek = Boolean(checkinThisWeek);
+
         return (
             <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
                 <div className="flex justify-between items-center mb-2"><div><h1 className="text-3xl font-bold text-white">Hola, {clientName} 👋</h1><p className="text-zinc-400 text-xs mt-1">Vamos a por el objetivo de hoy.</p></div><button className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-800"><Flame className="w-4 h-4 text-orange-500" /><span className="text-white font-bold text-sm">{monthlyWorkouts}</span></button></div>
@@ -1303,40 +1309,76 @@ const ClientWorkout = () => {
                 
                 {/* BANNER DESTACADO: DÍA DE CHECK-IN Y FOTOS */}
                 {isCheckinDayToday && (
-                    <div className="bg-gradient-to-r from-emerald-950/60 via-zinc-900 to-zinc-900 border-2 border-emerald-500/60 rounded-2xl p-5 shadow-xl relative overflow-hidden animate-in fade-in zoom-in">
-                        <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-black flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/20">
-                                <Camera className="w-6 h-6" />
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500 text-black">
-                                        📸 Día de Check-in
-                                    </span>
-                                    <span className="text-xs text-zinc-400 font-medium">Revisión {clientCheckinFreq === 'weekly' ? 'Semanal' : clientCheckinFreq === 'biweekly' ? 'Quincenal' : 'Mensual'}</span>
+                    isCheckinSubmittedThisWeek ? (
+                        <div className="bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900 border border-emerald-500/40 rounded-2xl p-5 shadow-lg relative overflow-hidden animate-in fade-in">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
+                                    <Check className="w-6 h-6 stroke-[3]" />
                                 </div>
-                                <h3 className="text-white font-bold text-base mt-1.5">¡Toca enviar fotos y peso de la semana!</h3>
-                                <p className="text-zinc-300 text-xs mt-1 leading-relaxed">
-                                    Tu coach necesita tus fotos de evolución y peso en ayunas para evaluar tus resultados y reajustar tu plan.
-                                </p>
-                                <div className="flex flex-wrap gap-2.5 mt-4">
-                                    <Button 
-                                        onClick={() => setShowPhotoModal(true)} 
-                                        className="bg-emerald-500 text-black font-bold text-xs h-9 px-4 hover:bg-emerald-400 flex items-center gap-1.5 shadow"
-                                    >
-                                        <Camera className="w-4 h-4" /> Subir Fotos de Progreso
-                                    </Button>
-                                    <Button 
-                                        onClick={() => setShowCheckinModal(true)} 
-                                        variant="outline" 
-                                        className="border-zinc-700 text-white font-semibold text-xs h-9 px-3.5 hover:bg-zinc-800 flex items-center gap-1.5"
-                                    >
-                                        <Scale className="w-4 h-4" /> Registrar Peso y Medidas
-                                    </Button>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                            <Check className="w-3 h-3 stroke-[3]" /> Check-in Enviado
+                                        </span>
+                                        <span className="text-xs text-zinc-400 font-medium">Revisión {clientCheckinFreq === 'weekly' ? 'Semanal' : clientCheckinFreq === 'biweekly' ? 'Quincenal' : 'Mensual'}</span>
+                                    </div>
+                                    <h3 className="text-white font-bold text-base mt-1.5">¡Check-in completado con éxito! 🎉</h3>
+                                    <p className="text-zinc-300 text-xs mt-1 leading-relaxed">
+                                        Tus fotos y métricas han sido registradas. Tu coach revisará tu evolución y te enviará feedback muy pronto.
+                                    </p>
+                                    <div className="flex flex-wrap gap-2.5 mt-3.5">
+                                        <Button 
+                                            onClick={() => setActiveTab('progreso')} 
+                                            className="bg-zinc-800 border border-zinc-700 text-emerald-400 hover:text-emerald-300 hover:bg-zinc-700 font-bold text-xs h-8 px-3.5 flex items-center gap-1.5 shadow"
+                                        >
+                                            <TrendingUp className="w-3.5 h-3.5" /> Ver mi evolución
+                                        </Button>
+                                        <button 
+                                            onClick={() => setShowPhotoModal(true)} 
+                                            className="text-zinc-400 hover:text-zinc-200 text-xs font-semibold px-2 py-1 flex items-center gap-1 transition-colors"
+                                        >
+                                            <RefreshCw className="w-3 h-3" /> Actualizar fotos
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="bg-gradient-to-r from-emerald-950/60 via-zinc-900 to-zinc-900 border-2 border-emerald-500/60 rounded-2xl p-5 shadow-xl relative overflow-hidden animate-in fade-in zoom-in">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-black flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/20">
+                                    <Camera className="w-6 h-6" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500 text-black">
+                                            📸 Día de Check-in
+                                        </span>
+                                        <span className="text-xs text-zinc-400 font-medium">Revisión {clientCheckinFreq === 'weekly' ? 'Semanal' : clientCheckinFreq === 'biweekly' ? 'Quincenal' : 'Mensual'}</span>
+                                    </div>
+                                    <h3 className="text-white font-bold text-base mt-1.5">¡Toca enviar fotos y peso de la semana!</h3>
+                                    <p className="text-zinc-300 text-xs mt-1 leading-relaxed">
+                                        Tu coach necesita tus fotos de evolución y peso en ayunas para evaluar tus resultados y reajustar tu plan.
+                                    </p>
+                                    <div className="flex flex-wrap gap-2.5 mt-4">
+                                        <Button 
+                                            onClick={() => setShowPhotoModal(true)} 
+                                            className="bg-emerald-500 text-black font-bold text-xs h-9 px-4 hover:bg-emerald-400 flex items-center gap-1.5 shadow"
+                                        >
+                                            <Camera className="w-4 h-4" /> Subir Fotos de Progreso
+                                        </Button>
+                                        <Button 
+                                            onClick={() => setShowCheckinModal(true)} 
+                                            variant="outline" 
+                                            className="border-zinc-700 text-white font-semibold text-xs h-9 px-3.5 hover:bg-zinc-800 flex items-center gap-1.5"
+                                        >
+                                            <Scale className="w-4 h-4" /> Registrar Peso y Medidas
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )
                 )}
 
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-4 items-start"><div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center flex-shrink-0"><Lightbulb className="w-5 h-5 text-yellow-500" /></div><div><h3 className="text-white font-bold text-sm mb-1">Tip del Día</h3><p className="text-zinc-400 text-xs leading-relaxed">{DAILY_TIPS[todayDayId % 7]}</p></div></div>
@@ -1392,6 +1434,12 @@ const ClientWorkout = () => {
         };
         const checkinDayNumber = clientCheckinFreq && clientCheckinFreq !== 'none' ? (dayKeyToNumber[clientCheckinDay] || 7) : null;
 
+        const { start: startWeek, end: endWeek } = getWeekRange();
+        const checkinThisWeek = progressHistory.find(
+            p => p.date && p.date >= startWeek && p.date <= endWeek && (p.front_photo || p.back_photo || p.side_photo || p.weight)
+        );
+        const isCheckinSubmittedThisWeek = Boolean(checkinThisWeek);
+
         return (
             <div className="p-6 space-y-6 pb-24 pt-20 animate-in fade-in">
                 <div>
@@ -1414,18 +1462,33 @@ const ClientWorkout = () => {
                                 </div>
 
                                 {isCheckinScheduledDay && (
-                                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-2">
-                                        <div className="flex items-center gap-2.5">
-                                            <Camera className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                                            <div>
-                                                <span className="font-bold text-xs text-white block">📸 Check-in Asíncrono & Fotos</span>
-                                                <span className="text-[10px] text-zinc-400">Subida de fotos de evolución y peso</span>
+                                    isCheckinSubmittedThisWeek ? (
+                                        <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-2">
+                                            <div className="flex items-center gap-2.5">
+                                                <Check className="w-4 h-4 text-emerald-400 stroke-[3] flex-shrink-0" />
+                                                <div>
+                                                    <span className="font-bold text-xs text-white block">✅ Check-in de Fotos Enviado</span>
+                                                    <span className="text-[10px] text-zinc-400">Tu coach revisará tus fotos y evolución</span>
+                                                </div>
                                             </div>
+                                            <button onClick={() => setShowPhotoModal(true)} className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white border border-zinc-700 transition-colors">
+                                                Ver / Editar
+                                            </button>
                                         </div>
-                                        <button onClick={() => setShowPhotoModal(true)} className="px-3 py-1 text-[11px] font-bold rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 transition-colors">
-                                            Subir
-                                        </button>
-                                    </div>
+                                    ) : (
+                                        <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-2">
+                                            <div className="flex items-center gap-2.5">
+                                                <Camera className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                                <div>
+                                                    <span className="font-bold text-xs text-white block">📸 Check-in Asíncrono & Fotos</span>
+                                                    <span className="text-[10px] text-zinc-400">Subida de fotos de evolución y peso</span>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => setShowPhotoModal(true)} className="px-3 py-1 text-[11px] font-bold rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 transition-colors">
+                                                Subir
+                                            </button>
+                                        </div>
+                                    )
                                 )}
 
                                 {dayPlans.length > 0 ? (

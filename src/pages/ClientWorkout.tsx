@@ -870,39 +870,52 @@ const ClientWorkout = () => {
                 }
 
                 if (resultsToSave.length > 0) {
-                    // Intento 1: Inserción directa
+                    // Intento 1: Inserción directa completa
                     let { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
 
-                    // Fallback 1: Si falla por UUID inválido ("38"), FK en assignment_id o NOT NULL
-                    if (resultsErr && (
-                        resultsErr.code === '22P02' || 
-                        resultsErr.message?.includes('uuid') || 
-                        resultsErr.message?.includes('assignment_id') || 
-                        resultsErr.code === '23503' || 
-                        resultsErr.code === '23502'
-                    )) {
-                        const fallbackNoAssig = resultsToSave.map(item => ({ ...item, assignment_id: null }));
-                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoAssig);
+                    // Fallback 1: Si falla por UUID mismatch en exercise_id / assignment_id / routine_id o restricciones FK
+                    if (resultsErr) {
+                        console.warn("Intento 1 falló con error:", resultsErr.message, "Intentando fallback seguro sin IDs no UUID...");
+                        const fallbackNoIds = resultsToSave.map(item => ({
+                            client_id: item.client_id,
+                            exercise_name: item.exercise_name,
+                            set_number: item.set_number,
+                            weight: item.weight,
+                            reps: item.reps,
+                            is_completed: item.is_completed,
+                            assignment_id: null,
+                            exercise_id: null,
+                            routine_id: item.routine_id
+                        }));
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoIds);
                         resultsErr = fallbackRes.error;
                     }
 
-                    // Fallback 2: Si falla por columnas nuevas no migradas (client_id / routine_id / exercise_name)
-                    if (resultsErr && (resultsErr.message?.includes('column') || resultsErr.code === '42703' || resultsErr.code === 'PGRST204')) {
-                        const fallbackBasic = resultsToSave.map(({ set_number, weight, reps, is_completed, exercise_id }) => ({
-                            exercise_id,
-                            set_number,
-                            weight,
-                            reps,
-                            is_completed
+                    // Fallback 2: Si routine_id también es tipo UUID en Postgres o falla por columnas nuevas
+                    if (resultsErr) {
+                        console.warn("Intento 2 falló con error:", resultsErr.message, "Intentando fallback limpio por client_id...");
+                        const fallbackClientOnly = resultsToSave.map(item => ({
+                            client_id: item.client_id,
+                            exercise_name: item.exercise_name,
+                            set_number: item.set_number,
+                            weight: item.weight,
+                            reps: item.reps,
+                            is_completed: item.is_completed
+                        }));
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackClientOnly);
+                        resultsErr = fallbackRes.error;
+                    }
+
+                    // Fallback 3: Columnas esenciales legacy
+                    if (resultsErr) {
+                        console.warn("Intento 3 falló con error:", resultsErr.message, "Intentando fallback básico legacy...");
+                        const fallbackBasic = resultsToSave.map(item => ({
+                            set_number: item.set_number,
+                            weight: item.weight,
+                            reps: item.reps,
+                            is_completed: item.is_completed
                         }));
                         const fallbackRes = await supabase.from('workout_results').insert(fallbackBasic);
-                        resultsErr = fallbackRes.error;
-                    }
-
-                    // Fallback 3: Si falla por FK en exercise_id
-                    if (resultsErr && (resultsErr.message?.includes('foreign key') || resultsErr.message?.includes('fkey') || resultsErr.code === '23503')) {
-                        const fallbackNoEx = resultsToSave.map(({ exercise_id, ...rest }) => ({ ...rest, exercise_id: null, assignment_id: null }));
-                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoEx);
                         resultsErr = fallbackRes.error;
                     }
 

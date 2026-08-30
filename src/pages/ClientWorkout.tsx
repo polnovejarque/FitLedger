@@ -571,11 +571,24 @@ const ClientWorkout = () => {
             const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
             const { start: startWeek, end: endWeek } = getWeekRange();
 
-            const { data: results } = await supabase.from('workout_results')
-                .select('created_at, assignment_id')
-                .in('assignment_id', planIds)
-                .gte('created_at', firstDayMonth)
-                .lte('created_at', lastDayMonth);
+            let results: any[] = [];
+            if (clientId) {
+                const { data: cRes } = await supabase.from('workout_results')
+                    .select('created_at, assignment_id, client_id')
+                    .eq('client_id', clientId)
+                    .gte('created_at', firstDayMonth)
+                    .lte('created_at', lastDayMonth);
+                if (cRes && cRes.length > 0) results = cRes;
+            }
+
+            if (results.length === 0 && planIds.length > 0) {
+                const { data: aRes } = await supabase.from('workout_results')
+                    .select('created_at, assignment_id')
+                    .in('assignment_id', planIds)
+                    .gte('created_at', firstDayMonth)
+                    .lte('created_at', lastDayMonth);
+                if (aRes) results = aRes;
+            }
 
             if (results && results.length > 0) {
                 const weeklyResults = results.filter((r: any) => r.created_at >= startWeek && r.created_at <= endWeek);
@@ -612,11 +625,13 @@ const ClientWorkout = () => {
                 ...(legacyAssignments?.map(a => a.id) || [])
             ];
 
-            if (allAssignmentIds.length === 0) return;
+            let pastLogs: any[] = [];
 
-            const { data: pastLogs, error } = await supabase
+            // 1. Intentar buscar por client_id directamente
+            const { data: clientLogs, error: clientLogsErr } = await supabase
                 .from('workout_results')
                 .select(`
+                    id,
                     weight,
                     reps,
                     set_number,
@@ -624,13 +639,31 @@ const ClientWorkout = () => {
                     exercise_name,
                     exercise:routine_exercises (exercise_name)
                 `)
-                .in('assignment_id', allAssignmentIds)
+                .eq('client_id', clientIdStr)
                 .order('created_at', { ascending: false });
 
-            if (error) {
-                console.error("Error cargando historial de ejercicios:", error);
-                return;
+            if (!clientLogsErr && clientLogs && clientLogs.length > 0) {
+                pastLogs = clientLogs;
+            } else if (allAssignmentIds.length > 0) {
+                // 2. Fallback a assignment_id
+                const { data: assignmentLogs } = await supabase
+                    .from('workout_results')
+                    .select(`
+                        id,
+                        weight,
+                        reps,
+                        set_number,
+                        created_at,
+                        exercise_name,
+                        exercise:routine_exercises (exercise_name)
+                    `)
+                    .in('assignment_id', allAssignmentIds)
+                    .order('created_at', { ascending: false });
+                
+                if (assignmentLogs) pastLogs = assignmentLogs;
             }
+
+            if (pastLogs.length === 0) return;
 
             const historyMap: Record<string, Record<number, { weight: number, reps: any }>> = {};
             const exerciseLastSessionDate: Record<string, string> = {};
@@ -764,7 +797,7 @@ const ClientWorkout = () => {
                     : null;
 
                 Object.entries(workoutLogs).forEach(([exerciseId, sets]: any) => {
-                    const exerciseObj = todayWorkout?.routine_exercises?.find(
+                    const exerciseObj = exercises?.find(
                         (ex: any) => String(ex.id) === String(exerciseId)
                     );
                     const exerciseName = exerciseObj?.exercise_name || null;
@@ -809,27 +842,34 @@ const ClientWorkout = () => {
                 }
 
                 if (resultsToSave.length > 0) {
-                    // Intento 1: Inserción directa con todos los campos
+                    // Intento 1: Inserción completa con todos los campos
                     let { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
 
-                    // Fallback 1: Si falla por assignment_id NOT NULL
-                    if (resultsErr && (resultsErr.message?.includes('assignment_id') || resultsErr.code === '23502')) {
-                        const fallbackWithAssigZero = resultsToSave.map(item => ({ ...item, assignment_id: item.assignment_id || 0 }));
-                        const fallbackRes = await supabase.from('workout_results').insert(fallbackWithAssigZero);
+                    // Fallback 1: Si falla por FK en assignment_id o NOT NULL
+                    if (resultsErr && (resultsErr.message?.includes('assignment_id') || resultsErr.code === '23503' || resultsErr.code === '23502')) {
+                        const fallbackNoAssig = resultsToSave.map(item => ({ ...item, assignment_id: null }));
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoAssig);
                         resultsErr = fallbackRes.error;
                     }
 
-                    // Fallback 2: Si falla porque no existe la columna exercise_name en Supabase
-                    if (resultsErr && (resultsErr.message?.includes('exercise_name') || resultsErr.code === 'PGRST204')) {
-                        const fallbackNoName = resultsToSave.map(({ exercise_name, ...rest }) => rest);
-                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoName);
+                    // Fallback 2: Si falla por columnas nuevas no migradas (client_id / routine_id / exercise_name)
+                    if (resultsErr && (resultsErr.message?.includes('column') || resultsErr.code === '42703' || resultsErr.code === 'PGRST204')) {
+                        const fallbackBasic = resultsToSave.map(({ set_number, weight, reps, is_completed, exercise_id, assignment_id }) => ({
+                            assignment_id,
+                            exercise_id,
+                            set_number,
+                            weight,
+                            reps,
+                            is_completed
+                        }));
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackBasic);
                         resultsErr = fallbackRes.error;
                     }
 
-                    // Fallback 3: Si falla por Foreign Key en exercise_id
+                    // Fallback 3: Si falla por FK en exercise_id
                     if (resultsErr && (resultsErr.message?.includes('foreign key') || resultsErr.message?.includes('fkey') || resultsErr.code === '23503')) {
-                        const fallbackNoExId = resultsToSave.map(({ exercise_id, ...rest }) => ({ ...rest, exercise_id: null }));
-                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoExId);
+                        const fallbackNoEx = resultsToSave.map(({ exercise_id, ...rest }) => ({ ...rest, exercise_id: null, assignment_id: null }));
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoEx);
                         resultsErr = fallbackRes.error;
                     }
 

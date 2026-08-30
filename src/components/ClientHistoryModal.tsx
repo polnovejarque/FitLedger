@@ -37,15 +37,11 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                     ...(legacyAssignments?.map(a => a.id) || [])
                 ];
 
-                // Si el cliente no tiene ninguna rutina asignada jamás, cortamos aquí
-                if (allAssignmentIds.length === 0) {
-                    setHistoryGroups([]);
-                    setLoading(false);
-                    return;
-                }
+                let data: any[] = [];
+                let error: any = null;
 
-                // PASO 3: Traemos TODAS las series que coincidan con esos IDs
-                const { data, error } = await supabase
+                // PASO 1: Traer por client_id directamente (más robusto y persistente)
+                const { data: clientData, error: clientErr } = await supabase
                     .from('workout_results')
                     .select(`
                         id,
@@ -56,8 +52,30 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                         exercise_name,
                         exercise:routine_exercises (exercise_name)
                     `)
-                    .in('assignment_id', allAssignmentIds) // Usamos la lista de IDs directamente
+                    .eq('client_id', clientId)
                     .order('created_at', { ascending: false });
+
+                if (!clientErr && clientData && clientData.length > 0) {
+                    data = clientData;
+                } else if (allAssignmentIds.length > 0) {
+                    // PASO 2: Fallback a assignment_id para datos legacy
+                    const { data: assigData, error: assigErr } = await supabase
+                        .from('workout_results')
+                        .select(`
+                            id,
+                            weight,
+                            reps,
+                            set_number,
+                            created_at,
+                            exercise_name,
+                            exercise:routine_exercises (exercise_name)
+                        `)
+                        .in('assignment_id', allAssignmentIds)
+                        .order('created_at', { ascending: false });
+                    
+                    data = assigData || [];
+                    error = assigErr;
+                }
 
                 if (!error && data && data.length > 0) {
                     // Agrupamos los registros por DÍA para crear el concepto de "Sesión"

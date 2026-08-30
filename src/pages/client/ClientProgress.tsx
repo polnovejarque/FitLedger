@@ -42,84 +42,112 @@ const ClientProgress = () => {
             const { data: clientData } = await supabase.from('clients').select('id').eq('email', storedEmail).single();
             if (!clientData) { setLoading(false); return; }
 
-            // 2. Obtener sesiones completadas
-            const { data: assignments } = await supabase
-                .from('routine_assignments')
-                .select(`id, scheduled_date, routine:routines (name)`)
+            // 2. Obtener resultados de entrenamiento directamente por client_id
+            const { data: results, error: resErr } = await supabase
+                .from('workout_results')
+                .select(`
+                    id,
+                    assignment_id,
+                    set_number,
+                    weight,
+                    reps,
+                    created_at,
+                    exercise_name,
+                    exercise:routine_exercises (exercise_name)
+                `)
                 .eq('client_id', clientData.id)
-                .eq('completed', true)
-                .order('scheduled_date', { ascending: false });
+                .order('created_at', { ascending: false });
 
-            if (!assignments || assignments.length === 0) {
+            let allResults = (!resErr && results) ? results : [];
+
+            // Si no hay por client_id, intentar fallback por assignment_id
+            if (allResults.length === 0) {
+                const { data: weeklyPlans } = await supabase.from('client_weekly_plan').select('id').eq('client_id', clientData.id);
+                const { data: legacyAssignments } = await supabase.from('routine_assignments').select('id').eq('client_id', clientData.id);
+                const assigIds = [
+                    ...(weeklyPlans?.map(p => p.id) || []),
+                    ...(legacyAssignments?.map(a => a.id) || [])
+                ];
+
+                if (assigIds.length > 0) {
+                    const { data: fallbackResults } = await supabase
+                        .from('workout_results')
+                        .select(`
+                            id,
+                            assignment_id,
+                            set_number,
+                            weight,
+                            reps,
+                            created_at,
+                            exercise_name,
+                            exercise:routine_exercises (exercise_name)
+                        `)
+                        .in('assignment_id', assigIds)
+                        .order('created_at', { ascending: false });
+                    if (fallbackResults) allResults = fallbackResults;
+                }
+            }
+
+            if (allResults.length === 0) {
                 setSessions([]);
                 setLoading(false);
                 return;
             }
 
-            const assignmentIds = assignments.map(a => a.id);
+            // 3. Agrupar por fecha de sesión (created_at)
+            const groupedByDate: Record<string, any> = {};
 
-            // 3. Obtener resultados de esas sesiones
-            const { data: results } = await supabase
-                .from('workout_results')
-                .select(`assignment_id, set_number, weight, reps, exercise:routine_exercises (exercise_name)`)
-                .in('assignment_id', assignmentIds)
-                .order('set_number', { ascending: true });
-
-            // 4. Procesar datos (Aquí estaba el error anteriormente)
-            const processedSessions: WorkoutSession[] = assignments.map((assignment: any) => {
-                const sessionResults = results?.filter(r => r.assignment_id === assignment.id) || [];
-                
-                // Agrupamos por nombre de ejercicio
-                const exercisesMap = new Map<string, WorkoutSet[]>();
-                let sessionVolume = 0;
-
-                sessionResults.forEach((res: any) => {
-                    const exerciseName = res.exercise?.exercise_name || "Ejercicio";
-                    const setInfo: WorkoutSet = {
-                        id: Math.random(), // ID temporal para la vista
-                        setNumber: res.set_number,
-                        actualReps: res.reps,
-                        actualWeight: res.weight
+            allResults.forEach((curr: any) => {
+                const dateStr = curr.created_at.split('T')[0];
+                if (!groupedByDate[dateStr]) {
+                    groupedByDate[dateStr] = {
+                        id: curr.id?.toString() || dateStr,
+                        date: curr.created_at,
+                        exercisesMap: new Map<string, WorkoutSet[]>(),
+                        totalVolume: 0
                     };
-
-                    sessionVolume += (res.weight || 0) * (res.reps || 0);
-
-                    if (!exercisesMap.has(exerciseName)) {
-                        exercisesMap.set(exerciseName, []);
-                    }
-                    exercisesMap.get(exerciseName)?.push(setInfo);
-                });
-
-                // Convertimos el Map a Array de objetos Exercise
-                const exercisesList: Exercise[] = Array.from(exercisesMap.entries()).map(([name, sets]) => ({
-                    name,
-                    sets
-                }));
-
-                const dateObj = new Date(assignment.scheduled_date);
-                
-                // CORRECCIÓN DEL ERROR DE TIPO AQUÍ:
-                // Supabase a veces devuelve un array en lugar de un objeto para las relaciones.
-                // Verificamos si es array o objeto para sacar el nombre.
-                let routineName = "Entrenamiento";
-                if (assignment.routine) {
-                    if (Array.isArray(assignment.routine)) {
-                        routineName = assignment.routine[0]?.name || "Entrenamiento";
-                    } else {
-                        routineName = assignment.routine.name || "Entrenamiento";
-                    }
                 }
 
+                const directName = curr.exercise_name as string | null;
+                const joinedName = Array.isArray(curr.exercise) ? curr.exercise[0]?.exercise_name : curr.exercise?.exercise_name;
+                const exerciseName = directName || joinedName || "Ejercicio";
+
+                const setInfo: WorkoutSet = {
+                    id: curr.id || Math.random(),
+                    setNumber: curr.set_number || 1,
+                    actualReps: curr.reps || 0,
+                    actualWeight: curr.weight || 0
+                };
+
+                groupedByDate[dateStr].totalVolume += (curr.weight || 0) * (curr.reps || 0);
+
+                if (!groupedByDate[dateStr].exercisesMap.has(exerciseName)) {
+                    groupedByDate[dateStr].exercisesMap.set(exerciseName, []);
+                }
+                groupedByDate[dateStr].exercisesMap.get(exerciseName)?.push(setInfo);
+            });
+
+            // Convertir a lista ordenada de sesiones
+            const processedSessions: WorkoutSession[] = Object.values(groupedByDate).map((group: any) => {
+                const dateObj = new Date(group.date);
+                const exercisesList: Exercise[] = Array.from(group.exercisesMap.entries()).map(([name, sets]: any) => {
+                    sets.sort((a: WorkoutSet, b: WorkoutSet) => a.setNumber - b.setNumber);
+                    return { name, sets };
+                });
+
                 return {
-                    id: assignment.id,
-                    date: assignment.scheduled_date,
+                    id: group.id,
+                    date: group.date,
                     time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    routineName: routineName,
-                    duration: "60 min",
-                    totalVolume: sessionVolume,
+                    routineName: "Entrenamiento Completado",
+                    duration: "Sesión Finalizada",
+                    totalVolume: Math.round(group.totalVolume),
                     exercises: exercisesList
                 };
             });
+
+            // Ordenar de más reciente a más antiguo
+            processedSessions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             setSessions(processedSessions);
             setLoading(false);

@@ -62,6 +62,7 @@ const ClientProgress = () => {
 
             // Si no hay por client_id, intentar fallback por assignment_id
             if (allResults.length === 0) {
+                const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
                 const { data: weeklyPlans } = await supabase.from('client_weekly_plan').select('id').eq('client_id', clientData.id);
                 const { data: legacyAssignments } = await supabase.from('routine_assignments').select('id').eq('client_id', clientData.id);
                 const assigIds = [
@@ -69,22 +70,27 @@ const ClientProgress = () => {
                     ...(legacyAssignments?.map(a => a.id) || [])
                 ];
 
-                if (assigIds.length > 0) {
-                    const { data: fallbackResults } = await supabase
-                        .from('workout_results')
-                        .select(`
-                            id,
-                            assignment_id,
-                            set_number,
-                            weight,
-                            reps,
-                            created_at,
-                            exercise_name,
-                            exercise:routine_exercises (exercise_name)
-                        `)
-                        .in('assignment_id', assigIds)
-                        .order('created_at', { ascending: false });
-                    if (fallbackResults) allResults = fallbackResults;
+                const validUuidAssigIds = assigIds.filter(id => isValidUuid(id));
+                if (validUuidAssigIds.length > 0) {
+                    try {
+                        const { data: fallbackResults } = await supabase
+                            .from('workout_results')
+                            .select(`
+                                id,
+                                assignment_id,
+                                set_number,
+                                weight,
+                                reps,
+                                created_at,
+                                exercise_name,
+                                exercise:routine_exercises (exercise_name)
+                            `)
+                            .in('assignment_id', validUuidAssigIds)
+                            .order('created_at', { ascending: false });
+                        if (fallbackResults) allResults = fallbackResults;
+                    } catch (e) {
+                        console.warn('Fallback error in client progress:', e);
+                    }
                 }
             }
 

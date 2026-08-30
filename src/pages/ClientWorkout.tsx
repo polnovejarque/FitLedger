@@ -579,23 +579,30 @@ const ClientWorkout = () => {
             const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
             const { start: startWeek, end: endWeek } = getWeekRange();
 
+            const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
             let results: any[] = [];
             if (clientId) {
                 const { data: cRes } = await supabase.from('workout_results')
-                    .select('created_at, assignment_id, client_id')
+                    .select('created_at, assignment_id, client_id, routine_id')
                     .eq('client_id', clientId)
                     .gte('created_at', firstDayMonth)
                     .lte('created_at', lastDayMonth);
                 if (cRes && cRes.length > 0) results = cRes;
             }
 
-            if (results.length === 0 && planIds.length > 0) {
-                const { data: aRes } = await supabase.from('workout_results')
-                    .select('created_at, assignment_id')
-                    .in('assignment_id', planIds)
-                    .gte('created_at', firstDayMonth)
-                    .lte('created_at', lastDayMonth);
-                if (aRes) results = aRes;
+            const validUuidPlanIds = planIds.filter(id => isValidUuid(id));
+            if (results.length === 0 && validUuidPlanIds.length > 0) {
+                try {
+                    const { data: aRes } = await supabase.from('workout_results')
+                        .select('created_at, assignment_id')
+                        .in('assignment_id', validUuidPlanIds)
+                        .gte('created_at', firstDayMonth)
+                        .lte('created_at', lastDayMonth);
+                    if (aRes) results = aRes;
+                } catch (e) {
+                    console.warn('Fallback stats query skipped:', e);
+                }
             }
 
             if (results && results.length > 0) {
@@ -609,7 +616,10 @@ const ClientWorkout = () => {
                 // Comprobar cuáles se han completado hoy
                 const todayStr = now.toISOString().split('T')[0];
                 const completed = new Set<number>(
-                    results.filter((r:any) => r.created_at.startsWith(todayStr)).map((r:any) => r.assignment_id)
+                    results
+                        .filter((r: any) => r.created_at.startsWith(todayStr))
+                        .map((r: any) => r.assignment_id || r.routine_id)
+                        .filter(Boolean)
                 );
                 setCompletedToday(completed);
             } else {
@@ -620,6 +630,8 @@ const ClientWorkout = () => {
 
     const fetchExerciseHistory = async (clientIdStr: string) => {
         try {
+            const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
             const { data: weeklyPlans } = await supabase
                 .from('client_weekly_plan')
                 .select('id')
@@ -652,23 +664,30 @@ const ClientWorkout = () => {
 
             if (!clientLogsErr && clientLogs && clientLogs.length > 0) {
                 pastLogs = clientLogs;
-            } else if (allAssignmentIds.length > 0) {
-                // 2. Fallback a assignment_id
-                const { data: assignmentLogs } = await supabase
-                    .from('workout_results')
-                    .select(`
-                        id,
-                        weight,
-                        reps,
-                        set_number,
-                        created_at,
-                        exercise_name,
-                        exercise:routine_exercises (exercise_name)
-                    `)
-                    .in('assignment_id', allAssignmentIds)
-                    .order('created_at', { ascending: false });
-                
-                if (assignmentLogs) pastLogs = assignmentLogs;
+            } else {
+                // 2. Fallback seguro a assignment_id
+                const validUuidAssigIds = allAssignmentIds.filter(id => isValidUuid(id));
+                if (validUuidAssigIds.length > 0) {
+                    try {
+                        const { data: assignmentLogs } = await supabase
+                            .from('workout_results')
+                            .select(`
+                                id,
+                                weight,
+                                reps,
+                                set_number,
+                                created_at,
+                                exercise_name,
+                                exercise:routine_exercises (exercise_name)
+                            `)
+                            .in('assignment_id', validUuidAssigIds)
+                            .order('created_at', { ascending: false });
+                        
+                        if (assignmentLogs) pastLogs = assignmentLogs;
+                    } catch (e) {
+                        console.warn('Fallback assignment_id query skipped:', e);
+                    }
+                }
             }
 
             if (pastLogs.length === 0) return;
@@ -796,10 +815,11 @@ const ClientWorkout = () => {
             try {
                 const resultsToSave: any[] = [];
 
-                // Parse de IDs seguros
-                const safeAssignmentId = (currentAssignmentId && !isNaN(Number(currentAssignmentId))) 
-                    ? Number(currentAssignmentId) 
-                    : null;
+                const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+                // Si currentAssignmentId es un UUID válido lo pasamos, si es un número (como "38") pasamos null para evitar error de casteo en columnas UUID
+                const safeAssignmentId = isValidUuid(currentAssignmentId) ? currentAssignmentId : null;
+                
                 const safeRoutineId = (todayWorkout?.id && !isNaN(Number(todayWorkout.id))) 
                     ? Number(todayWorkout.id) 
                     : null;
@@ -850,11 +870,17 @@ const ClientWorkout = () => {
                 }
 
                 if (resultsToSave.length > 0) {
-                    // Intento 1: Inserción completa con todos los campos
+                    // Intento 1: Inserción directa
                     let { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
 
-                    // Fallback 1: Si falla por FK en assignment_id o NOT NULL
-                    if (resultsErr && (resultsErr.message?.includes('assignment_id') || resultsErr.code === '23503' || resultsErr.code === '23502')) {
+                    // Fallback 1: Si falla por UUID inválido ("38"), FK en assignment_id o NOT NULL
+                    if (resultsErr && (
+                        resultsErr.code === '22P02' || 
+                        resultsErr.message?.includes('uuid') || 
+                        resultsErr.message?.includes('assignment_id') || 
+                        resultsErr.code === '23503' || 
+                        resultsErr.code === '23502'
+                    )) {
                         const fallbackNoAssig = resultsToSave.map(item => ({ ...item, assignment_id: null }));
                         const fallbackRes = await supabase.from('workout_results').insert(fallbackNoAssig);
                         resultsErr = fallbackRes.error;
@@ -862,8 +888,7 @@ const ClientWorkout = () => {
 
                     // Fallback 2: Si falla por columnas nuevas no migradas (client_id / routine_id / exercise_name)
                     if (resultsErr && (resultsErr.message?.includes('column') || resultsErr.code === '42703' || resultsErr.code === 'PGRST204')) {
-                        const fallbackBasic = resultsToSave.map(({ set_number, weight, reps, is_completed, exercise_id, assignment_id }) => ({
-                            assignment_id,
+                        const fallbackBasic = resultsToSave.map(({ set_number, weight, reps, is_completed, exercise_id }) => ({
                             exercise_id,
                             set_number,
                             weight,

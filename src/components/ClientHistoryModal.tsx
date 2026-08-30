@@ -57,24 +57,32 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
 
                 if (!clientErr && clientData && clientData.length > 0) {
                     data = clientData;
-                } else if (allAssignmentIds.length > 0) {
-                    // PASO 2: Fallback a assignment_id para datos legacy
-                    const { data: assigData, error: assigErr } = await supabase
-                        .from('workout_results')
-                        .select(`
-                            id,
-                            weight,
-                            reps,
-                            set_number,
-                            created_at,
-                            exercise_name,
-                            exercise:routine_exercises (exercise_name)
-                        `)
-                        .in('assignment_id', allAssignmentIds)
-                        .order('created_at', { ascending: false });
-                    
-                    data = assigData || [];
-                    error = assigErr;
+                } else {
+                    // PASO 2: Fallback a assignment_id para datos legacy si son UUID válidos
+                    const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+                    const validUuidAssigIds = allAssignmentIds.filter(id => isValidUuid(id));
+                    if (validUuidAssigIds.length > 0) {
+                        try {
+                            const { data: assigData, error: assigErr } = await supabase
+                                .from('workout_results')
+                                .select(`
+                                    id,
+                                    weight,
+                                    reps,
+                                    set_number,
+                                    created_at,
+                                    exercise_name,
+                                    exercise:routine_exercises (exercise_name)
+                                `)
+                                .in('assignment_id', validUuidAssigIds)
+                                .order('created_at', { ascending: false });
+                            
+                            data = assigData || [];
+                            error = assigErr;
+                        } catch (e) {
+                            console.warn('Fallback error in history:', e);
+                        }
+                    }
                 }
 
                 if (!error && data && data.length > 0) {

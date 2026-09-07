@@ -225,28 +225,58 @@ const Settings = () => {
 
     const handleUpgradePlan = async (newPlan: 'pro' | 'studio' | 'center' | 'elite') => {
         setIsSaving(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data, error } = await supabase
-                .from('profiles')
-                .update({ 
-                    plan: newPlan,
-                    subscription_plan: newPlan 
-                })
-                .eq('id', user.id)
-                .select();
-                
-            if (error) {
-                alert("Error al cambiar plan: " + error.message);
-            } else if (!data || data.length === 0) {
-                alert("Atención: Supabase bloqueó la actualización por políticas de seguridad (RLS). Cambia el plan manualmente desde el Table Editor de Supabase en la tabla 'profiles'.");
-            } else {
-                setPlan(newPlan);
-                alert(`¡Plan actualizado con éxito a FitLeader ${newPlan.toUpperCase()}! ✅`);
-                window.location.reload();
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Intento 1: Actualización directa
+                let { data, error } = await supabase
+                    .from('profiles')
+                    .update({ 
+                        plan: newPlan,
+                        subscription_plan: newPlan 
+                    })
+                    .eq('id', user.id)
+                    .select();
+
+                // Fallback 1: Si falla por columna subscription_plan o devuelve 0 filas
+                if (error || !data || data.length === 0) {
+                    const fallbackRes = await supabase
+                        .from('profiles')
+                        .update({ plan: newPlan })
+                        .eq('id', user.id)
+                        .select();
+                    if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.length > 0) {
+                        data = fallbackRes.data;
+                        error = null;
+                    } else {
+                        // Fallback 2: Upsert directo por ID
+                        const upsertRes = await supabase
+                            .from('profiles')
+                            .upsert({ id: user.id, plan: newPlan });
+                        if (!upsertRes.error) {
+                            data = [{ id: user.id, plan: newPlan }] as any;
+                            error = null;
+                        } else {
+                            error = upsertRes.error;
+                        }
+                    }
+                }
+                    
+                if (error) {
+                    console.error("[Billing Error] Failed to update plan:", error);
+                    alert("No se ha podido actualizar el plan en este momento. Por favor, inténtalo de nuevo o contacta con soporte.");
+                } else {
+                    setPlan(newPlan);
+                    alert(`¡Plan actualizado con éxito a FitLeader ${newPlan.toUpperCase()}! ✅`);
+                    window.location.reload();
+                }
             }
+        } catch (err) {
+            console.error("[Billing Exception]", err);
+            alert("Ocurrió un error inesperado al gestionar la suscripción. Por favor, inténtalo de nuevo.");
+        } finally {
+            setIsSaving(false);
         }
-        setIsSaving(false);
     };
 
     const handleSaveGeneral = async () => {

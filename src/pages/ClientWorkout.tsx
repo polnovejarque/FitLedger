@@ -628,26 +628,14 @@ const ClientWorkout = () => {
         } catch (error) { console.error("Error estadísticas:", error); }
     };
 
-    const fetchExerciseHistory = async (clientIdStr: string) => {
+    const fetchExerciseHistory = async (clientIdVal: any) => {
         try {
-            const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
-            const { data: weeklyPlans } = await supabase
-                .from('client_weekly_plan')
-                .select('id')
-                .eq('client_id', clientIdStr);
-            const { data: legacyAssignments } = await supabase
-                .from('routine_assignments')
-                .select('id')
-                .eq('client_id', clientIdStr);
-            const allAssignmentIds = [
-                ...(weeklyPlans?.map(p => p.id) || []),
-                ...(legacyAssignments?.map(a => a.id) || [])
-            ];
+            if (!clientIdVal) return;
+            const numericClientId = Number(clientIdVal);
 
             let pastLogs: any[] = [];
 
-            // 1. Intentar buscar por client_id directamente
+            // 1. Intentar buscar por client_id directamente (ahora tipo bigint)
             const { data: clientLogs, error: clientLogsErr } = await supabase
                 .from('workout_results')
                 .select(`
@@ -656,18 +644,29 @@ const ClientWorkout = () => {
                     reps,
                     set_number,
                     created_at,
-                    exercise_name,
-                    exercise:routine_exercises (exercise_name)
+                    exercise_name
                 `)
-                .eq('client_id', clientIdStr)
+                .eq('client_id', numericClientId)
                 .order('created_at', { ascending: false });
 
             if (!clientLogsErr && clientLogs && clientLogs.length > 0) {
                 pastLogs = clientLogs;
             } else {
-                // 2. Fallback seguro a assignment_id
-                const validUuidAssigIds = allAssignmentIds.filter(id => isValidUuid(id));
-                if (validUuidAssigIds.length > 0) {
+                // 2. Fallback por client_weekly_plan o routine_assignments si existieran datos legacy
+                const { data: weeklyPlans } = await supabase
+                    .from('client_weekly_plan')
+                    .select('id')
+                    .eq('client_id', numericClientId);
+                const { data: legacyAssignments } = await supabase
+                    .from('routine_assignments')
+                    .select('id')
+                    .eq('client_id', numericClientId);
+                const allAssignmentIds = [
+                    ...(weeklyPlans?.map(p => String(p.id)) || []),
+                    ...(legacyAssignments?.map(a => String(a.id)) || [])
+                ];
+
+                if (allAssignmentIds.length > 0) {
                     try {
                         const { data: assignmentLogs } = await supabase
                             .from('workout_results')
@@ -677,10 +676,9 @@ const ClientWorkout = () => {
                                 reps,
                                 set_number,
                                 created_at,
-                                exercise_name,
-                                exercise:routine_exercises (exercise_name)
+                                exercise_name
                             `)
-                            .in('assignment_id', validUuidAssigIds)
+                            .in('assignment_id', allAssignmentIds)
                             .order('created_at', { ascending: false });
                         
                         if (assignmentLogs) pastLogs = assignmentLogs;
@@ -690,23 +688,17 @@ const ClientWorkout = () => {
                 }
             }
 
-            if (pastLogs.length === 0) return;
+            if (!pastLogs || pastLogs.length === 0) return;
 
             const historyMap: Record<string, Record<number, { weight: number, reps: any }>> = {};
             const exerciseLastSessionDate: Record<string, string> = {};
 
-            pastLogs?.forEach(log => {
-                // Primero usamos exercise_name guardado directamente (resistente a ediciones).
-                // Si no existe (datos legacy), intentamos el JOIN a routine_exercises.
-                const directName = (log as any).exercise_name as string | null;
-                const joinedName = Array.isArray(log.exercise)
-                    ? (log.exercise[0] as any)?.exercise_name
-                    : (log.exercise as any)?.exercise_name;
-                const exName = directName || joinedName;
+            pastLogs.forEach(log => {
+                const exName = log.exercise_name;
                 if (!exName) return;
 
                 const normalizedName = exName.trim().toLowerCase();
-                const sessionDate = log.created_at.split('T')[0];
+                const sessionDate = log.created_at ? log.created_at.split('T')[0] : '';
 
                 if (!exerciseLastSessionDate[normalizedName]) {
                     exerciseLastSessionDate[normalizedName] = sessionDate;
@@ -715,7 +707,7 @@ const ClientWorkout = () => {
 
                 if (exerciseLastSessionDate[normalizedName] === sessionDate) {
                     historyMap[normalizedName][log.set_number] = {
-                        weight: log.weight,
+                        weight: log.weight !== null && log.weight !== undefined ? Number(log.weight) : 0,
                         reps: log.reps
                     };
                 }
@@ -783,15 +775,24 @@ const ClientWorkout = () => {
             
             let updatedSet = { ...currentSet, done: isNowDone };
             if (isNowDone) { 
-                const prevLog = exerciseHistory[exerciseName.trim().toLowerCase()]?.[setIndex];
+                const normName = exerciseName.trim().toLowerCase();
+                const prevLog = exerciseHistory[normName]?.[setIndex] || exerciseHistory[normName]?.[1];
+                const exObj = exercises.find(e => e.id === exerciseId);
+                const coachWeightMatch = exObj?.rir ? String(exObj.rir).match(/(\d+(?:\.\d+)?)\s*(?:kg)?/i) : null;
+
                 if (updatedSet.weight === undefined || updatedSet.weight === '') {
-                    updatedSet.weight = prevLog ? String(prevLog.weight) : '0';
+                    if (prevLog && prevLog.weight !== undefined && prevLog.weight !== null) {
+                        updatedSet.weight = String(prevLog.weight);
+                    } else if (coachWeightMatch) {
+                        updatedSet.weight = coachWeightMatch[1];
+                    } else {
+                        updatedSet.weight = '0';
+                    }
                 }
                 if (updatedSet.reps === undefined || updatedSet.reps === '') {
-                    if (prevLog) {
+                    if (prevLog && prevLog.reps !== undefined && prevLog.reps !== null) {
                         updatedSet.reps = String(prevLog.reps);
                     } else {
-                        const exObj = exercises.find(e => e.id === exerciseId);
                         updatedSet.reps = exObj ? (exObj.exercise_type === 'time' ? (exObj.time_duration || '0') : (exObj.reps || '0')) : '0';
                     }
                 }
@@ -814,15 +815,11 @@ const ClientWorkout = () => {
             setLoading(true);
             try {
                 const resultsToSave: any[] = [];
-
-                const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
-                // Si currentAssignmentId es un UUID válido lo pasamos, si es un número (como "38") pasamos null para evitar error de casteo en columnas UUID
-                const safeAssignmentId = isValidUuid(currentAssignmentId) ? currentAssignmentId : null;
-                
+                const numClientId = Number(clientId);
                 const safeRoutineId = (todayWorkout?.id && !isNaN(Number(todayWorkout.id))) 
                     ? Number(todayWorkout.id) 
                     : null;
+                const safeAssignmentId = currentAssignmentId ? String(currentAssignmentId) : null;
 
                 Object.entries(workoutLogs).forEach(([exerciseId, sets]: any) => {
                     const exerciseObj = exercises?.find(
@@ -832,22 +829,41 @@ const ClientWorkout = () => {
                     const safeExerciseId = (exerciseId && !isNaN(Number(exerciseId))) 
                         ? Number(exerciseId) 
                         : null;
+                    const normExName = exerciseName ? exerciseName.trim().toLowerCase() : '';
+                    const coachWeightMatch = exerciseObj?.rir ? String(exerciseObj.rir).match(/(\d+(?:\.\d+)?)\s*(?:kg)?/i) : null;
 
                     Object.entries(sets).forEach(([setNumber, data]: any) => {
                         if (data.done || data.weight || data.reps) {
-                            const parsedWeight = data.weight ? parseFloat(data.weight) : 0;
-                            const parsedReps = data.reps ? parseFloat(data.reps) : 0;
                             const parsedSetNum = setNumber ? parseInt(setNumber) : 1;
+                            const prevLog = exerciseHistory[normExName]?.[parsedSetNum] || exerciseHistory[normExName]?.[1];
+
+                            let finalWeight = 0;
+                            if (data.weight !== undefined && data.weight !== '' && !isNaN(parseFloat(data.weight))) {
+                                finalWeight = parseFloat(data.weight);
+                            } else if (prevLog && prevLog.weight !== undefined && prevLog.weight !== null) {
+                                finalWeight = Number(prevLog.weight);
+                            } else if (coachWeightMatch) {
+                                finalWeight = parseFloat(coachWeightMatch[1]) || 0;
+                            }
+
+                            let finalReps = 0;
+                            if (data.reps !== undefined && data.reps !== '' && !isNaN(parseFloat(data.reps))) {
+                                finalReps = parseFloat(data.reps);
+                            } else if (prevLog && prevLog.reps !== undefined && prevLog.reps !== null) {
+                                finalReps = Number(prevLog.reps);
+                            } else if (exerciseObj?.reps) {
+                                finalReps = parseFloat(exerciseObj.reps) || 0;
+                            }
 
                             resultsToSave.push({
                                 assignment_id: safeAssignmentId,
                                 exercise_id: safeExerciseId,
                                 exercise_name: exerciseName,
                                 set_number: isNaN(parsedSetNum) ? 1 : parsedSetNum,
-                                weight: isNaN(parsedWeight) ? 0 : parsedWeight,
-                                reps: isNaN(parsedReps) ? 0 : parsedReps,
+                                weight: isNaN(finalWeight) ? 0 : finalWeight,
+                                reps: isNaN(finalReps) ? 0 : finalReps,
                                 is_completed: data.done || false,
-                                client_id: clientId,
+                                client_id: numClientId,
                                 routine_id: safeRoutineId
                             });
                         }
@@ -864,7 +880,7 @@ const ClientWorkout = () => {
                         weight: 0,
                         reps: 0,
                         is_completed: true,
-                        client_id: clientId,
+                        client_id: numClientId,
                         routine_id: safeRoutineId
                     });
                 }
@@ -873,53 +889,37 @@ const ClientWorkout = () => {
                     // Intento 1: Inserción directa completa
                     let { error: resultsErr } = await supabase.from('workout_results').insert(resultsToSave);
 
-                    // Fallback 1: Si falla por UUID mismatch en exercise_id / assignment_id / routine_id o restricciones FK
+                    // Fallback seguro sin IDs foráneos pero garantizando client_id numérico y exercise_name
                     if (resultsErr) {
-                        console.warn("Intento 1 falló con error:", resultsErr.message, "Intentando fallback seguro sin IDs no UUID...");
-                        const fallbackNoIds = resultsToSave.map(item => ({
+                        console.warn("Intento 1 falló con error:", resultsErr.message, "Intentando fallback limpio por client_id...");
+                        const fallbackData = resultsToSave.map(item => ({
                             client_id: item.client_id,
                             exercise_name: item.exercise_name,
                             set_number: item.set_number,
                             weight: item.weight,
                             reps: item.reps,
                             is_completed: item.is_completed,
-                            assignment_id: null,
-                            exercise_id: null,
                             routine_id: item.routine_id
                         }));
-                        const fallbackRes = await supabase.from('workout_results').insert(fallbackNoIds);
-                        resultsErr = fallbackRes.error;
-                    }
-
-                    // Fallback 2: Si routine_id también es tipo UUID en Postgres o falla por columnas nuevas
-                    if (resultsErr) {
-                        console.warn("Intento 2 falló con error:", resultsErr.message, "Intentando fallback limpio por client_id...");
-                        const fallbackClientOnly = resultsToSave.map(item => ({
-                            client_id: item.client_id,
-                            exercise_name: item.exercise_name,
-                            set_number: item.set_number,
-                            weight: item.weight,
-                            reps: item.reps,
-                            is_completed: item.is_completed
-                        }));
-                        const fallbackRes = await supabase.from('workout_results').insert(fallbackClientOnly);
-                        resultsErr = fallbackRes.error;
-                    }
-
-                    // Fallback 3: Columnas esenciales legacy
-                    if (resultsErr) {
-                        console.warn("Intento 3 falló con error:", resultsErr.message, "Intentando fallback básico legacy...");
-                        const fallbackBasic = resultsToSave.map(item => ({
-                            set_number: item.set_number,
-                            weight: item.weight,
-                            reps: item.reps,
-                            is_completed: item.is_completed
-                        }));
-                        const fallbackRes = await supabase.from('workout_results').insert(fallbackBasic);
+                        const fallbackRes = await supabase.from('workout_results').insert(fallbackData);
                         resultsErr = fallbackRes.error;
                     }
 
                     if (resultsErr) throw resultsErr;
+
+                    // Actualizar inmediatamente exerciseHistory en memoria
+                    const newHistory = { ...exerciseHistory };
+                    resultsToSave.forEach(item => {
+                        if (item.exercise_name) {
+                            const norm = item.exercise_name.trim().toLowerCase();
+                            if (!newHistory[norm]) newHistory[norm] = {};
+                            newHistory[norm][item.set_number] = {
+                                weight: item.weight,
+                                reps: item.reps
+                            };
+                        }
+                    });
+                    setExerciseHistory(newHistory);
                 }
 
                 setWorkoutLogs({});
@@ -1201,9 +1201,23 @@ const ClientWorkout = () => {
 
                                                         {ex.rir !== null && ex.rir !== undefined && ex.rir !== "" && (
                                                             <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 rounded-md text-[11px] font-bold border border-amber-500/20 flex items-center gap-1">
-                                                                RIR: {ex.rir}
+                                                                Carga: {ex.rir}
                                                             </span>
                                                         )}
+
+                                                        {(() => {
+                                                            const norm = ex.exercise_name?.trim().toLowerCase();
+                                                            const historySets = exerciseHistory[norm];
+                                                            if (historySets && Object.keys(historySets).length > 0) {
+                                                                const firstLog = historySets[1] || Object.values(historySets)[0];
+                                                                return (
+                                                                    <span className="px-2.5 py-1 bg-purple-500/15 text-purple-300 rounded-md text-[11px] font-bold border border-purple-500/30 flex items-center gap-1" title="Última marca registrada en este ejercicio">
+                                                                        🏆 Último: {firstLog.weight} kg × {firstLog.reps} reps
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1218,29 +1232,38 @@ const ClientWorkout = () => {
                                                     const setNum = i + 1; 
                                                     const log = workoutLogs[ex.id]?.[setNum] || {}; 
                                                     const isDone = log.done;
-                                                    const prevLog = exerciseHistory[ex.exercise_name.trim().toLowerCase()]?.[setNum];
+                                                    const normName = ex.exercise_name?.trim().toLowerCase();
+                                                    const prevLog = exerciseHistory[normName]?.[setNum] || exerciseHistory[normName]?.[1];
+                                                    const coachWeightMatch = ex.rir ? String(ex.rir).match(/(\d+(?:\.\d+)?)\s*(?:kg)?/i) : null;
+                                                    const suggestedWeight = prevLog && prevLog.weight !== undefined && prevLog.weight !== null
+                                                        ? String(prevLog.weight)
+                                                        : (coachWeightMatch ? coachWeightMatch[1] : "0");
+                                                    const suggestedReps = prevLog && prevLog.reps !== undefined && prevLog.reps !== null
+                                                        ? String(prevLog.reps)
+                                                        : (ex.exercise_type === 'time' ? (ex.time_duration || '0') : (ex.reps || '0'));
                                                     return (
                                                         <div key={i} className={`grid grid-cols-10 gap-2 items-center transition-all ${isDone ? 'opacity-50' : 'opacity-100'}`}>
                                                             <div className="col-span-1 text-center text-zinc-500 font-bold text-sm">{setNum}</div>
                                                             <div className="col-span-4 relative">
                                                                 <input 
                                                                     type="number" 
-                                                                    placeholder={prevLog ? String(prevLog.weight) : "0"} 
-                                                                    value={log.weight || ''} 
+                                                                    step="any"
+                                                                    placeholder={suggestedWeight} 
+                                                                    value={log.weight !== undefined ? log.weight : ''} 
                                                                     onChange={(e) => handleLogChange(ex.id, setNum, 'weight', e.target.value)} 
-                                                                    className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 text-white" 
+                                                                    className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 text-white placeholder:text-zinc-600" 
                                                                 />
-                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-700 font-bold pointer-events-none">KG</span>
+                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-600 font-bold pointer-events-none">KG</span>
                                                             </div>
                                                             <div className="col-span-4 relative">
                                                                 <input 
                                                                     type="text" 
-                                                                    placeholder={prevLog ? String(prevLog.reps) : (ex.exercise_type === 'time' ? (ex.time_duration || '0') : (ex.reps || '0'))} 
-                                                                    value={log.reps || ''} 
+                                                                    placeholder={suggestedReps} 
+                                                                    value={log.reps !== undefined ? log.reps : ''} 
                                                                     onChange={(e) => handleLogChange(ex.id, setNum, 'reps', e.target.value)} 
-                                                                    className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 text-white" 
+                                                                    className="w-full bg-black border border-zinc-800 rounded p-2.5 text-center font-bold focus:outline-none focus:border-emerald-500 text-white placeholder:text-zinc-600" 
                                                                 />
-                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-700 font-bold pointer-events-none uppercase">
+                                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-600 font-bold pointer-events-none uppercase">
                                                                     {ex.exercise_type === 'time' ? 'TIME' : 'REPS'}
                                                                 </span>
                                                             </div>

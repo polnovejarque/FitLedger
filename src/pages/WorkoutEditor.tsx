@@ -464,10 +464,17 @@ const WorkoutEditor = () => {
                         <input type="text" placeholder="60s" value={ex.rest_time || ''} onChange={(e) => updateExercise(ex.localId, 'rest_time', e.target.value)} className="w-8 bg-transparent text-white text-xs text-center font-bold outline-none" title="Descanso entre series" />
                     </div>
 
-                    <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-orange-500/30">
-                        <Signal className="w-3 h-3 text-orange-500" />
-                        <span className="text-[9px] text-zinc-500 font-bold">RIR</span>
-                        <input type="text" value={ex.rir} onChange={(e) => updateExercise(ex.localId, 'rir', e.target.value)} className="w-6 bg-transparent text-white text-xs text-center font-bold outline-none" />
+                    <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-0.5 rounded border border-orange-500/30">
+                        <Signal className="w-3 h-3 text-orange-500 shrink-0" />
+                        <span className="text-[9px] text-orange-400 font-bold uppercase tracking-wider shrink-0">Carga</span>
+                        <input 
+                            type="text" 
+                            placeholder="RIR 2, 10kg, goma..." 
+                            value={ex.rir || ''} 
+                            onChange={(e) => updateExercise(ex.localId, 'rir', e.target.value)} 
+                            className="w-28 bg-transparent text-white text-xs font-bold outline-none placeholder:text-zinc-600 focus:placeholder-transparent" 
+                            title="Carga prescrita por el coach (RIR, peso en kg, banda elástica, etc.)"
+                        />
                     </div>
                 </div>
 

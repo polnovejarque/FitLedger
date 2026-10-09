@@ -40,7 +40,8 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                 let data: any[] = [];
                 let error: any = null;
 
-                // PASO 1: Traer por client_id directamente (más robusto y persistente)
+                // PASO 1: Traer por client_id directamente (ahora tipo bigint)
+                const numericClientId = Number(clientId);
                 const { data: clientData, error: clientErr } = await supabase
                     .from('workout_results')
                     .select(`
@@ -49,19 +50,17 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                         reps,
                         set_number,
                         created_at,
-                        exercise_name,
-                        exercise:routine_exercises (exercise_name)
+                        exercise_name
                     `)
-                    .eq('client_id', clientId)
+                    .eq('client_id', numericClientId)
                     .order('created_at', { ascending: false });
 
                 if (!clientErr && clientData && clientData.length > 0) {
                     data = clientData;
                 } else {
-                    // PASO 2: Fallback a assignment_id para datos legacy si son UUID válidos
-                    const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-                    const validUuidAssigIds = allAssignmentIds.filter(id => isValidUuid(id));
-                    if (validUuidAssigIds.length > 0) {
+                    // PASO 2: Fallback a assignment_id para datos legacy si los hay
+                    const allStrIds = allAssignmentIds.map(id => String(id));
+                    if (allStrIds.length > 0) {
                         try {
                             const { data: assigData, error: assigErr } = await supabase
                                 .from('workout_results')
@@ -71,10 +70,9 @@ const ClientHistoryModal = ({ clientId, clientName, onClose }: ClientHistoryModa
                                     reps,
                                     set_number,
                                     created_at,
-                                    exercise_name,
-                                    exercise:routine_exercises (exercise_name)
+                                    exercise_name
                                 `)
-                                .in('assignment_id', validUuidAssigIds)
+                                .in('assignment_id', allStrIds)
                                 .order('created_at', { ascending: false });
                             
                             data = assigData || [];

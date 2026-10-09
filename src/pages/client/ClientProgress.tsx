@@ -42,6 +42,8 @@ const ClientProgress = () => {
             const { data: clientData } = await supabase.from('clients').select('id').eq('email', storedEmail).single();
             if (!clientData) { setLoading(false); return; }
 
+            const numericClientId = Number(clientData.id);
+
             // 2. Obtener resultados de entrenamiento directamente por client_id
             const { data: results, error: resErr } = await supabase
                 .from('workout_results')
@@ -52,10 +54,9 @@ const ClientProgress = () => {
                     weight,
                     reps,
                     created_at,
-                    exercise_name,
-                    exercise:routine_exercises (exercise_name)
+                    exercise_name
                 `)
-                .eq('client_id', clientData.id)
+                .eq('client_id', numericClientId)
                 .order('created_at', { ascending: false });
 
             let allResults = (!resErr && results) ? results : [];
@@ -63,8 +64,8 @@ const ClientProgress = () => {
             // Si no hay por client_id, intentar fallback por assignment_id
             if (allResults.length === 0) {
                 const isValidUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-                const { data: weeklyPlans } = await supabase.from('client_weekly_plan').select('id').eq('client_id', clientData.id);
-                const { data: legacyAssignments } = await supabase.from('routine_assignments').select('id').eq('client_id', clientData.id);
+                const { data: weeklyPlans } = await supabase.from('client_weekly_plan').select('id').eq('client_id', numericClientId);
+                const { data: legacyAssignments } = await supabase.from('routine_assignments').select('id').eq('client_id', numericClientId);
                 const assigIds = [
                     ...(weeklyPlans?.map(p => p.id) || []),
                     ...(legacyAssignments?.map(a => a.id) || [])
@@ -82,8 +83,7 @@ const ClientProgress = () => {
                                 weight,
                                 reps,
                                 created_at,
-                                exercise_name,
-                                exercise:routine_exercises (exercise_name)
+                                exercise_name
                             `)
                             .in('assignment_id', validUuidAssigIds)
                             .order('created_at', { ascending: false });
@@ -114,9 +114,7 @@ const ClientProgress = () => {
                     };
                 }
 
-                const directName = curr.exercise_name as string | null;
-                const joinedName = Array.isArray(curr.exercise) ? curr.exercise[0]?.exercise_name : curr.exercise?.exercise_name;
-                const exerciseName = directName || joinedName || "Ejercicio";
+                const exerciseName = (curr.exercise_name as string | null) || "Ejercicio";
 
                 const setInfo: WorkoutSet = {
                     id: curr.id || Math.random(),

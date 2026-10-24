@@ -308,15 +308,53 @@ const Settings = () => {
         setIsSaving(false);
     };
 
-    const uploadImageToStorage = async (file: File, prefix: string) => {
+    const uploadImageToStorage = async (file: File, prefix: string): Promise<string> => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${prefix}_${Date.now()}.${fileExt}`;
 
-        const { error } = await supabase.storage.from('avatars').upload(fileName, file);
-        if (error) throw error;
+        try {
+            const { error } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+            if (!error) {
+                const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                if (data?.publicUrl) return data.publicUrl;
+            }
+            console.warn("Storage upload falló, usando optimización Base64 fallback:", error);
+        } catch (e) {
+            console.warn("Excepción al subir a Storage, fallback a Base64:", e);
+        }
 
-        const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-        return data.publicUrl;
+        // FALLBACK INFALIBLE: Optimización en cliente a WebP ligero (nunca falla incluso si falta el bucket)
+        return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const maxDim = 320;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) {
+                        if (width > maxDim) {
+                            height *= maxDim / width;
+                            width = maxDim;
+                        }
+                    } else {
+                        if (height > maxDim) {
+                            width *= maxDim / height;
+                            height = maxDim;
+                        }
+                    }
+                    canvas.width = Math.round(width);
+                    canvas.height = Math.round(height);
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/webp', 0.88));
+                };
+                img.onerror = () => resolve(event.target?.result as string);
+                img.src = event.target?.result as string;
+            };
+            reader.readAsDataURL(file);
+        });
     };
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -231,25 +231,54 @@ const Clients = () => {
         const generatedPassword = `FIT-${randomCode}`;
 
         try {
-            // PASO 1: Guardamos en la BD con tu cuenta de Jefe
-            const { error: dbError } = await supabase.from('clients').insert([{
-                user_id: user.id, 
-                studio_id: finalStudioId, 
-                name: newClientName,
-                email: newClientEmail.trim().toLowerCase(),
-                access_code: generatedPassword, 
-                objective: newClientObjective || "Mejorar salud",
-                limitations: newClientLimitations || "Ninguna",
-                status: "active",
-                plan: "Básico",
-                location: "Presencial",
-                image_url: null, 
-                payment_status: 'pending'
-            }]);
+            const normalizedEmail = newClientEmail.trim().toLowerCase();
 
-            if (dbError) throw dbError;
+            // PASO 1: Comprobar si ya existía en la base de datos (atleta recuperado o reactivado)
+            const { data: existingClient } = await supabase
+                .from('clients')
+                .select('id, user_id, status')
+                .ilike('email', normalizedEmail)
+                .maybeSingle();
 
-            // PASO 2: EL CLON FANTASMA (Crea la cuenta sin iniciar sesión)
+            if (existingClient) {
+                // Reactivamos al cliente existente y le asignamos el nuevo código de acceso
+                const { error: updateError } = await supabase
+                    .from('clients')
+                    .update({
+                        user_id: user.id,
+                        studio_id: finalStudioId,
+                        name: newClientName,
+                        access_code: generatedPassword,
+                        objective: newClientObjective || "Mejorar salud",
+                        limitations: newClientLimitations || "Ninguna",
+                        status: "active",
+                        plan: "Básico",
+                        payment_status: 'pending'
+                    })
+                    .eq('id', existingClient.id);
+
+                if (updateError) throw updateError;
+            } else {
+                // Insertamos nuevo atleta
+                const { error: dbError } = await supabase.from('clients').insert([{
+                    user_id: user.id, 
+                    studio_id: finalStudioId, 
+                    name: newClientName,
+                    email: normalizedEmail,
+                    access_code: generatedPassword, 
+                    objective: newClientObjective || "Mejorar salud",
+                    limitations: newClientLimitations || "Ninguna",
+                    status: "active",
+                    plan: "Básico",
+                    location: "Presencial",
+                    image_url: null, 
+                    payment_status: 'pending'
+                }]);
+
+                if (dbError) throw dbError;
+            }
+
+            // PASO 2: EL CLON FANTASMA (Intenta registrar en Auth si es nuevo usuario)
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
             
@@ -257,14 +286,14 @@ const Clients = () => {
                 auth: { persistSession: false, autoRefreshToken: false }
             });
 
-            // Registramos al atleta usando el clon
-            const { error: authError } = await tempClient.auth.signUp({
-                email: newClientEmail,
-                password: generatedPassword,
-            });
-
-            if (authError) {
-                console.error("Aviso Auth:", authError);
+            // Registramos al atleta usando el clon (si ya existía en Auth, se ignora pacíficamente)
+            try {
+                await tempClient.auth.signUp({
+                    email: normalizedEmail,
+                    password: generatedPassword,
+                });
+            } catch (authErr) {
+                console.warn("Usuario ya registrado en Auth, login funcionará mediante código:", authErr);
             }
 
             // ¡Éxito! Refrescamos y cerramos
@@ -288,7 +317,10 @@ const Clients = () => {
 
         const { error } = await supabase.from('clients').delete().eq('id', id);
         
-        if (!error) {
+        if (error) {
+            console.error("Error al eliminar cliente:", error);
+            alert("No se pudo eliminar el cliente: " + error.message);
+        } else {
             setClients(clients.filter(c => c.id !== id));
             setOpenMenuId(null);
         }

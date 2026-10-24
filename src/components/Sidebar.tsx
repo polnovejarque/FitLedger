@@ -92,9 +92,12 @@ const Sidebar = () => {
                     <Link to="/dashboard" className="flex items-center gap-3 w-full">
                         <div className="h-9 w-9 rounded-xl overflow-hidden flex items-center justify-center sidebar-logo-bg flex-shrink-0">
                             <img
-                                src={logoUrl}
+                                src={logoUrl || '/logo.png'}
                                 alt={businessName}
                                 className="h-full w-full object-contain"
+                                onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                                }}
                             />
                         </div>
                         <span

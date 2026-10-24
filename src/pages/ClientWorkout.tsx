@@ -2209,7 +2209,14 @@ const ClientWorkout = () => {
             {!viewingExercises && (
                 <div className="fixed top-0 w-full max-w-md left-0 right-0 mx-auto bg-black/95 backdrop-blur-sm border-b border-zinc-800 z-50 px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-2.5 w-full">
-                        <img src={coachLogo} alt={coachBusinessName} className="h-9 w-auto object-contain rounded bg-transparent" />
+                        <img 
+                            src={coachLogo || '/logo.png'} 
+                            alt={coachBusinessName} 
+                            className="h-9 w-auto object-contain rounded bg-transparent" 
+                            onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                            }}
+                        />
                         <span className="font-bold text-base text-white tracking-tight italic truncate">
                             {coachBusinessName}
                         </span>

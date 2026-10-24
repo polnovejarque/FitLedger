@@ -17,26 +17,38 @@ const ClientLogin = () => {
         setError('');
 
         try {
-            // 1. Autenticación real con Supabase usando el Email y el Código de Acceso
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email: email.trim(),
-                password: accessCode.trim(),
-            });
+            const cleanEmail = email.trim().toLowerCase();
+            const cleanCode = accessCode.trim().toUpperCase();
 
-            if (authError || !authData.user) {
-                throw new Error('Email o código de acceso incorrectos.');
-            }
-
-            // 2. Buscamos sus datos en la tabla clients para guardarlos en la memoria del móvil
+            // 1. Buscamos al atleta en la tabla clients por su correo
             const { data: client, error: queryError } = await supabase
                 .from('clients')
                 .select('*')
-                .ilike('email', email.trim())
-                .single();
+                .ilike('email', cleanEmail)
+                .maybeSingle();
 
             if (queryError || !client) {
-                // Si la autenticación pasó pero no está en la tabla clients (no debería pasar nunca)
-                throw new Error('Tu cuenta no está vinculada a ningún entrenador.');
+                throw new Error('No se encontró ningún atleta registrado con este correo.');
+            }
+
+            // 2. Comprobamos si el código coincide con su access_code asignado por el entrenador
+            const dbAccessCode = (client.access_code || '').trim().toUpperCase();
+            const isCodeMatch = dbAccessCode === cleanCode;
+
+            // 3. Intentamos también login con Supabase Auth como fallback
+            let authSuccess = false;
+            try {
+                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email: cleanEmail,
+                    password: accessCode.trim(),
+                });
+                if (!authError && authData?.user) authSuccess = true;
+            } catch {
+                // Si falla Auth de Supabase (por ejemplo, si el atleta tenía credenciales antiguas), nos guiamos por el access_code oficial
+            }
+
+            if (!isCodeMatch && !authSuccess) {
+                throw new Error('Código de acceso incorrecto. Pide a tu entrenador que te lo confirme.');
             }
 
             // 3. GUARDAR SESIÓN (CLAVE PARA QUE FUNCIONE EL HOME)

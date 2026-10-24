@@ -6,7 +6,6 @@ const FITBIT_TOKEN_URL = 'https://api.fitbit.com/oauth2/token';
 const FITBIT_API_BASE = 'https://api.fitbit.com';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
 // Scopes oficiales para Google Health API (Fitbit, Versa, Pixel Watch)
 const GOOGLE_HEALTH_SCOPES = [
@@ -139,19 +138,17 @@ export class FitbitService {
         let tokenData: any;
 
         if (isGoogle) {
-            const bodyParams = new URLSearchParams({
-                client_id: fitbitClientId,
-                client_secret: clientSecret,
-                grant_type: 'authorization_code',
-                code: code,
-                code_verifier: codeVerifier,
-                redirect_uri: redirectUri,
-            });
-
-            const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
+            const tokenRes = await fetch('/api/fitbit-token', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: bodyParams.toString(),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    client_id: fitbitClientId,
+                    client_secret: clientSecret,
+                    grant_type: 'authorization_code',
+                    code: code,
+                    code_verifier: codeVerifier,
+                    redirect_uri: redirectUri,
+                }),
             });
 
             if (!tokenRes.ok) {
@@ -200,8 +197,12 @@ export class FitbitService {
                 last_sync_at: new Date().toISOString(),
             }, { onConflict: 'client_id,provider' });
 
-            // Sincronizar datos del día de hoy de inmediato
-            await this.syncClientMetrics(targetClientId, tokenData.access_token);
+            // Sincronizar datos del día de hoy de inmediato (en try-catch para no bloquear el éxito)
+            try {
+                await this.syncClientMetrics(targetClientId, tokenData.access_token);
+            } catch (syncErr) {
+                console.warn('Sincronización inicial en segundo plano:', syncErr);
+            }
         }
 
         // Limpiar sessionStorage
@@ -227,17 +228,15 @@ export class FitbitService {
         let tokenData: any;
 
         if (isGoogle) {
-            const bodyParams = new URLSearchParams({
-                grant_type: 'refresh_token',
-                refresh_token: connection.refresh_token,
-                client_id: fitbitClientId,
-                client_secret: clientSecret,
-            });
-
-            const res = await fetch(GOOGLE_TOKEN_URL, {
+            const res = await fetch('/api/fitbit-token', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: bodyParams.toString(),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    grant_type: 'refresh_token',
+                    refresh_token: connection.refresh_token,
+                    client_id: fitbitClientId,
+                    client_secret: clientSecret,
+                }),
             });
 
             if (!res.ok) throw new Error('Error al refrescar token de Google Health');

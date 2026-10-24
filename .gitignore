@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 
 .vercel
+.netlify
+supabase/.temp
+google-health-credentials.json
+*.credentials.json
+.env
+.env.*
+!.env.example

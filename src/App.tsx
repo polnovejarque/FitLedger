@@ -11,6 +11,7 @@ import Auth from './pages/Auth';
 const UpdatePassword = lazy(() => import('./pages/UpdatePassword'));
 const ClientLogin = lazy(() => import('./pages/client/ClientLogin'));
 const ClientWorkout = lazy(() => import('./pages/ClientWorkout'));
+const WearablesCallback = lazy(() => import('./pages/client/WearablesCallback'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Clients = lazy(() => import('./pages/Clients'));
 const ClientProfile = lazy(() => import('./pages/ClientProfile'));
@@ -65,6 +66,7 @@ function App() {
             {/* Rutas de la App del Cliente (Móvil) */}
             <Route path="/client-app" element={<ClientLogin />} />
             <Route path="/client-app/home" element={<ClientWorkout />} /> 
+            <Route path="/client-app/wearables/callback" element={<WearablesCallback />} /> 
             
             {/* Rutas del Panel de Control (Coach) - Protegidas */}
             <Route element={<RequireAuth />}>

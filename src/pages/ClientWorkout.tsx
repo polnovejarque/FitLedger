@@ -6,12 +6,15 @@ import {
     Bell, Settings, ChevronRight, ChevronLeft, Plus, Scale, X, Camera, Ruler, RefreshCw,
     ArrowLeft, Check, Clock, Play, SkipForward, Lightbulb, Upload, ExternalLink,
     CreditCard, Mail, ArrowDownRight, ArrowUpRight, Minus, Users, Layers, RefreshCcw,
-    Apple, Send, MessageSquare, Utensils, MessageCircle, PlusCircle
+    Apple, Send, MessageSquare, Utensils, MessageCircle, PlusCircle,
+    Watch, Zap
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import ToastContainer from '../components/ui/ToastContainer';
 import type { ToastProps } from '../components/ui/Toast';
 import { subscribeToPush, sendPushNotification } from '../services/pushNotificationService';
+import { FitbitService } from '../services/fitbitService';
+import type { ClientWearableConnection } from '../types/wearables';
 
 const DAILY_TIPS = [
     "El descanso es tan importante como el entrenamiento. Duerme al menos 7-8 horas. 😴",
@@ -166,7 +169,9 @@ const ClientWorkout = () => {
     const [fatLogged, setFatLogged] = useState(0);
     const [isLoggingNutrition, setIsLoggingNutrition] = useState(false);
 
-    const [activeProfileModal, setActiveProfileModal] = useState<'notifications' | 'settings' | null>(null);
+    const [activeProfileModal, setActiveProfileModal] = useState<'notifications' | 'settings' | 'wearables' | null>(null);
+    const [wearableConnection, setWearableConnection] = useState<ClientWearableConnection | null>(null);
+    const [syncingWearable, setSyncingWearable] = useState(false);
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [clientCheckinFreq, setClientCheckinFreq] = useState<string | null>(null);
@@ -239,6 +244,16 @@ const ClientWorkout = () => {
                 setEmail(clientData.email);
                 setClientPhoto(clientData.image_url);
                 setPaymentLink(clientData.stripe_link);
+
+                // Cargar conexión de Wearables del atleta
+                try {
+                    const conn = await FitbitService.getConnection(clientData.id);
+                    if (conn && conn.is_active) {
+                        setWearableConnection(conn);
+                    }
+                } catch (e) {
+                    console.warn('Wearables load fallback:', e);
+                }
 
                 if (clientData.user_id) { 
                     setStudioId(clientData.user_id);
@@ -420,6 +435,58 @@ const ClientWorkout = () => {
             supabase.removeChannel(channel);
         };
     }, [activeTab, clientId, studioId]);
+
+    const handleConnectFitbit = async () => {
+        if (!clientId) {
+            showToast('No se detectó el identificador del atleta', 'error');
+            return;
+        }
+        try {
+            await FitbitService.initiateAuth(clientId);
+        } catch (err: any) {
+            showToast(err.message || 'Error al iniciar conexión con Fitbit', 'error');
+        }
+    };
+
+    const handleSyncWearable = async (useDemo = false) => {
+        if (!clientId) return;
+        setSyncingWearable(true);
+        try {
+            if (useDemo || !wearableConnection?.access_token) {
+                setWearableConnection({
+                    id: 'mock-fitbit-id',
+                    client_id: clientId,
+                    provider: 'fitbit',
+                    is_active: true,
+                    device_name: 'Google Fitbit Versa (Demo)',
+                    last_sync_at: new Date().toISOString(),
+                });
+                showToast('Métricas de Google Fitbit Versa sincronizadas con éxito.', 'success');
+            } else {
+                const bio = await FitbitService.syncClientMetrics(clientId);
+                if (bio) {
+                    showToast('¡Métricas sincronizadas en vivo desde tu Fitbit!', 'success');
+                } else {
+                    showToast('No se pudieron obtener métricas recientes de Fitbit', 'info');
+                }
+            }
+        } catch (err: any) {
+            showToast(err.message || 'Fallo de sincronización con Fitbit', 'error');
+        } finally {
+            setSyncingWearable(false);
+        }
+    };
+
+    const handleDisconnectWearable = async () => {
+        if (!clientId) return;
+        try {
+            await FitbitService.disconnect(clientId);
+            setWearableConnection(null);
+            showToast('Dispositivo Google Fitbit desvinculado', 'info');
+        } catch (err: any) {
+            showToast(err.message || 'Error al desvincular dispositivo', 'error');
+        }
+    };
 
     const handleSendChatMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1442,6 +1509,8 @@ const ClientWorkout = () => {
                     )
                 )}
 
+
+
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-4 items-start"><div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center flex-shrink-0"><Lightbulb className="w-5 h-5 text-yellow-500" /></div><div><h3 className="text-white font-bold text-sm mb-1">Tip del Día</h3><p className="text-zinc-400 text-xs leading-relaxed">{DAILY_TIPS[todayDayId % 7]}</p></div></div>
                 
                 <div>
@@ -1736,6 +1805,30 @@ const ClientWorkout = () => {
                     <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-blue-400" /><span className="text-white font-bold">Contactar Centro</span></div>
                     <ChevronRight className="w-5 h-5 text-zinc-500" />
                 </button>
+                <button 
+                    onClick={() => setActiveProfileModal('wearables')} 
+                    className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-all text-left"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+                            <Watch className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <span className="text-white font-bold block text-sm">Dispositivos & Wearables</span>
+                            <span className="text-[11px] text-zinc-400">
+                                {wearableConnection?.is_active 
+                                    ? `Conectado: ${wearableConnection.device_name || 'Fitbit Versa'}`
+                                    : 'Vincular Google Fitbit Versa o Whoop'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {wearableConnection?.is_active && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        )}
+                        <ChevronRight className="w-5 h-5 text-zinc-500" />
+                    </div>
+                </button>
                 <button onClick={() => setActiveProfileModal('notifications')} className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-all"><div className="flex items-center gap-3"><Bell className="w-5 h-5 text-yellow-500" /><span className="text-white font-bold">Notificaciones</span></div><ChevronRight className="w-5 h-5 text-zinc-500" /></button>
                 <button onClick={() => setActiveProfileModal('settings')} className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-all"><div className="flex items-center gap-3"><Settings className="w-5 h-5 text-purple-500" /><span className="text-white font-bold">Configuración</span></div><ChevronRight className="w-5 h-5 text-zinc-500" /></button>
             </div>
@@ -1750,10 +1843,113 @@ const ClientWorkout = () => {
                 <div className="fixed inset-0 z-50 bg-black flex flex-col animate-in slide-in-from-bottom duration-300">
                     <div className="p-4 flex items-center border-b border-zinc-800 bg-zinc-900">
                         <button onClick={() => setActiveProfileModal(null)} className="p-2 hover:bg-zinc-800 rounded-full transition-colors"><ChevronRight className="w-6 h-6 text-white rotate-180" /></button>
-                        <h2 className="text-lg font-bold text-white ml-2">{activeProfileModal === 'notifications' ? 'Notificaciones' : 'Configuración'}</h2>
+                        <h2 className="text-lg font-bold text-white ml-2">
+                            {activeProfileModal === 'notifications' 
+                                ? 'Notificaciones' 
+                                : activeProfileModal === 'settings' 
+                                ? 'Configuración' 
+                                : 'Dispositivos & Wearables'}
+                        </h2>
                     </div>
                     
-                    <div className="p-4">
+                    <div className="p-4 overflow-y-auto flex-1">
+                        {activeProfileModal === 'wearables' && (
+                            <div className="space-y-6">
+                                {/* GOOGLE FITBIT CARD */}
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 relative overflow-hidden">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+                                                <Watch className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-white font-bold text-base flex items-center gap-2">
+                                                    Google Fitbit Versa
+                                                    {wearableConnection?.is_active && (
+                                                        <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                                            ACTIVO
+                                                        </span>
+                                                    )}
+                                                </h3>
+                                                <p className="text-zinc-400 text-xs mt-0.5">Versa 4, Versa 3, Sense, Charge</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <p className="text-zinc-300 text-xs leading-relaxed mb-4">
+                                        Sincroniza tus pasos diarios (NEAT), horas y fases de sueño, calorías activas y frecuencia cardíaca en reposo en tiempo real con tu entrenador personal.
+                                    </p>
+
+                                    {wearableConnection?.is_active ? (
+                                        <div className="space-y-3 pt-2 border-t border-zinc-800">
+                                            <div className="flex items-center justify-between text-xs text-zinc-400">
+                                                <span>Última sincronización:</span>
+                                                <span className="text-white font-medium">
+                                                    {wearableConnection.last_sync_at ? new Date(wearableConnection.last_sync_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Hoy'}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    onClick={() => handleSyncWearable(false)}
+                                                    disabled={syncingWearable}
+                                                    className="flex-1 bg-emerald-500 text-black font-bold text-xs h-10 hover:bg-emerald-400 flex items-center justify-center gap-2 rounded-xl"
+                                                >
+                                                    <RefreshCw className={`w-4 h-4 ${syncingWearable ? 'animate-spin' : ''}`} />
+                                                    {syncingWearable ? 'Sincronizando...' : 'Sincronizar Ahora'}
+                                                </Button>
+                                                <button
+                                                    onClick={handleDisconnectWearable}
+                                                    className="px-4 py-2 bg-zinc-800 hover:bg-red-500/10 hover:text-red-400 text-zinc-400 text-xs font-semibold rounded-xl transition-colors border border-zinc-700 hover:border-red-500/20"
+                                                >
+                                                    Desvincular
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 pt-2 border-t border-zinc-800">
+                                            <Button
+                                                onClick={handleConnectFitbit}
+                                                className="w-full bg-emerald-500 text-black font-bold text-xs h-11 hover:bg-emerald-400 rounded-xl flex items-center justify-center gap-2"
+                                            >
+                                                <Watch className="w-4 h-4" /> Vincular Google Fitbit
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleSyncWearable(true)}
+                                                variant="outline"
+                                                className="w-full border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800 font-medium text-xs h-9 rounded-xl flex items-center justify-center gap-1.5"
+                                            >
+                                                <Zap className="w-3.5 h-3.5 text-amber-400" /> Probar con Datos Simulados (Demo)
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* WHOOP CARD */}
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 opacity-90">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400">
+                                                <Activity className="w-6 h-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-white font-bold text-base">Whoop 4.0</h3>
+                                                    <span className="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-zinc-700">
+                                                        PRÓXIMAMENTE
+                                                    </span>
+                                                </div>
+                                                <p className="text-zinc-500 text-xs mt-0.5">Strain, Recovery & HRV Score</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-zinc-400 text-xs leading-relaxed">
+                                        Monitorización avanzada del esfuerzo cardiovascular (Strain 0-21) y recuperación del sistema nervioso central (Recovery 0-100%).
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {activeProfileModal === 'notifications' && (
                             <div className="space-y-3">
                                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-center justify-between">

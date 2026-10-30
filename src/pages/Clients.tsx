@@ -233,7 +233,14 @@ const Clients = () => {
         try {
             const normalizedEmail = newClientEmail.trim().toLowerCase();
 
-            // PASO 1: Comprobar si ya existía en la base de datos (atleta recuperado o reactivado)
+            // PASO 1: Si el usuario quedó huérfano en Auth de una cuenta anterior borrada, lo limpiamos ANTES de registrar
+            try {
+                await supabase.rpc('clean_orphan_auth_user', { target_email: normalizedEmail });
+            } catch (e) {
+                console.warn('clean_orphan_auth_user RPC skipped:', e);
+            }
+
+            // PASO 2: Comprobar si ya existía en la base de datos (atleta recuperado o reactivado)
             const { data: existingClient } = await supabase
                 .from('clients')
                 .select('id, user_id, status')
@@ -278,14 +285,7 @@ const Clients = () => {
                 if (dbError) throw dbError;
             }
 
-            // PASO 2: EL CLON FANTASMA (Intenta registrar en Auth si es nuevo usuario)
-            // Si el usuario quedó huérfano en Auth de una cuenta anterior borrada, lo limpiamos para registrarlo limpio
-            try {
-                await supabase.rpc('clean_orphan_auth_user', { target_email: normalizedEmail });
-            } catch (e) {
-                console.warn('clean_orphan_auth_user RPC skipped:', e);
-            }
-
+            // PASO 3: EL CLON FANTASMA (Registra en Auth con las nuevas credenciales)
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
             

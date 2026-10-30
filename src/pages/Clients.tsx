@@ -144,13 +144,21 @@ const Clients = () => {
             // Generamos el código de acceso
             const randomCode = Math.floor(1000 + Math.random() * 9000);
             const generatedPassword = `FIT-${randomCode}`;
+            const normalizedLeadEmail = lead.email.trim().toLowerCase();
+
+            // Limpieza preventiva en auth.users antes de registrar
+            try {
+                await supabase.rpc('clean_orphan_auth_user', { target_email: normalizedLeadEmail });
+            } catch (e) {
+                console.warn('clean_orphan_auth_user RPC skipped:', e);
+            }
 
             // 1. Guardar en clientes
             const { error: dbError } = await supabase.from('clients').insert([{
                 user_id: user.id, 
                 studio_id: finalStudioId, 
                 name: lead.name,
-                email: lead.email.trim().toLowerCase(),
+                email: normalizedLeadEmail,
                 access_code: generatedPassword, 
                 objective: lead.goals || "Objetivo Marketplace",
                 limitations: "Ninguna",

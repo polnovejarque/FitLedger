@@ -279,6 +279,13 @@ const Clients = () => {
             }
 
             // PASO 2: EL CLON FANTASMA (Intenta registrar en Auth si es nuevo usuario)
+            // Si el usuario quedó huérfano en Auth de una cuenta anterior borrada, lo limpiamos para registrarlo limpio
+            try {
+                await supabase.rpc('clean_orphan_auth_user', { target_email: normalizedEmail });
+            } catch (e) {
+                console.warn('clean_orphan_auth_user RPC skipped:', e);
+            }
+
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
             
@@ -286,23 +293,26 @@ const Clients = () => {
                 auth: { persistSession: false, autoRefreshToken: false }
             });
 
-            // Registramos al atleta usando el clon (si ya existía en Auth, se ignora pacíficamente)
+            // Registramos al atleta usando el clon
             try {
                 await tempClient.auth.signUp({
                     email: normalizedEmail,
                     password: generatedPassword,
                 });
             } catch (authErr) {
-                console.warn("Usuario ya registrado en Auth, login funcionará mediante código:", authErr);
+                console.warn("Aviso Auth signUp:", authErr);
             }
 
             // ¡Éxito! Refrescamos y cerramos
             await fetchClients();
             setShowNewClientModal(false);
+            const savedName = newClientName;
             setNewClientName("");
             setNewClientEmail("");
             setNewClientObjective("");
             setNewClientLimitations("");
+
+            alert(`✅ ¡Atleta "${savedName}" guardado con éxito!\n\n🔑 Código de acceso: ${generatedPassword}\n📧 Email: ${normalizedEmail}`);
             
         } catch (error: any) {
             alert("Error al guardar: " + error.message);
@@ -313,16 +323,34 @@ const Clients = () => {
 
     const handleDeleteClient = async (e: React.MouseEvent, id: number) => {
         e.stopPropagation(); 
-        if(!confirm("¿Seguro que quieres eliminar este cliente? Perderá el acceso a la app.")) return;
+        if(!confirm("¿Seguro que quieres eliminar este cliente? Perderá el acceso a la app y se eliminará su cuenta.")) return;
 
-        const { error } = await supabase.from('clients').delete().eq('id', id);
-        
-        if (error) {
-            console.error("Error al eliminar cliente:", error);
-            alert("No se pudo eliminar el cliente: " + error.message);
-        } else {
+        setIsSaving(true);
+        try {
+            // 1. Intentar borrado completo atómico (limpia datos dependientes y auth.users)
+            let deleted = false;
+            try {
+                const { data: rpcRes, error: rpcErr } = await supabase.rpc('delete_client_completely', { target_client_id: id });
+                if (!rpcErr && rpcRes?.success) {
+                    deleted = true;
+                }
+            } catch (err) {
+                console.warn('RPC delete fallback to direct delete:', err);
+            }
+
+            // 2. Si no usó RPC o falló, borrado directo en clients (que dispara el trigger de cascada en Supabase)
+            if (!deleted) {
+                const { error } = await supabase.from('clients').delete().eq('id', id);
+                if (error) throw error;
+            }
+
             setClients(clients.filter(c => c.id !== id));
             setOpenMenuId(null);
+        } catch (error: any) {
+            console.error("Error al eliminar cliente:", error);
+            alert("No se pudo eliminar el cliente: " + error.message);
+        } finally {
+            setIsSaving(false);
         }
     };
 

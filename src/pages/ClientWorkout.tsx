@@ -223,13 +223,22 @@ const ClientWorkout = () => {
         
         if (storedEmail) {
             try {
-                const { data: clientData, error: clientError } = await supabase
+                let clientData = null;
+                const { data: directClient, error: clientError } = await supabase
                     .from('clients')
                     .select('id, name, email, image_url, stripe_link, user_id, checkin_frequency, checkin_day')
                     .ilike('email', storedEmail) 
-                    .single();
+                    .maybeSingle();
+
+                if (directClient) {
+                    clientData = directClient;
+                } else {
+                    // Fallback mediante RPC SECURITY DEFINER si RLS bloquea lectura directa
+                    const { data: rpcClient } = await supabase.rpc('get_athlete_profile', { p_email: storedEmail });
+                    if (rpcClient) clientData = rpcClient;
+                }
                 
-                if (clientError) throw clientError;
+                if (!clientData && clientError) throw clientError;
             
             if (clientData) {
                 setClientId(clientData.id);

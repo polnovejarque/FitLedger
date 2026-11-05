@@ -47,25 +47,55 @@ const Auth = () => {
             } else if (isLogin) {
                 if (userType === 'athlete') {
                     // ✅ Lógica de inicio de sesión de Atleta (Email + Código de Acceso como password)
-                    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                        email: email.trim(),
-                        password: password.trim(),
-                    });
+                    const cleanEmail = email.trim().toLowerCase();
+                    const cleanCode = password.trim().toUpperCase();
 
-                    if (authError || !authData.user) {
-                        throw new Error('Email o código de acceso incorrectos.');
+                    let client = null;
+
+                    // 1. Intentar validación vía RPC atómica
+                    try {
+                        const { data: rpcRes, error: rpcErr } = await supabase.rpc('client_app_login', {
+                            p_email: cleanEmail,
+                            p_code: cleanCode
+                        });
+                        if (!rpcErr && rpcRes?.success && rpcRes?.client) {
+                            client = rpcRes.client;
+                        } else if (rpcRes?.error) {
+                            throw new Error(rpcRes.error);
+                        }
+                    } catch (rpcEx: any) {
+                        if (rpcEx.message && (rpcEx.message.includes('Código') || rpcEx.message.includes('No se encontró'))) {
+                            throw rpcEx;
+                        }
                     }
 
-                    // Buscamos sus datos en la tabla clients
-                    const { data: client, error: queryError } = await supabase
-                        .from('clients')
-                        .select('*')
-                        .ilike('email', email.trim())
-                        .single();
+                    // 2. Fallback de autenticación estándar
+                    if (!client) {
+                        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                            email: cleanEmail,
+                            password: cleanCode,
+                        });
 
-                    if (queryError || !client) {
+                        const { data: dbClient } = await supabase
+                            .from('clients')
+                            .select('*')
+                            .ilike('email', cleanEmail)
+                            .maybeSingle();
+
+                        if (!dbClient && (authError || !authData?.user)) {
+                            throw new Error('Email o código de acceso incorrectos.');
+                        }
+                        client = dbClient;
+                    }
+
+                    if (!client) {
                         throw new Error('Tu cuenta no está vinculada a ningún entrenador.');
                     }
+
+                    // Iniciar sesión en segundo plano si aún no lo estaba
+                    try {
+                        await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanCode });
+                    } catch {}
 
                     // Guardamos sesión del atleta
                     localStorage.setItem('fit_client_email', client.email); 

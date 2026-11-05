@@ -20,47 +20,78 @@ const ClientLogin = () => {
             const cleanEmail = email.trim().toLowerCase();
             const cleanCode = accessCode.trim().toUpperCase();
 
-            // 1. Buscamos al atleta en la tabla clients por su correo
-            const { data: client, error: queryError } = await supabase
-                .from('clients')
-                .select('*')
-                .ilike('email', cleanEmail)
-                .maybeSingle();
+            let client = null;
 
-            if (queryError || !client) {
-                throw new Error('No se encontró ningún atleta registrado con este correo.');
-            }
-
-            // 2. Comprobamos si el código coincide con su access_code asignado por el entrenador
-            const dbAccessCode = (client.access_code || '').trim().toUpperCase();
-            const isCodeMatch = dbAccessCode === cleanCode;
-
-            // 3. Intentamos también login con Supabase Auth como fallback
-            let authSuccess = false;
+            // 1. Intento primario mediante función RPC atómica (inmune a restricciones de RLS)
             try {
-                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                    email: cleanEmail,
-                    password: accessCode.trim(),
+                const { data: rpcRes, error: rpcErr } = await supabase.rpc('client_app_login', {
+                    p_email: cleanEmail,
+                    p_code: cleanCode
                 });
-                if (!authError && authData?.user) authSuccess = true;
-            } catch {
-                // Si falla Auth de Supabase (por ejemplo, si el atleta tenía credenciales antiguas), nos guiamos por el access_code oficial
+
+                if (!rpcErr && rpcRes) {
+                    if (rpcRes.success && rpcRes.client) {
+                        client = rpcRes.client;
+                    } else if (rpcRes.error) {
+                        throw new Error(rpcRes.error);
+                    }
+                }
+            } catch (rpcEx: any) {
+                if (rpcEx.message && (rpcEx.message.includes('Código') || rpcEx.message.includes('No se encontró') || rpcEx.message.includes('obligatorios'))) {
+                    throw rpcEx;
+                }
+                console.warn('RPC client_app_login fallback:', rpcEx);
             }
 
-            if (!isCodeMatch && !authSuccess) {
-                throw new Error('Código de acceso incorrecto. Pide a tu entrenador que te lo confirme.');
+            // 2. Fallback por consulta directa a la tabla clients
+            if (!client) {
+                const { data: dbClient, error: queryError } = await supabase
+                    .from('clients')
+                    .select('*')
+                    .ilike('email', cleanEmail)
+                    .maybeSingle();
+
+                if (queryError || !dbClient) {
+                    throw new Error('No se encontró ningún atleta registrado con este correo.');
+                }
+
+                const dbAccessCode = (dbClient.access_code || '').trim().toUpperCase();
+                const isCodeMatch = dbAccessCode === cleanCode;
+
+                if (!isCodeMatch) {
+                    let authSuccess = false;
+                    try {
+                        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                            email: cleanEmail,
+                            password: cleanCode,
+                        });
+                        if (!authError && authData?.user) authSuccess = true;
+                    } catch {}
+
+                    if (!authSuccess) {
+                        throw new Error('Código de acceso incorrecto. Pide a tu entrenador que te lo confirme.');
+                    }
+                }
+                client = dbClient;
             }
 
-            // 3. GUARDAR SESIÓN (CLAVE PARA QUE FUNCIONE EL HOME)
-            // Guardamos el email con la clave EXACTA que busca ClientWorkout.tsx
+            // 3. Inicializar sesión de Supabase Auth en segundo plano
+            try {
+                await supabase.auth.signInWithPassword({
+                    email: cleanEmail,
+                    password: cleanCode,
+                });
+            } catch (authSilentErr) {
+                console.warn('Sesión Auth fallback:', authSilentErr);
+            }
+
+            // 4. GUARDAR SESIÓN (CLAVE PARA QUE FUNCIONE EL HOME)
             localStorage.setItem('fit_client_email', client.email); 
-            
-            // También guardamos estos por si los necesitamos luego
             localStorage.setItem('fitleader_client_id', client.id);
             localStorage.setItem('fitleader_client_name', client.name);
             localStorage.setItem('fitleader_client_img', client.image_url || '');
 
-            // 4. Redirigir a la Home del Cliente
+            // 5. Redirigir a la Home del Cliente
             navigate('/client-app/home');
 
         } catch (err: any) {

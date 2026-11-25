@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, initial-scale=1.0" />
+<title>FitLeader Motion Stage (1080x1920)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1080px;
+    height: 1920px;
+    overflow: hidden;
+    background: #070709;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #ffffff;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #stage {
+    position: relative;
+    width: 1080px;
+    height: 1920px;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 28%, #0d2119 0%, #070709 62%);
+  }
+
+  /* Subtle SaaS grid + noise */
+  .grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(255,255,255,0.028) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.028) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(circle at 50% 45%, black 30%, transparent 82%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .orb {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Realistic background frame slot (swappable with Gemini images) */
+  #bg-photo {
+    position: absolute;
+    inset: -40px;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    z-index: 2;
+    transform-origin: center center;
+  }
+  #bg-photo-vignette {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(7,7,9,0.72) 0%, rgba(7,7,9,0.38) 42%, rgba(7,7,9,0.88) 100%);
+    opacity: 0;
+    z-index: 3;
+  }
+
+  /* Safe-zone Kinetic Header (y: 235..430) */
+  #kinetic-top {
+    position: absolute;
+    top: 235px;
+    left: 68px;
+    right: 120px;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .brand-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1.5px solid rgba(16, 185, 129, 0.35);
+    backdrop-filter: blur(16px);
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #34d399;
+  }
+  .brand-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 16px #10b981;
+  }
+
+  .onscreen-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 62px;
+    font-weight: 900;
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    text-shadow: 0 12px 40px rgba(0,0,0,0.75);
+  }
+  .kw-word {
+    display: inline-block;
+  }
+  .kw-highlight-emerald {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: #04130d;
+    padding: 2px 18px;
+    border-radius: 18px;
+    box-shadow: 0 12px 36px rgba(16,185,129,0.38);
+  }
+  .kw-highlight-red {
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    color: #ffffff;
+    padding: 2px 18px;
+    border-radius: 18px;
+    box-shadow: 0 12px 36px rgba(239,68,68,0.38);
+  }
+  .kw-highlight-amber {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    color: #140c00;
+    padding: 2px 18px;
+    border-radius: 18px;
+    box-shadow: 0 12px 36px rgba(245,158,11,0.38);
+  }
+
+  /* Main Visual Camera Rig (y: 470..1310) */
+  #camera-rig {
+    position: absolute;
+    top: 465px;
+    left: 60px;
+    width: 840px; /* Leaves right 180px safe for IG/TT rail */
+    height: 850px;
+    z-index: 20;
+    perspective: 1600px;
+    transform-style: preserve-3d;
+  }
+
+  /* Burned-in Subtitle Pill inside Safe Zone (y: 1335..1445) */
+  #caption-bar {
+    position: absolute;
+    top: 1340px;
+    left: 64px;
+    width: 830px;
+    z-index: 45;
+    display: flex;
+    justify-content: center;
+  }
+  .caption-box {
+    background: rgba(10, 10, 14, 0.86);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(22px);
+    padding: 22px 34px;
+    border-radius: 28px;
+    font-size: 33px;
+    font-weight: 700;
+    line-height: 1.28;
+    text-align: center;
+    color: #f4f4f5;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.65);
+  }
+  .cap-active {
+    color: #34d399;
+    font-weight: 900;
+  }
+
+  /* Vector Cursor */
+  #cursor-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .cursor-ripple {
+    position: absolute;
+    top: -28px;
+    left: -28px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 3px solid #34d399;
+    opacity: 0;
+  }
+
+  /* Reusable UI Cards */
+  .glass-card {
+    background: rgba(16, 16, 22, 0.92);
+    border: 1.5px solid rgba(255,255,255,0.09);
+    border-radius: 34px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.72);
+    backdrop-filter: blur(24px);
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg"></div>
+  <div id="orb-1" class="orb" style="width:620px;height:620px;left:120px;top:360px;background:rgba(16,185,129,0.18);"></div>
+  <div id="orb-2" class="orb" style="width:520px;height:520px;left:360px;top:920px;background:rgba(59,130,246,0.12);"></div>
+
+  <div id="bg-photo"></div>
+  <div id="bg-photo-vignette"></div>
+
+  <div id="kinetic-top">
+    <div class="brand-pill" id="top-pill">
+      <span class="brand-dot" id="top-dot"></span>
+      <span id="top-tag">FITLEADER · ECOSISTEMA COACH</span>
+    </div>
+    <div class="onscreen-card" id="onscreen-headline"></div>
+  </div>
+
+  <div id="camera-rig"></div>
+
+  <div id="caption-bar">
+    <div class="caption-box" id="caption-box"></div>
+  </div>
+
+  <div id="cursor-layer">
+    <div class="cursor-ripple" id="cursor-ripple"></div>
+    <svg width="54" height="54" viewBox="0 0 36 36" fill="none">
+      <path d="M7 4L29 16.5L18.5 19.8L14.2 30L7 4Z" fill="#FFFFFF" stroke="#09090B" stroke-width="2.6" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</div>
+
+<script>
+// --- Physics & Easing Helpers (Framer Motion exact equivalents) ---
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// Apple / Linear signature ease: cubic-bezier(0.22, 1, 0.36, 1)
+function easeOutQuint(x) {
+  const t = clamp(x, 0, 1);
+  return 1 - Math.pow(1 - t, 4.2);
+}
+
+// Analytical damped spring response (0 -> 1) matching Framer Motion stiffness=380, damping=26
+function spring(dt, stiffness = 380, damping = 26, mass = 1) {
+  if (dt <= 0) return 0;
+  const w0 = Math.sqrt(stiffness / mass);
+  const zeta = damping / (2 * Math.sqrt(stiffness * mass));
+  if (zeta < 1) {
+    const wd = w0 * Math.sqrt(1 - zeta * zeta);
+    const env = Math.exp(-zeta * w0 * dt);
+    return 1 - env * (Math.cos(wd * dt) + (zeta * w0 / wd) * Math.sin(wd * dt));
+  }
+  return 1 - Math.exp(-w0 * dt) * (1 + w0 * dt);
+}
+
+window.MANIFEST = null;
+window.EXTRA_ASSETS = {};
+
+window.initStage = function(manifest, assets) {
+  window.MANIFEST = manifest;
+  window.EXTRA_ASSETS = assets || {};
+};
+
+function activeBeatAt(t, beats) {
+  let chosen = beats[0];
+  for (const b of beats) {
+    if (t >= b.start - 0.04) chosen = b;
+  }
+  return chosen;
+}
+
+function renderHeadline(beat, localDt) {
+  const el = document.getElementById('onscreen-headline');
+  const words = beat.on_screen.split(/\s+/);
+  const accentClass =
+    beat.accent === 'red' ? 'kw-highlight-red' :
+    beat.accent === 'amber' ? 'kw-highlight-amber' :
+    beat.accent === 'emerald' ? 'kw-highlight-emerald' : '';
+
+  el.innerHTML = words.map((w, idx) => {
+    const wDt = localDt - idx * 0.055;
+    const p = clamp(wDt / 0.20, 0, 1);
+    const sp = spring(Math.max(0, wDt), 420, 30);
+    const blur = (1 - easeOutQuint(p)) * 10;
+    const y = (1 - sp) * 24;
+    const op = clamp(p * 1.6, 0, 1);
+    const isHighlight = idx === words.length - 1 && accentClass !== '';
+    return `<span class="kw-word ${isHighlight ? accentClass : ''}" style="opacity:${op.toFixed(3)};transform:translateY(${y.toFixed(1)}px);filter:blur(${blur.toFixed(1)}px)">${w}</span>`;
+  }).join('');
+}
+
+function renderCaption(beat, t) {
+  const box = document.getElementById('caption-box');
+  const cleanWords = beat.text.split(/\s+/);
+  const dur = Math.max(0.25, beat.speech_end - beat.start);
+  const prog = clamp((t - beat.start) / dur, 0, 0.999);
+  const activeIdx = Math.floor(prog * cleanWords.length);
+  box.innerHTML = cleanWords.map((w, i) =>
+    i === activeIdx ? `<span class="cap-active">${w}</span>` : `<span>${w}</span>`
+  ).join(' ');
+}
+
+function setCursor(visible, x, y, clicking = 0) {
+  const cur = document.getElementById('cursor-layer');
+  const rip = document.getElementById('cursor-ripple');
+  if (!visible) {
+    cur.style.opacity = '0';
+    return;
+  }
+  const pressScale = 1 - 0.16 * Math.sin(Math.PI * clamp(clicking, 0, 1));
+  cur.style.opacity = '1';
+  cur.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${pressScale.toFixed(3)})`;
+  if (clicking > 0.01) {
+    rip.style.opacity = (1 - clicking).toFixed(3);
+    rip.style.transform = `scale(${(0.5 + clicking * 1.4).toFixed(2)})`;
+  } else {
+    rip.style.opacity = '0';
+  }
+}
+
+// ============================================================================
+// SCENE 1: INSTAGRAM BOFU PILOT (PDF Chaos -> 3D Athlete PWA -> Coach Live Sync)
+// ============================================================================
+function renderIGScene(t, beats) {
+  const rig = document.getElementById('camera-rig');
+  const bgPhoto = document.getElementById('bg-photo');
+  const bgVig = document.getElementById('bg-photo-vignette');
+  const orb1 = document.getElementById('orb-1');
+  const topTag = document.getElementById('top-tag');
+  const topDot = document.getElementById('top-dot');
+
+  const bHook = beats[0], bStake = beats[1], bReveal = beats[2], bVideo = beats[3],
+        bSets = beats[4], bStreak = beats[5], bSync = beats[6], bClean = beats[7], bCta = beats[8];
+
+  // Phase A: 0 .. bReveal.start -> PDF & WhatsApp Chaos + Realistic Gym POV
+  if (t < bReveal.start) {
+    topTag.textContent = 'EL PROBLEMA · ASESORÍAS EN PDF';
+    topDot.style.background = '#ef4444';
+    topDot.style.boxShadow = '0 0 16px #ef4444';
+    orb1.style.background = 'rgba(239, 68, 68, 0.22)';
+
+    if (window.EXTRA_ASSETS.frame_ig_hook) {
+      bgPhoto.style.backgroundImage = `url('${window.EXTRA_ASSETS.frame_ig_hook}')`;
+      const zoom = 1.04 + 0.05 * (t / bReveal.start);
+      const shakeX = Math.sin(t * 11) * 4;
+      const shakeY = Math.cos(t * 9) * 4;
+      bgPhoto.style.transform = `scale(${zoom.toFixed(3)}) translate(${shakeX.toFixed(1)}px, ${shakeY.toFixed(1)}px)`;
+      bgPhoto.style.opacity = '0.68';
+      bgVig.style.opacity = '1';
+    } else {
+      bgPhoto.style.opacity = '0';
+      bgVig.style.opacity = '0';
+    }
+
+    const collapseT = clamp((t - (bReveal.start - 0.42)) / 0.42, 0, 1);
+    const collapseScale = 1 - 0.85 * easeOutQuint(collapseT);
+    const collapseOp = 1 - collapseT;
+
+    const s1 = spring(t - 0.05, 360, 24);
+    const s2 = spring(t - (bStake.start + 0.05), 380, 24);
+    const s3 = spring(t - (bStake.start + 0.45), 380, 24);
+    const jitter = Math.sin(t * 26) * (t >= bStake.start ? 4.5 : 1.5);
+
+    setCursor(false, 0, 0);
+    rig.innerHTML = `
+      <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;transform:scale(${(s1 * collapseScale).toFixed(3)}) translateX(${jitter.toFixed(1)}px);opacity:${collapseOp.toFixed(3)}">
+        <!-- Ugly Cramped PDF Sheet -->
+        <div style="width:700px;background:#f8fafc;color:#0f172a;border-radius:26px;padding:30px;box-shadow:0 30px 90px rgba(0,0,0,0.8);border:4px solid #ef4444;transform:rotate(-2.2deg)">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #cbd5e1;padding-bottom:16px;margin-bottom:18px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:800;color:#dc2626">📄 RUTINA_MARCOS_FINAL_v4_DEF.pdf</span>
+            <span style="background:#fee2e2;color:#b91c1c;font-size:19px;font-weight:800;padding:6px 14px;border-radius:10px">ZOOM 340%</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2.2fr 1fr 1fr 1fr;gap:8px;font-family:'JetBrains Mono',monospace;font-size:16px">
+            <div style="background:#e2e8f0;padding:10px;font-weight:800">EJERCICIO</div>
+            <div style="background:#e2e8f0;padding:10px;font-weight:800">SERIES</div>
+            <div style="background:#e2e8f0;padding:10px;font-weight:800">CARGA</div>
+            <div style="background:#e2e8f0;padding:10px;font-weight:800">NOTAS</div>
+            <div style="background:#f1f5f9;padding:10px">Sentadilla barra libre...</div>
+            <div style="background:#f1f5f9;padding:10px">4x8-10??</div>
+            <div style="background:#fee2e2;color:#b91c1c;padding:10px;font-weight:700">#¡REF!</div>
+            <div style="background:#f1f5f9;padding:10px">Ver link roto</div>
+            <div style="background:#f1f5f9;padding:10px">Prensa inclinada 45...</div>
+            <div style="background:#f1f5f9;padding:10px">3x12</div>
+            <div style="background:#f1f5f9;padding:10px">¿Cuánto puse?</div>
+            <div style="background:#fee2e2;color:#b91c1c;padding:10px;font-weight:700">Sin vídeo</div>
+          </div>
+        </div>
+
+        <!-- Floating WhatsApp Friction Bubbles -->
+        <div style="margin-top:-26px;width:740px;display:flex;flex-direction:column;gap:16px">
+          <div class="glass-card" style="padding:24px 30px;border-color:rgba(239,68,68,0.45);background:rgba(24,12,14,0.95);transform:scale(${s2.toFixed(3)}) rotate(1.5deg);opacity:${clamp(s2,0,1).toFixed(2)}">
+            <div style="font-size:20px;color:#f87171;font-weight:800;margin-bottom:6px">💬 WhatsApp · Cliente (hace 14 días)</div>
+            <div style="font-size:28px;font-weight:700;color:#fff">«Bro no me abre el PDF en el gym, ¿cuántos kilos metía hoy?»</div>
+          </div>
+          <div class="glass-card" style="padding:22px 30px;border-color:rgba(245,158,11,0.45);background:rgba(24,18,10,0.95);transform:scale(${s3.toFixed(3)}) rotate(-1.2deg);opacity:${clamp(s3,0,1).toFixed(2)}">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:26px;font-weight:800;color:#fbbf24">⚠️ Adherencia semana 3:</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:900;color:#ef4444">0 entrenos registrados</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Hide photo background for crisp SaaS UI Choreography (or subtle 0.14 ambient)
+  bgPhoto.style.opacity = window.EXTRA_ASSETS.frame_ig_hook ? '0.10' : '0';
+  bgVig.style.opacity = window.EXTRA_ASSETS.frame_ig_hook ? '0.92' : '0';
+  topTag.textContent = 'FITLEADER · APP ATLETA MARCA BLANCA';
+  topDot.style.background = '#10b981';
+  topDot.style.boxShadow = '0 0 16px #10b981';
+  orb1.style.background = 'rgba(16, 185, 129, 0.24)';
+
+  // Phase B: 3D iPhone PWA + Camera Zoom + Live Sets + Streak (bReveal .. bSync)
+  if (t < bSync.start) {
+    const enterSp = spring(t - bReveal.start, 340, 25);
+    const rotY = lerp(-18, 0, enterSp);
+    const rotX = lerp(10, 0, enterSp);
+    let camScale = lerp(0.84, 1.0, enterSp);
+    let camY = lerp(70, 0, enterSp);
+
+    // Camera Zoom 1.15x into Exercise & Sets during bVideo & bSets (kept below headline safe zone)
+    if (t >= bVideo.start && t < bStreak.start) {
+      const zIn = easeOutQuint((t - bVideo.start) / 0.45);
+      camScale = lerp(1.0, 1.15, zIn);
+      camY = lerp(0, 26, zIn);
+    } else if (t >= bStreak.start) {
+      const zOut = easeOutQuint((t - bStreak.start) / 0.40);
+      camScale = lerp(1.15, 1.0, zOut);
+      camY = lerp(26, 0, zOut);
+    }
+
+    // Animated numbers for sets
+    const setProg = clamp((t - bSets.start) / Math.max(0.4, (bSets.speech_end - bSets.start)), 0, 1);
+    const kgVal = Math.round(lerp(0, 100, easeOutQuint(setProg * 1.25)));
+    const repVal = Math.round(lerp(0, 8, easeOutQuint(setProg * 1.25)));
+    const checkedCount = t < bSets.start ? 1 : Math.min(4, 1 + Math.floor(setProg * 4));
+
+    // Streak overlay card during bStreak
+    const streakSp = t >= bStreak.start ? spring(t - bStreak.start, 390, 24) : 0;
+    const streakDays = t >= bStreak.start ? Math.round(lerp(11, 12, easeOutQuint((t - bStreak.start) / 0.45))) : 11;
+    const barPct = t >= bStreak.start ? Math.round(lerp(75, 100, easeOutQuint((t - bStreak.start) / 0.55))) : 75;
+
+    // Cursor choreography
+    if (t >= bVideo.start && t < bStreak.start) {
+      const cT = clamp((t - bVideo.start) / 0.55, 0, 1);
+      const cx = lerp(760, 560, easeOutQuint(cT));
+      const cy = t < bSets.start ? lerp(980, 790, easeOutQuint(cT)) : lerp(790, 960, easeOutQuint((t - bSets.start) / 0.35));
+      const clickPulse = t >= bSets.start ? clamp(1 - Math.abs((t - (bSets.start + 0.32)) / 0.18), 0, 1) : 0;
+      setCursor(true, cx, cy, clickPulse);
+    } else {
+      setCursor(false, 0, 0);
+    }
+
+    const setsHtml = [1, 2, 3, 4].map((s) => {
+      const done = s <= checkedCount;
+      const pop = (done && s === checkedCount && t >= bSets.start) ? spring(t - (bSets.start + (s - 1) * 0.14), 500, 18) : 1;
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-radius:18px;background:${done ? 'rgba(16,185,129,0.13)' : 'rgba(255,255,255,0.03)'};border:1.5px solid ${done ? 'rgba(16,185,129,0.42)' : 'rgba(255,255,255,0.06)'}">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:800;color:#a1a1aa">SERIE ${s}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:25px;font-weight:800;color:#fff">${done ? kgVal : 100} <small style="color:#71717a">KG</small></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:25px;font-weight:800;color:#fff">${done ? repVal : 8} <small style="color:#71717a">REPS</small></span>
+          <div style="width:38px;height:38px;border-radius:12px;background:${done ? '#10b981' : '#18181b'};color:#03120b;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:900;transform:scale(${pop.toFixed(2)})">${done ? '✓' : ''}</div>
+        </div>
+      `;
+    }).join('');
+
+    rig.innerHTML = `
+      <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;transform:scale(${camScale.toFixed(3)}) translateY(${camY.toFixed(1)}px) rotateY(${rotY.toFixed(1)}deg) rotateX(${rotX.toFixed(1)}deg)">
+        <!-- iPhone 16 Pro Frame -->
+        <div style="width:600px;height:820px;background:#060608;border-radius:64px;border:10px solid #27272a;box-shadow:0 40px 110px rgba(0,0,0,0.85), 0 0 80px rgba(16,185,129,0.22);padding:28px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between">
+          <!-- Dynamic Island -->
+          <div style="width:160px;height:30px;background:#000;border-radius:99px;margin:0 auto 14px auto;border:1px solid #1f1f23;display:flex;align-items:center;justify-content:center;gap:10px">
+            <span style="width:10px;height:10px;border-radius:50%;background:#10b981"></span>
+            <span style="font-size:14px;font-weight:700;color:#a1a1aa">TU LOGO PRO</span>
+          </div>
+
+          <!-- White-Label Coach Brand Header -->
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08)">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:48px;height:48px;border-radius:16px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px;color:#04130d">FL</div>
+              <div>
+                <div style="font-size:24px;font-weight:900;letter-spacing:-0.02em">TU MARCA FITNESS</div>
+                <div style="font-size:16px;color:#34d399;font-weight:700">App Oficial del Atleta · PWA</div>
+              </div>
+            </div>
+            <div style="background:rgba(245,158,11,0.15);border:1.5px solid rgba(245,158,11,0.4);padding:8px 16px;border-radius:99px;font-size:21px;font-weight:900;color:#fbbf24">
+              🔥 ${streakDays}
+            </div>
+          </div>
+
+          <!-- Exercise Card with HD Video Indicator -->
+          <div style="background:#111116;border:1.5px solid rgba(255,255,255,0.08);border-radius:28px;padding:20px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:16px">
+                <div style="width:86px;height:86px;border-radius:20px;background:linear-gradient(135deg,#064e3b,#0f172a);border:1.5px solid rgba(52,211,153,0.4);display:flex;align-items:center;justify-content:center;font-size:32px;position:relative">
+                  🏋️
+                  <span style="position:absolute;bottom:6px;right:6px;background:#10b981;color:#000;font-size:12px;font-weight:900;padding:2px 6px;border-radius:6px">HD ▶</span>
+                </div>
+                <div>
+                  <span style="background:#10b981;color:#03120b;font-size:14px;font-weight:900;padding:3px 10px;border-radius:8px;text-transform:uppercase">Día 1 · Hipertrofia</span>
+                  <div style="font-size:27px;font-weight:900;margin-top:4px">Sentadilla con Barra</div>
+                  <div style="font-size:18px;color:#34d399;font-family:'JetBrains Mono',monospace">Anterior: 95 kg × 8 · RIR 1</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${setsHtml}
+            </div>
+          </div>
+
+          <!-- Weekly Goal & Streak Progress -->
+          <div style="background:linear-gradient(135deg,rgba(6,78,59,0.55),rgba(16,16,22,0.95));border:1.5px solid rgba(16,185,129,0.35);border-radius:26px;padding:18px 22px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-size:19px;font-weight:800;color:#34d399">OBJETIVO SEMANAL · RACHA ON FIRE</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:900">${barPct === 100 ? '4 / 4 ✓' : '3 / 4'}</span>
+            </div>
+            <div style="width:100%;height:14px;background:#18181b;border-radius:99px;overflow:hidden">
+              <div style="width:${barPct}%;height:100%;background:linear-gradient(90deg,#10b981,#fbbf24);border-radius:99px"></div>
+            </div>
+          </div>
+
+          ${streakSp > 0.01 ? `
+          <!-- Streak Celebration Pop Modal -->
+          <div style="position:absolute;inset:120px 36px auto 36px;background:rgba(12,12,16,0.97);border:2px solid #f59e0b;border-radius:34px;padding:30px;text-align:center;box-shadow:0 30px 90px rgba(0,0,0,0.92),0 0 60px rgba(245,158,11,0.32);transform:scale(${streakSp.toFixed(3)})">
+            <div style="font-size:66px;margin-bottom:6px">🔥</div>
+            <div style="font-size:34px;font-weight:900;color:#fff">¡12 DÍAS EN RACHA!</div>
+            <div style="font-size:21px;color:#fbbf24;font-weight:700;margin-top:6px">Sesión enviada a tu entrenador al instante</div>
+          </div>` : ''}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Phase C: Dual-Device Sync (Coach Dashboard + Athlete Phone) -> Clean CTA (bSync .. end)
+  if (t < bClean.start) {
+    setCursor(false, 0, 0);
+    const sp = spring(t - bSync.start, 350, 26);
+    const toastSp = spring(t - (bSync.start + 0.28), 420, 22);
+    const rev = Math.round(lerp(8498, 8578, easeOutQuint((t - bSync.start) / 0.8)));
+
+    rig.innerHTML = `
+      <div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:26px;transform:scale(${lerp(0.9,1,sp).toFixed(3)})">
+        <!-- Coach MacBook Card -->
+        <div class="glass-card" style="padding:30px;border-color:rgba(16,185,129,0.35)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:14px;height:14px;border-radius:50%;background:#ff5f57"></span>
+              <span style="width:14px;height:14px;border-radius:50%;background:#febc2e"></span>
+              <span style="width:14px;height:14px;border-radius:50%;background:#28c840"></span>
+              <span style="margin-left:12px;font-size:20px;font-weight:800;color:#a1a1aa">FitLeader — Panel del Entrenador</span>
+            </div>
+            <span style="background:rgba(16,185,129,0.15);color:#34d399;padding:6px 16px;border-radius:99px;font-size:18px;font-weight:800">● EN VIVO</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:18px;margin-bottom:22px">
+            <div style="background:linear-gradient(135deg,#059669,#0f766e);padding:22px;border-radius:24px">
+              <div style="font-size:16px;font-weight:800;opacity:0.85">INGRESOS ESTE MES</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:900;margin-top:6px">${rev.toLocaleString('es-ES')} €</div>
+            </div>
+            <div style="background:#14141b;border:1px solid rgba(255,255,255,0.07);padding:22px;border-radius:24px">
+              <div style="font-size:16px;font-weight:800;color:#a1a1aa">CLIENTES ACTIVOS</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:900;margin-top:6px">62</div>
+            </div>
+            <div style="background:#14141b;border:1px solid rgba(255,255,255,0.07);padding:22px;border-radius:24px">
+              <div style="font-size:16px;font-weight:800;color:#a1a1aa">ADHERENCIA</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:900;color:#34d399;margin-top:6px">96%</div>
+            </div>
+          </div>
+
+          <!-- Real-Time Athlete Sync Toast -->
+          <div style="background:rgba(16,185,129,0.14);border:2px solid #10b981;border-radius:24px;padding:22px 26px;display:flex;align-items:center;justify-content:space-between;transform:scale(${toastSp.toFixed(3)})">
+            <div style="display:flex;align-items:center;gap:18px">
+              <div style="width:56px;height:56px;border-radius:50%;background:#10b981;color:#03120b;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900">⚡</div>
+              <div>
+                <div style="font-size:25px;font-weight:900;color:#fff">Carlos R. completó «Pierna Hipertrofia»</div>
+                <div style="font-size:20px;color:#34d399;font-weight:700">Sentadilla: 100 kg × 8 (+5 kg PR) · 🔥 Racha 12 días</div>
+              </div>
+            </div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:18px;color:#a7f3d0;font-weight:800">Hace 1s</span>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Phase D: Payoff & CTA Card (bClean .. end)
+  const ctaSp = spring(t - bClean.start, 360, 25);
+  const btnSp = t >= bCta.start ? spring(t - bCta.start, 420, 20) : 0.92;
+  const pulse = 1 + 0.03 * Math.sin(t * 9);
+  if (t >= bCta.start + 0.35) {
+    const cProg = clamp((t - (bCta.start + 0.35)) / 0.45, 0, 1);
+    setCursor(true, lerp(740, 480, easeOutQuint(cProg)), lerp(1220, 1005, easeOutQuint(cProg)), cProg > 0.85 ? (cProg - 0.85) * 6 : 0);
+  } else {
+    setCursor(false, 0, 0);
+  }
+
+  rig.innerHTML = `
+    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;transform:scale(${ctaSp.toFixed(3)})">
+      <div class="glass-card" style="width:780px;padding:46px;border-color:rgba(16,185,129,0.45);text-align:center;display:flex;flex-direction:column;gap:28px">
+        <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
+          <span style="background:rgba(239,68,68,0.14);border:1.5px solid rgba(239,68,68,0.35);color:#fca5a5;padding:10px 20px;border-radius:99px;font-size:22px;font-weight:800;text-decoration:line-through">PDFs estáticos</span>
+          <span style="background:rgba(239,68,68,0.14);border:1.5px solid rgba(239,68,68,0.35);color:#fca5a5;padding:10px 20px;border-radius:99px;font-size:22px;font-weight:800;text-decoration:line-through">Excels rotos</span>
+          <span style="background:rgba(239,68,68,0.14);border:1.5px solid rgba(239,68,68,0.35);color:#fca5a5;padding:10px 20px;border-radius:99px;font-size:22px;font-weight:800;text-decoration:line-through">Caos en WhatsApp</span>
+        </div>
+
+        <div style="font-size:48px;font-weight:900;line-height:1.08;letter-spacing:-0.03em">
+          Tu propia App con tu logo.<br/>
+          <span style="color:#34d399"> Lista hoy mismo por 0€.</span>
+        </div>
+
+        <div style="font-size:24px;color:#a1a1aa;font-weight:600">
+          Software Coach + App Atleta PWA + Ficha gratis en Marketplace España
+        </div>
+
+        <div style="background:linear-gradient(135deg,#10b981,#34d399);color:#03120b;padding:28px 36px;border-radius:26px;font-size:38px;font-weight:900;letter-spacing:-0.02em;box-shadow:0 20px 60px rgba(16,185,129,0.45);transform:scale(${(btnSp * pulse).toFixed(3)})">
+          💬 COMENTA «APP» Y TE LA ENSEÑO
+        </div>
+
+        <div style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#34d399;font-weight:800">
+          fitleaderapp.com
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
+// SCENE 2: TIKTOK TOFU POV (Domingo 21:00 WhatsApp Stack -> Clean Sweep -> Poll)
+// ============================================================================
+function renderTTScene(t, beats) {
+  const rig = document.getElementById('camera-rig');
+  const bgPhoto = document.getElementById('bg-photo');
+  const bgVig = document.getElementById('bg-photo-vignette');
+  const orb1 = document.getElementById('orb-1');
+  const topTag = document.getElementById('top-tag');
+  const topDot = document.getElementById('top-dot');
+
+  const bHook = beats[0], bM1 = beats[1], bM2 = beats[2], bM3 = beats[3],
+        bP1 = beats[4], bP2 = beats[5], bCta = beats[6];
+
+  setCursor(false, 0, 0);
+
+  // Phase A: Sunday 21:00 WhatsApp Notification Overload (0 .. bP1.start)
+  if (t < bP1.start) {
+    topTag.textContent = 'POV · ENTRENADOR PERSONAL';
+    topDot.style.background = '#f59e0b';
+    topDot.style.boxShadow = '0 0 16px #f59e0b';
+    orb1.style.background = 'rgba(245, 158, 11, 0.20)';
+
+    if (window.EXTRA_ASSETS.frame_tt_hook) {
+      bgPhoto.style.backgroundImage = `url('${window.EXTRA_ASSETS.frame_tt_hook}')`;
+      const z = 1.03 + 0.06 * (t / bP1.start);
+      bgPhoto.style.transform = `scale(${z.toFixed(3)})`;
+      bgPhoto.style.opacity = t < bM1.start ? '0.74' : '0.32';
+      bgVig.style.opacity = '1';
+    } else {
+      bgPhoto.style.opacity = '0';
+      bgVig.style.opacity = '0';
+    }
+
+    const unread = Math.min(34, Math.round(lerp(3, 34, easeOutQuint(t / 2.2))));
+    const sClock = spring(t - 0.04, 360, 26);
+    const s1 = t >= bM1.start ? spring(t - bM1.start, 410, 23) : 0;
+    const s2 = t >= bM2.start ? spring(t - bM2.start, 410, 23) : 0;
+    const s3 = t >= bM3.start ? spring(t - bM3.start, 430, 21) : 0;
+
+    const camZoom = t >= bM3.start ? lerp(1.0, 1.08, easeOutQuint((t - bM3.start) / 0.45)) : 1.0;
+    const stressShake = t >= bM3.start ? Math.sin(t * 32) * 3.5 : 0;
+
+    // Animated audio waveform bars
+    const bars = Array.from({ length: 24 }, (_, i) => {
+      const h = 14 + Math.abs(Math.sin(t * 10 + i * 0.7)) * 28;
+      const played = i < ((t - bM1.start) * 7) % 24;
+      return `<span style="width:7px;height:${h.toFixed(0)}px;border-radius:99px;background:${played ? '#34d399' : '#52525b'};display:inline-block"></span>`;
+    }).join('');
+
+    rig.innerHTML = `
+      <div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:flex-start;gap:18px;padding-top:8px;transform:scale(${(sClock * camZoom).toFixed(3)}) translateX(${stressShake.toFixed(1)}px)">
+        <!-- iOS Sunday Lock Header -->
+        <div class="glass-card" style="padding:22px 30px;display:flex;justify-content:space-between;align-items:center;border-color:rgba(255,255,255,0.14)">
+          <div style="display:flex;align-items:center;gap:16px">
+            <div style="width:54px;height:54px;border-radius:16px;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:30px">💬</div>
+            <div>
+              <div style="font-size:26px;font-weight:900">WhatsApp · Domingo 21:00</div>
+              <div style="font-size:19px;color:#a1a1aa;font-weight:600">Tu «descanso» del fin de semana</div>
+            </div>
+          </div>
+          <div style="background:#ef4444;color:#fff;font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:900;padding:8px 20px;border-radius:99px;box-shadow:0 0 28px rgba(239,68,68,0.55)">
+            ${unread} chats
+          </div>
+        </div>
+
+        ${s1 > 0.01 ? `
+        <!-- Card 1: 4-minute Voice Note -->
+        <div class="glass-card" style="padding:24px 28px;background:rgba(13,31,24,0.95);border:2px solid rgba(34,197,94,0.45);transform:scale(${s1.toFixed(3)})">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-size:21px;font-weight:800;color:#4ade80">1️⃣ Rubén Hipertrofia · 21:02</span>
+            <span style="background:rgba(34,197,94,0.2);color:#86efac;padding:4px 12px;border-radius:99px;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800">🎤 04:12 · 1.5x</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(0,0,0,0.38);padding:14px 18px;border-radius:18px;margin-bottom:10px">
+            <div style="width:42px;height:42px;border-radius:50%;background:#22c55e;color:#04130d;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900">▶</div>
+            <div style="display:flex;align-items:center;gap:5px;flex:1">${bars}</div>
+          </div>
+          <div style="font-size:22px;color:#d4d4d8;font-weight:600">«Oye bro te mando audio rápido para cambiar sentadillas del lunes...»</div>
+        </div>` : ''}
+
+        ${s2 > 0.01 ? `
+        <!-- Card 2: Check-in Photos Mixed With Family Group -->
+        <div class="glass-card" style="padding:22px 28px;background:rgba(28,14,18,0.95);border:2px solid rgba(244,63,94,0.45);transform:scale(${s2.toFixed(3)})">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-size:21px;font-weight:800;color:#fb7185">2️⃣ Galería mezclada · 21:04</span>
+            <span style="background:rgba(244,63,94,0.2);color:#fda4af;padding:4px 12px;border-radius:99px;font-size:17px;font-weight:800">CAOS TOTAL</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="background:#18181b;padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);font-size:20px;font-weight:700">📸 2 fotos check-in en calzoncillos</div>
+            <div style="background:#18181b;padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);font-size:20px;font-weight:700">👨‍👩‍👦 Mamá: «¿Vienes a comer?»</div>
+          </div>
+        </div>` : ''}
+
+        ${s3 > 0.01 ? `
+        <!-- Card 3: Bizum Question -->
+        <div class="glass-card" style="padding:24px 28px;background:rgba(30,22,10,0.97);border:2.5px solid #f59e0b;box-shadow:0 24px 70px rgba(245,158,11,0.28);transform:scale(${s3.toFixed(3)})">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:21px;font-weight:800;color:#fbbf24">3️⃣ Dani Mensualidad · 21:06</span>
+            <span style="background:rgba(245,158,11,0.22);color:#fde68a;padding:4px 12px;border-radius:99px;font-size:17px;font-weight:800">💸 SIN CONTROL</span>
+          </div>
+          <div style="font-size:28px;font-weight:900;color:#fff">«Oye perdona, ¿te llegó ya mi Bizum del mes pasado? 😅»</div>
+        </div>` : ''}
+      </div>
+    `;
+    return;
+  }
+
+  // Phase B: Clean Sweep Order (bP1 .. bCta)
+  bgPhoto.style.opacity = '0';
+  bgVig.style.opacity = '0';
+  topTag.textContent = 'FITLEADER · ORDEN PROFESIONAL';
+  topDot.style.background = '#10b981';
+  topDot.style.boxShadow = '0 0 16px #10b981';
+  orb1.style.background = 'rgba(16, 185, 129, 0.24)';
+
+  if (t < bCta.start) {
+    const sp = spring(t - bP1.start, 360, 25);
+    const sp2 = t >= bP2.start ? spring(t - bP2.start, 380, 24) : 0.2;
+
+    rig.innerHTML = `
+      <div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:22px;transform:scale(${sp.toFixed(3)})">
+        <div class="glass-card" style="padding:36px;border-color:rgba(16,185,129,0.45)">
+          <div style="font-size:22px;font-weight:800;color:#34d399;letter-spacing:0.08em;margin-bottom:14px">✦ EL CAMBIO DE SISTEMA</div>
+          <div style="font-size:42px;font-weight:900;line-height:1.12;margin-bottom:28px">
+            30 clientes en WhatsApp = <span style="color:#ef4444">Quemado</span><br/>
+            60 clientes en FitLeader = <span style="color:#34d399">En control</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px;transform:scale(${lerp(0.92,1,sp2).toFixed(3)});opacity:${clamp(sp2*1.4,0.25,1).toFixed(2)}">
+            <div style="background:rgba(16,185,129,0.12);border:1.5px solid rgba(16,185,129,0.35);padding:20px 24px;border-radius:22px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:25px;font-weight:800">🏋️ Rutinas con vídeo en tu App</span>
+              <span style="color:#34d399;font-weight:900;font-size:22px">0 audios ✓</span>
+            </div>
+            <div style="background:rgba(16,185,129,0.12);border:1.5px solid rgba(16,185,129,0.35);padding:20px 24px;border-radius:22px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:25px;font-weight:800">📸 Check-in fotográfico privado</span>
+              <span style="color:#34d399;font-weight:900;font-size:22px">Ordenado ✓</span>
+            </div>
+            <div style="background:rgba(16,185,129,0.12);border:1.5px solid rgba(16,185,129,0.35);padding:20px 24px;border-radius:22px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:25px;font-weight:800">💳 Cobros automáticos con Stripe</span>
+              <span style="color:#34d399;font-weight:900;font-size:22px">0 impagos ✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Phase C: Interactive Comment Trigger Poll (bCta .. end)
+  const ctaSp = spring(t - bCta.start, 380, 24);
+  const hi = Math.floor(((t - bCta.start) * 2.5) % 3);
+
+  const pollItems = [
+    { num: '1️⃣', label: 'El audio de 4 min cambiando ejercicios' },
+    { num: '2️⃣', label: 'Fotos de check-in entre chats personales' },
+    { num: '3️⃣', label: '«Oye, ¿te llegó ya mi Bizum?»' },
+  ].map((item, idx) => {
+    const active = idx === hi;
+    return `
+      <div style="padding:24px 28px;border-radius:24px;background:${active ? 'rgba(16,185,129,0.20)' : '#14141b'};border:2px solid ${active ? '#34d399' : 'rgba(255,255,255,0.09)'};display:flex;align-items:center;gap:20px;transform:scale(${active ? '1.03' : '1'})">
+        <span style="font-size:36px">${item.num}</span>
+        <span style="font-size:27px;font-weight:800;color:#fff;text-align:left">${item.label}</span>
+      </div>
+    `;
+  }).join('');
+
+  rig.innerHTML = `
+    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;transform:scale(${ctaSp.toFixed(3)})">
+      <div class="glass-card" style="width:790px;padding:42px;border-color:rgba(52,211,153,0.45);display:flex;flex-direction:column;gap:22px;text-align:center">
+        <div style="font-size:38px;font-weight:900;letter-spacing:-0.02em">
+          ¿Cuál te toca sufrir cada domingo?
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          ${pollItems}
+        </div>
+        <div style="margin-top:6px;font-size:26px;font-weight:900;color:#34d399">
+          Pon 1, 2 o 3 en comentarios 👇
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.renderAtTime = function(t) {
+  if (!window.MANIFEST) return;
+  const beats = window.MANIFEST.beats;
+  const beat = activeBeatAt(t, beats);
+  const localDt = Math.max(0, t - beat.start);
+
+  renderHeadline(beat, localDt);
+  renderCaption(beat, t);
+
+  if (window.MANIFEST.slug.startsWith('ig_')) {
+    renderIGScene(t, beats);
+  } else {
+    renderTTScene(t, beats);
+  }
+};
+</script>
+</body>
+</html>

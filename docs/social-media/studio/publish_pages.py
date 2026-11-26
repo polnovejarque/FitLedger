@@ -20,7 +20,9 @@ ASSETS_DIR = STUDIO_DIR / "assets"
 
 
 def build_index_html(ig_meta: dict, tt_meta: dict, has_ig_frame: bool, has_tt_frame: bool) -> str:
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now_dt = datetime.now(timezone.utc)
+    now_str = now_dt.strftime("%Y-%m-%d %H:%M UTC")
+    ver = int(now_dt.timestamp())
     ig_voice_badge = "Vía B · Voz Humana Oficial" if ig_meta.get("voice_mode") == "official_via_b" else "Vía C · Pista Guía Temporal"
     tt_voice_badge = "Vía B · Voz Humana Oficial" if tt_meta.get("voice_mode") == "official_via_b" else "Vía C · Pista Guía Temporal"
     ig_frame_badge = "Frame Gemini Activo" if has_ig_frame else "Fondo Studio (Esperando Frame Gemini)"
@@ -130,13 +132,13 @@ Comenta APP y te enseño cómo funciona por dentro.
       </div>
 
       <div class="player-wrap">
-        <video controls playsinline preload="metadata" poster="qa_ig_pilot_v2_cover.jpg">
-          <source src="20261126_IG_PRODUCT_ATHLETE-APP_REEL.mp4" type="video/mp4" />
+        <video controls playsinline preload="metadata" poster="qa_ig_pilot_v2_phone.jpg?v={ver}">
+          <source src="20261126_IG_PRODUCT_ATHLETE-APP_REEL.mp4?v={ver}" type="video/mp4" />
         </video>
       </div>
 
       <div class="btn-row">
-        <a class="btn btn-primary" href="20261126_IG_PRODUCT_ATHLETE-APP_REEL.mp4" download>⬇ Descargar MP4 (IG)</a>
+        <a class="btn btn-primary" href="20261126_IG_PRODUCT_ATHLETE-APP_REEL.mp4?v={ver}" download="20261126_IG_PRODUCT_ATHLETE-APP_REEL.mp4">⬇ Descargar MP4 (IG)</a>
         <button class="btn btn-sec" onclick="copyTxt('ig-script', this)">📋 Copiar Guion Vía B</button>
         <button class="btn btn-sec" onclick="copyTxt('ig-cap', this)">📋 Copiar Caption</button>
       </div>
@@ -163,13 +165,13 @@ Comenta APP y te enseño cómo funciona por dentro.
       </div>
 
       <div class="player-wrap">
-        <video controls playsinline preload="metadata" poster="qa_tt_pilot_v2_cover.jpg">
-          <source src="20261126_TT_HUMOR_WHATSAPP-CLIENTS_POV.mp4" type="video/mp4" />
+        <video controls playsinline preload="metadata" poster="qa_tt_pilot_v2_mid.jpg?v={ver}">
+          <source src="20261126_TT_HUMOR_WHATSAPP-CLIENTS_POV.mp4?v={ver}" type="video/mp4" />
         </video>
       </div>
 
       <div class="btn-row">
-        <a class="btn btn-primary" href="20261126_TT_HUMOR_WHATSAPP-CLIENTS_POV.mp4" download>⬇ Descargar MP4 (TikTok)</a>
+        <a class="btn btn-primary" href="20261126_TT_HUMOR_WHATSAPP-CLIENTS_POV.mp4?v={ver}" download="20261126_TT_HUMOR_WHATSAPP-CLIENTS_POV.mp4">⬇ Descargar MP4 (TikTok)</a>
         <button class="btn btn-sec" onclick="copyTxt('tt-script', this)">📋 Copiar Guion Vía B</button>
         <button class="btn btn-sec" onclick="copyTxt('tt-cap', this)">📋 Copiar Caption</button>
       </div>
@@ -221,6 +223,7 @@ def main():
             "20261126_IG_PRODUCT_ATHLETE-APP_REEL.mp4",
             "20261126_TT_HUMOR_WHATSAPP-CLIENTS_POV.mp4",
             "qa_ig_pilot_v2_cover.jpg",
+            "qa_ig_pilot_v2_phone.jpg",
             "qa_ig_pilot_v2_mid.jpg",
             "qa_ig_pilot_v2_cta.jpg",
             "qa_tt_pilot_v2_cover.jpg",

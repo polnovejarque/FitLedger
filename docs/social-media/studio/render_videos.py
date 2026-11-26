@@ -41,6 +41,10 @@ def render_one(browser, slug: str, out_mp4_name: str):
     total_frames = int(round(duration * FPS))
 
     extra_assets = {}
+    logo_path = STUDIO_DIR.parent.parent.parent / "public" / "logo.png"
+    if logo_path.exists():
+        b64_logo = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        extra_assets["logo_uri"] = f"data:image/png;base64,{b64_logo}"
     ig_bg = find_asset_data_uri("frame_ig_hook")
     tt_bg = find_asset_data_uri("frame_tt_hook")
     if ig_bg:
@@ -89,6 +93,7 @@ def render_one(browser, slug: str, out_mp4_name: str):
 
     qa_Snapshot_times = {
         "cover": 1.2,
+        "phone": 6.8,
         "mid": round(duration * 0.50, 2),
         "cta": max(0.5, round(duration - 1.1, 2)),
     }
@@ -112,16 +117,27 @@ def render_one(browser, slug: str, out_mp4_name: str):
     print(f"[RENDERED] {out_mp4.name} ({duration:.2f}s, {total_frames} frames, {mb:.2f} MB) in {time.time()-t0:.1f}s")
 
 
-def main():
+def render_worker(args: tuple[str, str]):
+    slug, out_mp4_name = args
     with sync_playwright() as p:
         browser = p.chromium.launch(
             executable_path="/usr/bin/google-chrome",
             headless=True,
             args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"],
         )
-        render_one(browser, "ig_pilot_v2", "20261126_IG_PRODUCT_ATHLETE-APP_REEL.mp4")
-        render_one(browser, "tt_pilot_v2", "20261126_TT_HUMOR_WHATSAPP-CLIENTS_POV.mp4")
+        render_one(browser, slug, out_mp4_name)
         browser.close()
+
+
+def main():
+    from concurrent.futures import ProcessPoolExecutor
+
+    jobs = [
+        ("ig_pilot_v2", "20261126_IG_PRODUCT_ATHLETE-APP_REEL.mp4"),
+        ("tt_pilot_v2", "20261126_TT_HUMOR_WHATSAPP-CLIENTS_POV.mp4"),
+    ]
+    with ProcessPoolExecutor(max_workers=2) as ex:
+        list(ex.map(render_worker, jobs))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Estado Vivo — Estrategia de Redes Sociales FitLeader
 
-**Última actualización:** 2026-11-25  
+**Última actualización:** 2026-11-26  
 **URL Permanente Review Studio (24/7, sin servidor local):** `https://polnovejarque.github.io/FitLedger/`  
 **Motor de Renderizado en Repo:** `docs/social-media/studio/` (`generate_audio.py` + `stage.html` + `render_videos.py` + `publish_pages.py`)
 
@@ -8,17 +8,16 @@
 
 ## 1. Última Conversación y Estado Actual (Lo último hablado)
 
-1. **Memoria persistente activada:** El usuario pidió que cualquier conversación futura (incluso desde otro ordenador) lea siempre lo último hablado sin perder contexto aunque falle un chat. Todo vive sincronizado en GitHub (`AGENTS.md` + `docs/social-media/STATE.md` + skill global `fitleader-social`).
-2. **Visor permanente sin `localhost`:** El usuario no quiere depender de servidores locales que se apagan. Todos los vídeos MP4 y guiones se publican automáticamente en la rama `gh-pages` (`https://polnovejarque.github.io/FitLedger/`).
-3. **Voz humana (Doble vía en marcha):**
-   - **Vía C (Ejecutada):** Se han renderizado los 2 pilotos (`1080×1920`, `30fps` deterministas con físicas reales estilo Framer Motion) con pista guía troceada por *beats*, ajuste prosódico por frase, efectos de sonido UI sutiles y cama ambiental cálida.
-   - **Vía B (En curso por el usuario):** El usuario está generando los **audios oficiales con voz humana natural** (Google AI Studio / Gemini Speech / ElevenLabs) usando los guiones v2 validados. En cuanto los pase, se guardan en `docs/social-media/studio/assets/official_voice_ig.mp3` (o `.wav`) y `official_voice_tt.mp3`, y se relanza el pipeline para actualizar los MP4 en la web pública.
-4. **Frames fotorrealistas de Gemini (Listos para revisar e inyectar):**
-   - El usuario **ya tiene hechos los frames realistas** y nos va a indicar dónde están para revisarlos, comprobar cómo han quedado, corregir o pedir alguno más específico si hace falta, e inyectarlos en `docs/social-media/studio/assets/frame_ig_hook.png` y `frame_tt_hook.png`.
-5. **Grabaciones reales del software FitLeader (Pendientes cuando el usuario quiera grabarlas):**
-   - App Atleta PWA en móvil (`ClientHome` → `WorkoutPlayer` → marcar series `100kg x 8 ✓` → racha `🔥 12`).
-   - `WorkoutEditor` creando rutina con vídeo y Carga/RPE (D8/D6).
-   - Check-in fotográfico 3 pasos (D10), Agenda con buffer 10 min (D11), Marketplace + Salas B2B (D13), Dashboard + Chat modo oscuro (D1/D15).
+1. **Corrección visual aplicada (Centrado 100% + Silueta exacta iPhone Web):**
+   - Toda la composición `1080×1920` (cabecera cinética, tarjetas, iPhone, Dashboard Coach, encuestas y subtítulos) queda **100% centrada simétricamente en `x = 540px`** (antes quedaba desplazada a la izquierda por reservar margen extra al rail derecho).
+   - El mockup del teléfono se ha sustituido por una **réplica 1:1 del iPhone de `LandingPage.tsx`** (`aspect-ratio: 9/19.5`, chasis `#000` con borde `#27272a` redondeado `78px`, *Dynamic Island* real con doble lente sin texto dentro, logo oficial `public/logo.png` + `FitLeader`, pantalla *Hola, Campeón 👋*, *Objetivo Semanal 3/4*, *Tip del Día*, *Próxima sesión*, botón flotante verde de chat y barra inferior de 5 iconos con el círculo central `🔥`).
+2. **Memoria persistente activada:** Todo vive sincronizado en GitHub (`AGENTS.md` + `docs/social-media/STATE.md` + skill global `fitleader-social`).
+3. **Visor permanente sin `localhost`:** Publicado automáticamente en la rama `gh-pages` (`https://polnovejarque.github.io/FitLedger/`) con `?v={timestamp}` anti-caché.
+4. **Voz humana (Doble vía en marcha):**
+   - **Vía C (Ejecutada):** 2 pilotos renderizados en `1080×1920` con pista guía por *beats* y efectos UI.
+   - **Vía B (Pendiente de recibir del usuario):** En cuanto pase los audios oficiales humanos, se colocan en `docs/social-media/studio/assets/official_voice_ig.mp3` y `official_voice_tt.mp3` y se relanza el render.
+5. **Frames fotorrealistas de Gemini + Grabaciones reales:**
+   - Pendiente de que el usuario nos pase los frames de Gemini y/o grabaciones de pantalla para inyectarlos en `docs/social-media/studio/assets/`.
 
 ---
 

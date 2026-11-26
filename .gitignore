@@ -32,6 +32,12 @@ google-health-credentials.json
 .env.*
 !.env.example
 
-# Social Media Studio temporary renders (published to gh-pages instead of master)
+# Social Media Studio temporary renders & raw media (live in Google Drive / gh-pages, never master)
 docs/social-media/studio/out/
+docs/social-media/studio/raw-captures/
+docs/social-media/studio/assets/*.mp4
+docs/social-media/studio/assets/*.mov
+docs/social-media/studio/assets/*.wav
+docs/social-media/studio/assets/*.mp3
+
 

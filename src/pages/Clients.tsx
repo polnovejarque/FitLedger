@@ -376,80 +376,137 @@ const Clients = () => {
         setOpenMenuId(openMenuId === id ? null : id);
     };
 
+    const activeClientsList = clients.filter(c => !c.status || c.status.toLowerCase() === 'active');
+    const paidClientsCount = activeClientsList.filter(c => c.payment_status === 'paid').length;
+    const pendingClientsCount = activeClientsList.filter(c => c.payment_status === 'pending' || c.payment_status === 'overdue').length;
+    const leadClientsCount = clients.filter(c => c.status === 'lead').length;
+    const newMarketplaceLeadsCount = marketplaceLeads.filter(l => l.status === 'new').length;
+    const totalPipelineLeads = leadClientsCount + newMarketplaceLeadsCount;
+    const activeRatio = clients.length > 0 ? Math.round((activeClientsList.length / clients.length) * 100) : 0;
+    const paidRatio = activeClientsList.length > 0 ? Math.round((paidClientsCount / activeClientsList.length) * 100) : 0;
+    const pendingRatio = activeClientsList.length > 0 ? Math.round((pendingClientsCount / activeClientsList.length) * 100) : 0;
+
     // --- RENDER ---
     return (
-        <div className="p-8 w-full max-w-7xl mx-auto min-h-screen text-white font-sans animate-in fade-in duration-500 relative">
+        <div className="p-6 md:p-8 w-full max-w-7xl mx-auto min-h-screen text-white font-sans animate-in fade-in duration-500 relative">
             
             {/* CABECERA */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Cartera de Clientes</h1>
-                    <p className="text-zinc-400 mt-1">Gestiona el progreso y accesos de los atletas del centro.</p>
+                    <h1 className="text-3xl font-bold text-white tracking-tight">Cartera de Clientes</h1>
+                    <p className="text-zinc-400 mt-1 text-sm">Gestiona el progreso y accesos de los atletas del centro.</p>
                 </div>
-                <div className="flex gap-3 w-full md:w-auto">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                     <div className="relative flex-1 md:w-64">
-                        <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         <input 
                             type="text" 
                             placeholder="Buscar por nombre..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-[#111] border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-emerald-500 outline-none transition-all focus:ring-1 focus:ring-emerald-500" 
+                            className="w-full glass-pill rounded-full pl-10 pr-4 py-2 text-sm text-white focus:border-emerald-500 outline-none transition-all focus:ring-1 focus:ring-emerald-500" 
                         />
                     </div>
                     {userRole === 'staff' && (
                         <button 
                             onClick={() => setOnlyAssigned(!onlyAssigned)}
-                            className={`px-3 py-2 border rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                            className={`px-3.5 py-2 border rounded-full text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
                                 onlyAssigned 
-                                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' 
-                                    : 'bg-[#111] border-zinc-800 text-zinc-400 hover:text-white'
+                                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400' 
+                                    : 'glass-pill text-zinc-400 hover:text-white'
                             }`}
                         >
                             {onlyAssigned ? 'Mis Clientes ✓' : 'Todos los Clientes'}
                         </button>
                     )}
-                    <button className="p-2 border border-zinc-800 rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-white transition-colors">
+                    <button className="p-2.5 glass-pill rounded-full text-zinc-400 hover:text-white transition-colors cursor-pointer" aria-label="Filtrar">
                         <Filter className="w-4 h-4" />
                     </button>
-                    <Button onClick={() => setShowNewClientModal(true)} className="bg-emerald-500 text-black font-bold hover:bg-emerald-600 transition-colors">
+                    <Button onClick={() => setShowNewClientModal(true)} className="bg-emerald-500 text-black font-bold hover:bg-emerald-400 transition-all rounded-full px-5 shadow-lg shadow-emerald-500/20 cursor-pointer">
                         <Plus className="w-4 h-4 mr-1" /> Nuevo Cliente
                     </Button>
                 </div>
             </div>
 
-            {/* PESTAÑAS */}
-            <div className="flex gap-1 mb-4 bg-[#111] border border-zinc-800 rounded-lg p-1 w-fit">
+            {/* BARRAS KPI DE CLIENTES (ESTILO KERFA) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-xs font-semibold text-zinc-400">
+                        <span>Atletas Activos</span>
+                        <span className="tabular-nums text-emerald-400">{activeRatio}%</span>
+                    </div>
+                    <div className="text-3xl font-black text-white mt-2 tabular-nums tracking-tight">{activeClientsList.length}</div>
+                    <div className="kpi-bar-track mt-3.5">
+                        <div className="kpi-bar-fill bg-emerald-500" style={{ width: `${Math.max(8, activeRatio)}%` }} />
+                    </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-xs font-semibold text-zinc-400">
+                        <span>Pagos al Día</span>
+                        <span className="tabular-nums text-teal-400">{paidRatio}%</span>
+                    </div>
+                    <div className="text-3xl font-black text-white mt-2 tabular-nums tracking-tight">{paidClientsCount}</div>
+                    <div className="kpi-bar-track mt-3.5">
+                        <div className="kpi-bar-fill bg-gradient-to-r from-emerald-500 to-[#00525d]" style={{ width: `${Math.max(8, paidRatio)}%` }} />
+                    </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-xs font-semibold text-zinc-400">
+                        <span>Pendientes / Vencidos</span>
+                        <span className="tabular-nums text-amber-400">{pendingRatio}%</span>
+                    </div>
+                    <div className="text-3xl font-black text-white mt-2 tabular-nums tracking-tight">{pendingClientsCount}</div>
+                    <div className="kpi-bar-track mt-3.5">
+                        <div className="kpi-bar-fill bg-amber-500" style={{ width: `${Math.max(pendingClientsCount > 0 ? 12 : 4, pendingRatio)}%` }} />
+                    </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-xs font-semibold text-zinc-400">
+                        <span>Leads & Marketplace</span>
+                        <span className="tabular-nums text-blue-400">{newMarketplaceLeadsCount} nuevos</span>
+                    </div>
+                    <div className="text-3xl font-black text-white mt-2 tabular-nums tracking-tight">{totalPipelineLeads}</div>
+                    <div className="kpi-bar-track mt-3.5">
+                        <div className="kpi-bar-fill bg-blue-500" style={{ width: `${Math.min(100, Math.max(8, totalPipelineLeads * 14))}%` }} />
+                    </div>
+                </div>
+            </div>
+
+            {/* PESTAÑAS PILL */}
+            <div className="flex flex-wrap gap-1 mb-5 glass-card rounded-full p-1.5 w-fit">
                 <button
                     onClick={() => setActiveTab('active')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                        activeTab === 'active' ? 'bg-emerald-500 text-black' : 'text-zinc-400 hover:text-white'
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all cursor-pointer ${
+                        activeTab === 'active' ? 'bg-emerald-500 text-black shadow-sm' : 'text-zinc-400 hover:text-white'
                     }`}
                 >
-                    Activos ({clients.filter(c => c.status === 'active' || !c.status).length})
+                    Activos ({activeClientsList.length})
                 </button>
                 <button
                     onClick={() => setActiveTab('lead')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                        activeTab === 'lead' ? 'bg-emerald-500 text-black' : 'text-zinc-400 hover:text-white'
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all cursor-pointer ${
+                        activeTab === 'lead' ? 'bg-emerald-500 text-black shadow-sm' : 'text-zinc-400 hover:text-white'
                     }`}
                 >
-                    Leads (Invitados) ({clients.filter(c => c.status === 'lead').length})
+                    Leads (Invitados) ({leadClientsCount})
                 </button>
                 <button
                     onClick={() => setActiveTab('marketplace')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                        activeTab === 'marketplace' ? 'bg-emerald-500 text-black' : 'text-zinc-400 hover:text-white'
+                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-all cursor-pointer ${
+                        activeTab === 'marketplace' ? 'bg-emerald-500 text-black shadow-sm' : 'text-zinc-400 hover:text-white'
                     }`}
                 >
-                    Marketplace ({marketplaceLeads.filter(l => l.status === 'new').length})
+                    Marketplace ({newMarketplaceLeadsCount})
                 </button>
             </div>
 
             {/* TABLA DE CLIENTES */}
-            <div className="bg-[#111] border border-zinc-800 rounded-2xl overflow-visible">
-                <table className="w-full text-left">
-                    <thead className="bg-zinc-900/50 text-xs uppercase text-zinc-500 font-medium">
+            <div className="glass-card rounded-3xl overflow-visible">
+                <table className="w-full text-left glass-table">
+                    <thead className="text-xs uppercase text-zinc-400 font-semibold">
                         <tr>
                             <th className="px-6 py-4">Atleta y Acceso</th>
                             <th className="px-6 py-4 hidden md:table-cell">Objetivo</th>
@@ -580,9 +637,14 @@ const Clients = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${client.status === 'Activo' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
-                                            {client.status}
-                                        </span>
+                                        {(() => {
+                                            const isActiveClient = !client.status || client.status.toLowerCase() === 'active' || client.status.toLowerCase() === 'activo';
+                                            return (
+                                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isActiveClient ? 'bg-emerald-500/15 text-emerald-500' : 'bg-yellow-500/15 text-yellow-500'}`}>
+                                                    {isActiveClient ? 'Activo' : client.status}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4 hidden md:table-cell">
                                         {client.payment_status === 'paid' && <div className="w-2 h-2 rounded-full bg-emerald-500" title="Pagado"></div>}
@@ -637,7 +699,7 @@ const Clients = () => {
             {/* MODAL NUEVO CLIENTE */}
             {showNewClientModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
-                    <div className="bg-[#111] border border-zinc-800 w-full max-w-md rounded-2xl p-6 relative shadow animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                    <div className="glass-modal w-full max-w-md rounded-3xl p-6 relative shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
                         <button onClick={() => setShowNewClientModal(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white"><X className="w-6 h-6" /></button>
                         <h2 className="text-xl font-bold text-white mb-6">Añadir Nuevo Cliente</h2>
                         <div className="space-y-4">

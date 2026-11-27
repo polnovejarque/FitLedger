@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut, Shield, Box, Building2, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Dumbbell, Calendar, DollarSign, BarChart3, Settings as SettingsIcon, LogOut, Shield, Box, Building2, MessageSquare, Sun, Moon } from 'lucide-react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -25,6 +25,26 @@ const Sidebar = () => {
     const [logoUrl, setLogoUrl] = useState('/logo.png');
     const [userRole, setUserRole] = useState('admin');
     const [userPlan, setUserPlan] = useState('pro');
+    const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('theme') === 'light' ? 'light' : 'dark'));
+
+    useEffect(() => {
+        const syncTheme = () => {
+            setTheme(localStorage.getItem('theme') === 'light' ? 'light' : 'dark');
+        };
+        window.addEventListener('theme-change', syncTheme);
+        window.addEventListener('storage', syncTheme);
+        return () => {
+            window.removeEventListener('theme-change', syncTheme);
+            window.removeEventListener('storage', syncTheme);
+        };
+    }, []);
+
+    const toggleTheme = () => {
+        const nextTheme: 'dark' | 'light' = theme === 'dark' ? 'light' : 'dark';
+        setTheme(nextTheme);
+        localStorage.setItem('theme', nextTheme);
+        window.dispatchEvent(new Event('theme-change'));
+    };
 
     useEffect(() => {
         const loadBusinessData = async () => {
@@ -134,7 +154,7 @@ const Sidebar = () => {
                                     }
                                 }}
                                 className={({ isActive }) =>
-                                    `flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                                    `flex items-center justify-between w-full px-3.5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${
                                         isActive && !isLocked
                                             ? 'sidebar-item-active'
                                             : 'sidebar-item-inactive'
@@ -172,11 +192,30 @@ const Sidebar = () => {
                     </div>
                 )}
 
-                {/* FOOTER — Cerrar sesión */}
-                <div className="mt-3 pt-3 sidebar-divider-top">
+                {/* FOOTER — Cambio rápido de tema + Cerrar sesión */}
+                <div className="mt-3 pt-3 sidebar-divider-top space-y-1.5">
+                    <button
+                        type="button"
+                        onClick={toggleTheme}
+                        className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 sidebar-theme-toggle cursor-pointer"
+                        aria-label={theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+                    >
+                        <div className="flex items-center gap-3">
+                            {theme === 'dark' ? (
+                                <Sun className="flex-shrink-0 text-amber-400" style={{ width: '1.0625rem', height: '1.0625rem' }} />
+                            ) : (
+                                <Moon className="flex-shrink-0 text-emerald-600" style={{ width: '1.0625rem', height: '1.0625rem' }} />
+                            )}
+                            <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}</span>
+                        </div>
+                        <span className={`w-8 h-4.5 rounded-full p-0.5 flex items-center transition-colors ${theme === 'light' ? 'bg-emerald-500 justify-end' : 'bg-white/15 justify-start'}`}>
+                            <span className="w-3.5 h-3.5 rounded-full bg-white shadow-sm block" />
+                        </span>
+                    </button>
+
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 sidebar-logout"
+                        className="flex items-center gap-3 w-full px-3.5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 sidebar-logout cursor-pointer"
                     >
                         <LogOut className="flex-shrink-0" style={{ width: '1.0625rem', height: '1.0625rem' }} />
                         <span>Cerrar Sesión</span>

@@ -54,7 +54,7 @@ export default {
                 sm: "calc(var(--radius) - 4px)",
             },
             fontFamily: {
-                sans: ['Inter', 'sans-serif'],
+                sans: ['"DM Sans"', 'Inter', 'system-ui', 'sans-serif'],
             },
         },
     },

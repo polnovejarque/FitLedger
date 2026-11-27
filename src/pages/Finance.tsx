@@ -190,10 +190,10 @@ const Finance = () => {
                     <p className="text-zinc-400 mt-1">Controla tus ingresos, gastos y flujo de caja.</p>
                 </div>
                 <div className="flex gap-3">
-                    <Button variant="outline" className="gap-2 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800" onClick={handleExportCSV}>
+                    <Button variant="outline" className="gap-2 rounded-full border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800" onClick={handleExportCSV}>
                         <Download className="w-4 h-4" /> Exportar
                     </Button>
-                    <Button className="gap-2 bg-emerald-500 text-black hover:bg-emerald-400 font-bold" onClick={() => setShowModal(true)}>
+                    <Button className="gap-2 rounded-full bg-emerald-500 text-black hover:bg-emerald-400 font-bold shadow-lg shadow-emerald-500/20" onClick={() => setShowModal(true)}>
                         <Plus className="w-4 h-4" /> Nuevo Movimiento
                     </Button>
                 </div>
@@ -202,8 +202,7 @@ const Finance = () => {
             {/* KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div
-                    className="kpi-featured p-6 rounded-2xl relative overflow-hidden cursor-default transition-all duration-300"
-                    style={{ background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)' }}
+                    className="glass-card p-6 rounded-3xl relative overflow-hidden cursor-default transition-all duration-300"
                 >
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">

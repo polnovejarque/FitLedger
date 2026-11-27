@@ -16,6 +16,8 @@ import { subscribeToPush, sendPushNotification } from '../services/pushNotificat
 import { FitbitService } from '../services/fitbitService';
 import type { ClientWearableConnection } from '../types/wearables';
 
+const WEARABLES_ENABLED = import.meta.env.VITE_ENABLE_WEARABLES === 'true';
+
 const DAILY_TIPS = [
     "El descanso es tan importante como el entrenamiento. Duerme al menos 7-8 horas. 😴",
     "Mantén una buena hidratación durante todo el día, no solo al entrenar. 💧",
@@ -254,14 +256,16 @@ const ClientWorkout = () => {
                 setClientPhoto(clientData.image_url);
                 setPaymentLink(clientData.stripe_link);
 
-                // Cargar conexión de Wearables del atleta
-                try {
-                    const conn = await FitbitService.getConnection(clientData.id);
-                    if (conn && conn.is_active) {
-                        setWearableConnection(conn);
+                // Cargar conexión de Wearables del atleta (solo si está habilitado)
+                if (WEARABLES_ENABLED) {
+                    try {
+                        const conn = await FitbitService.getConnection(clientData.id);
+                        if (conn && conn.is_active) {
+                            setWearableConnection(conn);
+                        }
+                    } catch (e) {
+                        console.warn('Wearables load fallback:', e);
                     }
-                } catch (e) {
-                    console.warn('Wearables load fallback:', e);
                 }
 
                 if (clientData.user_id) { 
@@ -1814,6 +1818,7 @@ const ClientWorkout = () => {
                     <div className="flex items-center gap-3"><Mail className="w-5 h-5 text-blue-400" /><span className="text-white font-bold">Contactar Centro</span></div>
                     <ChevronRight className="w-5 h-5 text-zinc-500" />
                 </button>
+                {WEARABLES_ENABLED && (
                 <button 
                     onClick={() => setActiveProfileModal('wearables')} 
                     className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-all text-left"
@@ -1838,6 +1843,7 @@ const ClientWorkout = () => {
                         <ChevronRight className="w-5 h-5 text-zinc-500" />
                     </div>
                 </button>
+                )}
                 <button onClick={() => setActiveProfileModal('notifications')} className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-all"><div className="flex items-center gap-3"><Bell className="w-5 h-5 text-yellow-500" /><span className="text-white font-bold">Notificaciones</span></div><ChevronRight className="w-5 h-5 text-zinc-500" /></button>
                 <button onClick={() => setActiveProfileModal('settings')} className="w-full flex items-center justify-between p-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-all"><div className="flex items-center gap-3"><Settings className="w-5 h-5 text-purple-500" /><span className="text-white font-bold">Configuración</span></div><ChevronRight className="w-5 h-5 text-zinc-500" /></button>
             </div>

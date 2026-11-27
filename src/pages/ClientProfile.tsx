@@ -20,6 +20,8 @@ import ToastContainer from '../components/ui/ToastContainer';
 import type { ToastProps } from '../components/ui/Toast';
 import { sendPushNotification } from '../services/pushNotificationService';
 
+const WEARABLES_ENABLED = import.meta.env.VITE_ENABLE_WEARABLES === 'true';
+
 const DAYS_OF_WEEK = [
     { id: 1, name: 'Lunes' },
     { id: 2, name: 'Martes' },
@@ -153,41 +155,33 @@ const ClientProfile = () => {
                     setPhotos([]);
                 }
 
-                // 2.5 Cargar datos de wearables y biometría diaria del atleta
-                try {
-                    const { data: wData } = await supabase
-                        .from('client_wearables')
-                        .select('*')
-                        .eq('client_id', id)
-                        .maybeSingle();
-                    setClientWearable(wData);
+                // 2.5 Cargar datos de wearables y biometría diaria del atleta (solo si está habilitado)
+                if (WEARABLES_ENABLED) {
+                    try {
+                        const { data: wData } = await supabase
+                            .from('client_wearables')
+                            .select('*')
+                            .eq('client_id', id)
+                            .maybeSingle();
+                        setClientWearable(wData);
 
-                    const { data: bioData } = await supabase
-                        .from('client_biometrics_daily')
-                        .select('*')
-                        .eq('client_id', id)
-                        .order('date', { ascending: false })
-                        .limit(14);
+                        const { data: bioData } = await supabase
+                            .from('client_biometrics_daily')
+                            .select('*')
+                            .eq('client_id', id)
+                            .order('date', { ascending: false })
+                            .limit(14);
 
-                    if (bioData && bioData.length > 0) {
-                        setBiometricsHistory(bioData);
-                        setTodayBiometrics(bioData[0]);
-                    } else {
-                        // Datos de demostración enriquecidos para visualización del entrenador
-                        const demoData = [
-                            { date: '2026-10-20', steps: 9420, calories_burned: 2380, resting_hr: 58, sleep_minutes: 462, sleep_score: 87, hrv_rmssd: 54 },
-                            { date: '2026-10-19', steps: 11200, calories_burned: 2540, resting_hr: 57, sleep_minutes: 480, sleep_score: 91, hrv_rmssd: 58 },
-                            { date: '2026-10-18', steps: 8300, calories_burned: 2210, resting_hr: 60, sleep_minutes: 420, sleep_score: 79, hrv_rmssd: 49 },
-                            { date: '2026-10-17', steps: 10450, calories_burned: 2490, resting_hr: 58, sleep_minutes: 450, sleep_score: 85, hrv_rmssd: 52 },
-                            { date: '2026-10-16', steps: 12100, calories_burned: 2680, resting_hr: 59, sleep_minutes: 440, sleep_score: 83, hrv_rmssd: 51 },
-                            { date: '2026-10-15', steps: 7600, calories_burned: 2150, resting_hr: 61, sleep_minutes: 390, sleep_score: 72, hrv_rmssd: 44 },
-                            { date: '2026-10-14', steps: 10100, calories_burned: 2420, resting_hr: 58, sleep_minutes: 470, sleep_score: 89, hrv_rmssd: 55 },
-                        ];
-                        setBiometricsHistory(demoData);
-                        setTodayBiometrics(demoData[0]);
+                        if (bioData && bioData.length > 0) {
+                            setBiometricsHistory(bioData);
+                            setTodayBiometrics(bioData[0]);
+                        } else {
+                            setBiometricsHistory([]);
+                            setTodayBiometrics(null);
+                        }
+                    } catch (wErr) {
+                        console.warn('Error loading client wearables:', wErr);
                     }
-                } catch (wErr) {
-                    console.warn('Error loading client wearables:', wErr);
                 }
 
                 // 3. Cargar las rutinas del Coach (Para el selector) y el personal (staff)
@@ -551,7 +545,7 @@ const ClientProfile = () => {
         try { return new Date(dateString).toLocaleDateString(); } catch { return 'N/A'; }
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center bg-black text-white"><Loader2 className="h-10 w-10 animate-spin text-emerald-500"/></div>;
+    if (loading) return <div className="flex h-[calc(100vh-4rem)] md:h-screen items-center justify-center text-white"><Loader2 className="h-10 w-10 animate-spin text-emerald-500"/></div>;
     if (!client) return null;
 
     const displayImage = client.image_url; 
@@ -662,7 +656,7 @@ const ClientProfile = () => {
 
                     {/* TABS */}
                     <div className="mt-10 pt-1 border-t border-zinc-800/50 flex flex-wrap gap-2 justify-center md:justify-start">
-                        {['overview', 'workouts', 'progress', 'wearables', 'finance', 'nutrition', 'chat'].map((tab) => (
+                        {['overview', 'workouts', 'progress', ...(WEARABLES_ENABLED ? ['wearables'] : []), 'finance', 'nutrition', 'chat'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -732,6 +726,7 @@ const ClientProfile = () => {
                             </Card>
 
                             {/* TARJETA DE SALUD & ACTIVIDAD FITBIT (VISTA DEL ENTRENADOR) */}
+                            {WEARABLES_ENABLED && (
                             <Card className="bg-[#111] border-zinc-800 relative overflow-hidden">
                                 <CardHeader className="pb-3">
                                     <div className="flex items-center justify-between">
@@ -828,6 +823,7 @@ const ClientProfile = () => {
                                     </div>
                                 </CardContent>
                             </Card>
+                            )}
                         </div>
                         
                         <div className="space-y-6">
@@ -1124,7 +1120,7 @@ const ClientProfile = () => {
                 )}
 
                 {/* PESTAÑA WEARABLES & SALUD */}
-                {activeTab === 'wearables' && (
+                {WEARABLES_ENABLED && activeTab === 'wearables' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                         {/* ESTADO DEL DISPOSITIVO VINCULADO */}
                         <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

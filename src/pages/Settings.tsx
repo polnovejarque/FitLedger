@@ -77,6 +77,18 @@ const Settings = () => {
     const [role, setRole] = useState<'coach' | 'center' | 'admin' | ''>('');
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
+    useEffect(() => {
+        const syncTheme = () => {
+            setTheme(localStorage.getItem('theme') || 'dark');
+        };
+        window.addEventListener('theme-change', syncTheme);
+        window.addEventListener('storage', syncTheme);
+        return () => {
+            window.removeEventListener('theme-change', syncTheme);
+            window.removeEventListener('storage', syncTheme);
+        };
+    }, []);
+
     // Marketplace state
     const [userId, setUserId] = useState<string | null>(null);
     const [isPublicMarketplace, setIsPublicMarketplace] = useState(false);
@@ -929,32 +941,32 @@ const Settings = () => {
                                 {/* Modo Oscuro */}
                                 <button
                                     onClick={() => handleThemeChange('dark')}
-                                    className={`p-6 rounded-2xl border transition-all text-left flex flex-col justify-between h-40 ${
+                                    className={`p-6 rounded-3xl border transition-all text-left flex flex-col justify-between h-40 cursor-pointer ${
                                         theme === 'dark'
-                                            ? 'bg-zinc-900 border-emerald-500/50 text-white shadow-lg'
-                                            : 'bg-zinc-900/30 border-zinc-800 text-zinc-400 hover:bg-zinc-900/50'
+                                            ? 'glass-card !border-emerald-500/60 ring-1 ring-emerald-500/30 shadow-lg'
+                                            : 'glass-panel opacity-75 hover:opacity-100'
                                     }`}
                                 >
                                     <Moon className={`w-8 h-8 ${theme === 'dark' ? 'text-emerald-500' : 'text-zinc-500'}`} />
                                     <div>
                                         <span className="block text-sm font-bold text-white">Modo Oscuro</span>
-                                        <span className="block text-xs text-zinc-500 mt-1">El tema clásico inmersivo. Recomendado para entornos de poca luz.</span>
+                                        <span className="block text-xs text-zinc-400 mt-1">El tema clásico inmersivo. Recomendado para entornos de poca luz.</span>
                                     </div>
                                 </button>
 
                                 {/* Modo Claro */}
                                 <button
                                     onClick={() => handleThemeChange('light')}
-                                    className={`p-6 rounded-2xl border transition-all text-left flex flex-col justify-between h-40 ${
+                                    className={`p-6 rounded-3xl border transition-all text-left flex flex-col justify-between h-40 cursor-pointer ${
                                         theme === 'light'
-                                            ? 'bg-zinc-900 border-amber-500/50 text-white shadow-lg'
-                                            : 'bg-zinc-900/30 border-zinc-800 text-zinc-400 hover:bg-zinc-900/50'
+                                            ? 'glass-card !border-emerald-500/60 ring-1 ring-emerald-500/30 shadow-lg'
+                                            : 'glass-panel opacity-75 hover:opacity-100'
                                     }`}
                                 >
-                                    <Sun className={`w-8 h-8 ${theme === 'light' ? 'text-amber-400' : 'text-zinc-500'}`} />
+                                    <Sun className={`w-8 h-8 ${theme === 'light' ? 'text-amber-500' : 'text-zinc-500'}`} />
                                     <div>
                                         <span className="block text-sm font-bold text-white">Modo Claro</span>
-                                        <span className="block text-xs text-zinc-500 mt-1">Colores claros y nítidos. Ideal para trabajar en el día a día.</span>
+                                        <span className="block text-xs text-zinc-400 mt-1">Colores claros y nítidos. Ideal para trabajar en el día a día.</span>
                                     </div>
                                 </button>
                             </div>

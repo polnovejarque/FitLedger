@@ -23,45 +23,56 @@
 }
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'DM Sans', Inter, system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: dark;
 
-  /* HSL Color Palette */
-  --background: 240 10% 3.9%;
+  /* FitLeader Official Brandbook Tokens */
+  --brand-emerald: #10b981;
+  --brand-teal: #00525d;
+  --brand-black: #111111;
+  --brand-zinc: #18181b;
+  --brand-muted: #a1a1aa;
+  --shell-bg-image: url('/studio-bg.jpg');
+  --shell-blur: 8px;
+
+  /* HSL Color Palette (Dark Default) */
+  --background: 240 10% 4%;
   /* #09090b */
-  --foreground: 0 0% 98%;
-  /* #fafafa */
+  --foreground: 0 0% 100%;
+  /* #ffffff */
 
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
+  --card: 240 6% 10%;
+  /* #18181b */
+  --card-foreground: 0 0% 100%;
 
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
+  --popover: 240 6% 10%;
+  --popover-foreground: 0 0% 100%;
 
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 7%;
 
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
+  --secondary: 240 4% 16%;
+  --secondary-foreground: 0 0% 100%;
 
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
+  --muted: 240 4% 16%;
+  --muted-foreground: 240 5% 65%;
+  /* #a1a1aa */
 
-  --accent: 158 64% 52%;
+  --accent: 160 84% 39%;
   /* #10b981 Emerald Green (FitLeader Brand Green) */
-  --accent-foreground: 0 0% 98%;
+  --accent-foreground: 0 0% 100%;
 
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  --border: 240 4% 16%;
+  --input: 240 4% 16%;
+  --ring: 160 84% 39%;
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -70,59 +81,59 @@
 }
 
 .dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 158 64% 52%;
-  --accent-foreground: 0 0% 98%;
+  --background: 240 10% 4%;
+  --foreground: 0 0% 100%;
+  --card: 240 6% 10%;
+  --card-foreground: 0 0% 100%;
+  --popover: 240 6% 10%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 7%;
+  --secondary: 240 4% 16%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 240 4% 16%;
+  --muted-foreground: 240 5% 65%;
+  --accent: 160 84% 39%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  --border: 240 4% 16%;
+  --input: 240 4% 16%;
+  --ring: 160 84% 39%;
 }
 
-/* Light Theme overrides - Estilo Finexy/Fintech con colores FitLeader */
+/* Light Theme overrides - Cristal translúcido luminoso con contraste negro #111111 */
 .light {
   color-scheme: light;
-  /* Fondo gris-perla neutro suave (estilo dashboard fintech) */
-  --background: 220 25% 93%;
-  --foreground: 222 47% 11%;
+  --background: 150 10% 96%;
+  --foreground: 0 0% 7%;
+  /* #111111 */
 
-  /* Cards blancos puros para que destaquen sobre el fondo gris-perla */
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 0 0% 7%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 0 0% 7%;
 
-  --primary: 222 47% 11%;
-  --primary-foreground: 0 0% 98%;
+  --primary: 0 0% 7%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 20% 88%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary: 240 5% 94%;
+  --secondary-foreground: 0 0% 7%;
 
-  --muted: 220 15% 88%;
-  --muted-foreground: 220 10% 40%;
+  --muted: 240 5% 92%;
+  --muted-foreground: 240 4% 34%;
+  /* #52525b */
 
-  --accent: 158 64% 40%;
+  --accent: 160 84% 34%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 220 15% 82%;
-  --input: 220 15% 85%;
-  --ring: 158 64% 40%;
+  --border: 240 6% 88%;
+  --input: 240 6% 88%;
+  --ring: 160 84% 34%;
 
   /* Redefine Tailwind v4 variables locally inside .light to override :root inheritance */
   --color-border: hsl(var(--border));
@@ -146,220 +157,465 @@
   --color-card-foreground: hsl(var(--card-foreground));
 }
 
-/* Sombras en cards del modo claro para la jerarquía visual estilo fintech */
-.light .bg-card,
-.light .rounded-2xl,
-.light .rounded-xl {
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05) !important;
+/* ==========================================
+   LIENZO DE FONDO ARQUITECTÓNICO DIFUMINADO (COACH SHELL)
+   ========================================== */
+
+.coach-bg-stage {
+  background-color: #090b0c;
 }
 
-/* Adaptaciones de colores para contrastar mejor sobre tarjetas blancas en modo claro */
+.light .coach-bg-stage {
+  background-color: #f4f6f4;
+}
+
+.coach-bg-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(var(--shell-blur, 8px)) brightness(0.76) saturate(1.06);
+  transform: scale(1.06);
+  transition: filter 0.3s ease, opacity 0.3s ease;
+}
+
+.light .coach-bg-photo {
+  filter: blur(var(--shell-blur, 8px)) brightness(1.05) saturate(0.95) !important;
+}
+
+.coach-bg-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    155deg,
+    rgba(10, 12, 11, 0.34) 0%,
+    rgba(12, 15, 14, 0.26) 50%,
+    rgba(6, 18, 17, 0.42) 100%
+  );
+  transition: background 0.3s ease;
+}
+
+.light .coach-bg-scrim {
+  background: linear-gradient(
+    160deg,
+    rgba(250, 249, 246, 0.34) 0%,
+    rgba(244, 248, 246, 0.28) 55%,
+    rgba(235, 244, 240, 0.38) 100%
+  );
+}
+
+.coach-bg-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(16, 185, 129, 0.14) 0%, transparent 45%),
+    radial-gradient(circle at 15% 88%, rgba(0, 82, 93, 0.22) 0%, transparent 50%);
+  transition: background 0.3s ease;
+}
+
+.light .coach-bg-glow {
+  background:
+    radial-gradient(circle at 84% 12%, rgba(16, 185, 129, 0.13) 0%, transparent 46%),
+    radial-gradient(circle at 12% 85%, rgba(0, 82, 93, 0.10) 0%, transparent 48%);
+}
+
+/* ==========================================
+   SISTEMA GLASSMORPHISM (CARDS, PILLS, BARRAS KPI)
+   ========================================== */
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-card {
+  background: rgba(18, 20, 19, 0.50);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 12px 36px rgba(0, 0, 0, 0.32);
+}
+
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.66);
+  backdrop-filter: blur(24px) saturate(155%);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 8px 32px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.light .glass-panel {
+  background: rgba(17, 17, 17, 0.04);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.light .glass-pill {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.glass-modal {
+  background: rgba(16, 18, 20, 0.88) !important;
+  backdrop-filter: blur(26px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(150%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 64px rgba(0, 0, 0, 0.50) !important;
+}
+
+.light .glass-modal {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(26px) saturate(165%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(165%) !important;
+  border: 1px solid rgba(17, 17, 17, 0.09) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 24px 60px rgba(15, 23, 42, 0.14) !important;
+}
+
+.kpi-bar-track {
+  width: 100%;
+  height: 3.5px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.13);
+  overflow: hidden;
+}
+
+.light .kpi-bar-track {
+  background: rgba(17, 17, 17, 0.10);
+}
+
+.kpi-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.coach-mobile-header {
+  background: rgba(13, 15, 17, 0.72);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.light .coach-mobile-header {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(165%);
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+/* ==========================================
+   MAPEO GLOBAL PARA TODAS LAS PÁGINAS DEL COACH (.coach-shell)
+   ========================================== */
+
+/* --- DARK MODE (.coach-shell.dark) --- */
+.coach-shell.dark .bg-\[\#111\],
+.coach-shell.dark .bg-\[\#111112\],
+.coach-shell.dark .bg-\[\#121214\],
+.coach-shell.dark .bg-\[\#151518\],
+.coach-shell.dark .bg-\[\#0c0c0e\],
+.coach-shell.dark .bg-\[\#0d0d0f\],
+.coach-shell.dark .bg-\[\#0b0b0c\],
+.coach-shell.dark .bg-\[\#070708\],
+.coach-shell.dark .bg-card {
+  background-color: rgba(18, 20, 19, 0.50) !important;
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 12px 36px rgba(0, 0, 0, 0.32);
+}
+
+.coach-shell.dark .bg-\[\#18181b\] {
+  background-color: rgba(18, 20, 22, 0.88) !important;
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  border-color: rgba(255, 255, 255, 0.11) !important;
+}
+
+.coach-shell.dark .fixed.inset-0:not(.coach-bg-stage) > div:not(.bg-black) {
+  background-color: rgba(16, 18, 20, 0.90) !important;
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.coach-shell.dark .bg-black\/80,
+.coach-shell.dark .bg-black\/85,
+.coach-shell.dark .bg-black\/90 {
+  background-color: rgba(0, 0, 0, 0.65) !important;
+  backdrop-filter: blur(6px);
+}
+
+.coach-shell.dark input:not([type="checkbox"]):not([type="radio"]),
+.coach-shell.dark select,
+.coach-shell.dark textarea {
+  background-color: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Adaptación de colores semánticos en modo claro */
 .light .text-emerald-500, .light .text-emerald-400 {
-  color: hsl(158 64% 40%) !important;
+  color: #059669 !important;
 }
 .light .bg-emerald-500\/10 {
-  background-color: hsl(158 64% 95%) !important;
+  background-color: rgba(16, 185, 129, 0.11) !important;
 }
 .light .border-emerald-500\/20 {
-  border-color: hsl(158 64% 90%) !important;
+  border-color: rgba(16, 185, 129, 0.24) !important;
 }
 
-.light .text-blue-500 {
-  color: hsl(221.2 83.2% 45%) !important;
+.light .text-blue-500, .light .text-blue-400 {
+  color: #1d4ed8 !important;
 }
 .light .bg-blue-500\/10 {
-  background-color: hsl(221.2 83.2% 96%) !important;
+  background-color: rgba(37, 99, 235, 0.10) !important;
 }
 
 .light .text-purple-500, .light .text-purple-400 {
-  color: hsl(262.1 83.3% 50%) !important;
+  color: #6d28d9 !important;
 }
 .light .bg-purple-500\/10 {
-  background-color: hsl(262.1 83.3% 96%) !important;
+  background-color: rgba(109, 40, 217, 0.10) !important;
 }
 
 .light .text-orange-500 {
-  color: hsl(24.6 95% 40%) !important;
+  color: #c2410c !important;
 }
 .light .bg-orange-500\/10 {
-  background-color: hsl(24.6 95% 96%) !important;
+  background-color: rgba(234, 88, 12, 0.10) !important;
+}
+
+.light .text-amber-500, .light .text-amber-400 {
+  color: #b45309 !important;
 }
 
 .light .text-cyan-500, .light .text-cyan-400 {
-  color: hsl(188.7 94.5% 30%) !important;
+  color: #00525d !important;
 }
 .light .bg-cyan-500\/10 {
-  background-color: hsl(188.7 94.5% 95%) !important;
+  background-color: rgba(0, 82, 93, 0.10) !important;
 }
 
-/* Forzar que todos los textos blancos y grises tengan opacidad completa y se lean perfectamente en negro */
+.light .text-red-400, .light .text-red-500 {
+  color: #dc2626 !important;
+}
+
+/* Forzar textos primarios en negro #111111 y secundarios en #52525b sobre cristal claro */
 .light .text-white,
 .light [class*="text-white/"],
 .light .text-zinc-50, .light [class*="text-zinc-50/"],
 .light .text-zinc-100, .light [class*="text-zinc-100/"],
 .light .text-zinc-200, .light [class*="text-zinc-200/"],
 .light .text-zinc-300, .light [class*="text-zinc-300/"] {
-  color: hsl(var(--foreground)) !important;
+  color: #111111 !important;
   opacity: 1 !important;
 }
 
-/* Textos secundarios (zinc-400 y zinc-500) mapeados a gris oscuro nítido */
 .light .text-zinc-400, .light [class*="text-zinc-400/"],
 .light .text-zinc-500, .light [class*="text-zinc-500/"] {
-  color: hsl(var(--muted-foreground)) !important;
+  color: #52525b !important;
   opacity: 1 !important;
 }
 
-/* Corregir textos de banners de alerta o Stripe (text-blue-100/200/300) para evitar contraste lavado */
+.light .text-zinc-600 {
+  color: #71717a !important;
+}
+
 .light .text-blue-100, .light [class*="text-blue-100/"],
 .light .text-blue-200, .light [class*="text-blue-200/"],
 .light .text-blue-300, .light [class*="text-blue-300/"] {
-  color: hsl(221.2 83.2% 25%) !important;
-  opacity: 1 !important;
-}
-.light .text-blue-400 {
-  color: hsl(221.2 83.2% 45%) !important;
+  color: #1e3a8a !important;
   opacity: 1 !important;
 }
 
-/* Corregir opacidades de imágenes (portadas de rutinas y entrenamientos) en modo claro para que sean nítidas y sólidas */
-.light img {
+/* Imágenes nítidas */
+.light img:not(.coach-bg-photo) {
   opacity: 1 !important;
   filter: none !important;
 }
 
-/* Adaptación de Tooltips de Recharts para modo claro */
-.light .recharts-default-tooltip {
-  background-color: hsl(var(--card)) !important;
-  border: 1px solid hsl(var(--border)) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+/* Tooltips de Recharts para modo claro y oscuro */
+.coach-shell.dark .recharts-default-tooltip,
+.coach-shell.dark .recharts-wrapper .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: rgba(16, 18, 20, 0.90) !important;
+  backdrop-filter: blur(18px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38) !important;
+  color: #ffffff !important;
+}
+
+.light .recharts-default-tooltip,
+.light .recharts-wrapper .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(18px) !important;
+  border: 1px solid rgba(17, 17, 17, 0.10) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12) !important;
 }
 .light .recharts-tooltip-item {
-  color: hsl(158 64% 40%) !important;
+  color: #059669 !important;
 }
 .light .recharts-tooltip-label {
-  color: hsl(var(--foreground)) !important;
+  color: #111111 !important;
+  font-weight: 700 !important;
 }
 
 /* Tooltip manual de la gráfica de Reportes en modo claro */
 .light .report-tooltip {
-  background-color: hsl(var(--card)) !important;
-  border-color: hsl(var(--border)) !important;
-  color: hsl(var(--foreground)) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(18px) !important;
+  border-color: rgba(17, 17, 17, 0.10) !important;
+  color: #111111 !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12) !important;
 }
 .light .report-tooltip-income {
-  color: hsl(158 64% 40%) !important;
+  color: #059669 !important;
 }
 .light .report-tooltip-expense {
-  color: hsl(0 72% 42%) !important;
+  color: #dc2626 !important;
 }
 
 /* Columna de horas de la Agenda: mantener fondo oscuro y texto blanco en modo claro */
 .light .agenda-time-column {
-  background-color: #1a1a1f !important;
+  background-color: #18181b !important;
   color: #ffffff !important;
 }
 .light .agenda-time-cell {
   color: #ffffff !important;
-  background-color: #1a1a1f !important;
-  border-color: rgba(255,255,255,0.08) !important;
+  background-color: #18181b !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Proteger el card destacado de Ingresos (gradiente esmeralda) en modo claro:
-   Sus textos blancos NO deben convertirse a negro. */
-.light .kpi-featured *,
-.light .kpi-featured .text-white,
-.light .kpi-featured .text-white\/80,
-.light .kpi-featured .text-white\/75 {
-  color: #ffffff !important;
-  opacity: 1 !important;
+/* Light Theme Surface Overrides - Cristal blanco translúcido sin grises opacos */
+.coach-shell.light .bg-black,
+.coach-shell.light .bg-zinc-950,
+.coach-shell.light .bg-\[\#09090b\],
+.coach-shell.light .bg-\[\#050505\] {
+  background-color: transparent !important;
 }
 
-/* Light Theme Utility Overrides */
-.light.bg-black, .light .bg-black {
-  background-color: hsl(var(--background)) !important;
-}
-.light.bg-zinc-950, .light .bg-zinc-950 {
-  background-color: hsl(var(--background)) !important;
+/* Tablas: evitar esquinas cuadradas sobresaliendo detrás de tarjetas redondeadas */
+.coach-shell table.glass-table,
+.coach-shell .rounded-3xl > table,
+.coach-shell .rounded-2xl > table {
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-/* Tabla: cabeceras oscuras → gris perla suave en modo claro */
+.coach-shell.dark .rounded-3xl > table thead,
+.coach-shell.dark .rounded-2xl > table thead,
+.coach-shell.dark .rounded-3xl > table thead tr,
+.coach-shell.dark .rounded-2xl > table thead tr {
+  background-color: transparent !important;
+}
+
+.coach-shell.dark table.glass-table thead th,
+.coach-shell.dark .rounded-3xl > table thead th,
+.coach-shell.dark .rounded-2xl > table thead th {
+  background-color: rgba(255, 255, 255, 0.045);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.coach-shell.dark table.glass-table tbody tr:not(:last-child) td,
+.coach-shell.dark .rounded-3xl > table tbody tr:not(:last-child) td,
+.coach-shell.dark .rounded-2xl > table tbody tr:not(:last-child) td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.coach-shell .rounded-3xl > table thead tr:first-child th:first-child {
+  border-top-left-radius: 1.5rem;
+}
+.coach-shell .rounded-3xl > table thead tr:first-child th:last-child {
+  border-top-right-radius: 1.5rem;
+}
+.coach-shell .rounded-3xl > table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 1.5rem;
+}
+.coach-shell .rounded-3xl > table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 1.5rem;
+}
+
+.coach-shell .rounded-2xl > table thead tr:first-child th:first-child {
+  border-top-left-radius: 1rem;
+}
+.coach-shell .rounded-2xl > table thead tr:first-child th:last-child {
+  border-top-right-radius: 1rem;
+}
+.coach-shell .rounded-2xl > table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 1rem;
+}
+.coach-shell .rounded-2xl > table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 1rem;
+}
+
 .light thead,
-.light thead tr,
-.light .bg-black\/50,
-.light .bg-black\/30 {
-  background-color: hsl(220 20% 88%) !important;
-  color: hsl(var(--foreground)) !important;
+.light thead tr {
+  background-color: transparent !important;
+  color: #52525b !important;
 }
 
-/* Tooltip de Recharts en modo claro → fondo blanco automático */
-.light .recharts-wrapper .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background-color: hsl(var(--card)) !important;
-  border: 1px solid hsl(var(--border)) !important;
-  border-radius: 10px !important;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.10) !important;
-  color: hsl(var(--foreground)) !important;
+.light .bg-zinc-950\/70,
+.light .bg-zinc-950\/60,
+.light .bg-zinc-950\/50,
+.light .bg-\[\#111\],
+.light .bg-\[\#111112\],
+.light .bg-\[\#121214\],
+.light .bg-\[\#151518\],
+.light .bg-\[\#0c0c0e\],
+.light .bg-\[\#0d0d0f\],
+.light .bg-\[\#0b0b0c\],
+.light .bg-\[\#070708\],
+.light .bg-card {
+  background-color: rgba(255, 255, 255, 0.66) !important;
+  backdrop-filter: blur(24px) saturate(155%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(155%) !important;
+  border-color: rgba(255, 255, 255, 0.78) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 8px 32px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05) !important;
 }
-.light .bg-zinc-950\/70, .light .bg-zinc-950\/50 {
-  background-color: hsl(var(--card)) !important;
+
+/* Sub-superficies y pills internos en modo claro: tinte ultra-suave y limpio */
+.light .bg-zinc-900,
+.light .bg-zinc-900\/80,
+.light .bg-zinc-900\/60,
+.light .bg-zinc-900\/50,
+.light .bg-zinc-900\/40,
+.light .bg-zinc-900\/30,
+.light .bg-zinc-900\/20,
+.light .bg-zinc-900\/10,
+.light .bg-zinc-800,
+.light .bg-zinc-800\/80,
+.light .bg-zinc-800\/50,
+.light .bg-black\/50,
+.light .bg-black\/40,
+.light .bg-black\/30,
+.light .bg-black\/20 {
+  background-color: rgba(17, 17, 17, 0.045) !important;
+  color: #111111 !important;
 }
-.light.bg-\[\#111\], .light .bg-\[\#111\] {
-  background-color: hsl(var(--card)) !important;
-}
-.light.bg-zinc-900, .light .bg-zinc-900 {
-  background-color: hsl(var(--secondary)) !important;
-}
-.light .bg-zinc-900\/10, .light .bg-zinc-900\/20, .light .bg-zinc-900\/30, .light .bg-zinc-900\/50 {
-  background-color: hsl(var(--secondary) / 0.5) !important;
-}
-.light.bg-\[\#0c0c0e\], .light .bg-\[\#0c0c0e\] {
-  background-color: hsl(var(--card)) !important;
-}
-.light.bg-\[\#09090b\], .light .bg-\[\#09090b\] {
-  background-color: hsl(var(--background)) !important;
-}
-.light.bg-\[\#050505\], .light .bg-\[\#050505\] {
-  background-color: hsl(var(--secondary)) !important;
-}
-.light.bg-zinc-800, .light .bg-zinc-800 {
-  background-color: hsl(var(--muted)) !important;
-}
-.light.text-white, .light .text-white {
-  color: hsl(var(--foreground)) !important;
-}
-.light.text-zinc-100, .light .text-zinc-100 {
-  color: hsl(var(--foreground)) !important;
-}
-.light.text-zinc-200, .light .text-zinc-200 {
-  color: hsl(var(--foreground)) !important;
-}
-.light.text-zinc-300, .light .text-zinc-300 {
-  color: hsl(var(--foreground)) !important;
-}
-.light.text-zinc-400, .light .text-zinc-400 {
-  color: hsl(var(--muted-foreground)) !important;
-}
-.light.text-zinc-500, .light .text-zinc-500 {
-  color: hsl(var(--muted-foreground)) !important;
-}
-.light.border-zinc-800, .light .border-zinc-800 {
-  border-color: hsl(var(--border)) !important;
-}
-.light.border-zinc-700, .light .border-zinc-700 {
-  border-color: hsl(var(--border)) !important;
-}
-.light.border-white\/10, .light .border-white\/10 {
-  border-color: hsl(var(--border)) !important;
-}
-.light.border-white\/5, .light .border-white\/5 {
-  border-color: hsl(var(--border)) !important;
-}
-.light input, .light select, .light textarea {
-  color: hsl(var(--foreground)) !important;
-  background-color: hsl(var(--background)) !important;
-  border-color: hsl(var(--border)) !important;
+
+.light .border-zinc-800,
+.light .border-zinc-700,
+.light .border-white\/10,
+.light .border-white\/5 {
+  border-color: rgba(17, 17, 17, 0.09) !important;
 }
 
 * {
@@ -408,69 +664,69 @@ body {
 }
 
 /* ==========================================
-   MODO CLARO - REGLAS GLOBALES PARA TODAS LAS PÁGINAS
-   Cubren modales, tablas, inputs, sidebar, botones, etc.
-   sin necesidad de editar cada página individualmente.
+   MODO CLARO - REGLAS GLOBALES GLASSMORPHISM PARA TODAS LAS PÁGINAS
    ========================================== */
 
 /* --- INPUTS, SELECTS Y TEXTAREAS --- */
 .light input:not([type="checkbox"]):not([type="radio"]),
 .light select,
 .light textarea {
-  background-color: #ffffff !important;
-  color: hsl(var(--foreground)) !important;
-  border-color: hsl(var(--border)) !important;
+  background-color: rgba(255, 255, 255, 0.82) !important;
+  color: #111111 !important;
+  border-color: rgba(17, 17, 17, 0.12) !important;
 }
 .light input::placeholder,
 .light textarea::placeholder {
-  color: hsl(var(--muted-foreground)) !important;
-  opacity: 0.7 !important;
+  color: #71717a !important;
+  opacity: 0.9 !important;
 }
 .light input:focus,
 .light select:focus,
 .light textarea:focus {
-  border-color: hsl(158 64% 45%) !important;
-  box-shadow: 0 0 0 2px hsl(158 64% 45% / 0.15) !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18) !important;
 }
 
 /* --- MODALES Y POPOVERS --- */
-.light .fixed.inset-0 > div:not(.bg-black),
-.light .fixed.inset-0 > div:not([style*="background"]) > div {
-  background-color: #ffffff !important;
-  border-color: hsl(var(--border)) !important;
+.light .fixed.inset-0:not(.coach-bg-stage) > div:not(.bg-black),
+.light .fixed.inset-0:not(.coach-bg-stage) > div:not([style*="background"]) > div {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(24px) saturate(165%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(165%) !important;
+  border-color: rgba(17, 17, 17, 0.09) !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14) !important;
 }
-/* Fondo oscuro del overlay de modales: mantenerlo semitransparente */
 .light .bg-black\/80,
+.light .bg-black\/85,
+.light .bg-black\/90,
 .light .bg-black\/70,
 .light .bg-black\/60 {
-  background-color: rgba(0, 0, 0, 0.45) !important;
+  background-color: rgba(15, 23, 42, 0.30) !important;
+  backdrop-filter: blur(6px);
 }
 
 /* --- TABLAS DE DATOS --- */
 .light table {
-  background-color: #ffffff !important;
+  background-color: transparent !important;
 }
 .light th {
-  background-color: hsl(220 20% 92%) !important;
-  color: hsl(var(--foreground)) !important;
+  background-color: rgba(17, 17, 17, 0.035) !important;
+  color: #52525b !important;
   font-weight: 600 !important;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.07) !important;
 }
 .light td {
-  color: hsl(var(--foreground)) !important;
-  border-color: hsl(var(--border)) !important;
+  color: #111111 !important;
+  border-color: rgba(17, 17, 17, 0.07) !important;
+}
+.light tbody tr:last-child td {
+  border-bottom: none !important;
 }
 .light tr:hover td {
-  background-color: hsl(220 20% 96%) !important;
+  background-color: rgba(16, 185, 129, 0.055) !important;
 }
 .light .divide-zinc-800 > * + * {
-  border-color: hsl(var(--border)) !important;
-}
-
-/* --- SIDEBAR EN MODO CLARO --- */
-.light aside {
-  background-color: #ffffff !important;
-  border-color: hsl(var(--border)) !important;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.06) !important;
+  border-color: rgba(17, 17, 17, 0.07) !important;
 }
 
 /* --- BOTONES OUTLINE EN MODO CLARO --- */
@@ -478,34 +734,27 @@ body {
 .light button[class*="border-zinc-800"],
 .light a[class*="border-zinc-700"],
 .light a[class*="border-zinc-800"] {
-  border-color: hsl(var(--border)) !important;
-  color: hsl(var(--foreground)) !important;
-  background-color: #ffffff !important;
+  border-color: rgba(17, 17, 17, 0.11) !important;
+  color: #111111 !important;
+  background-color: rgba(255, 255, 255, 0.78) !important;
 }
 .light button[class*="border-zinc-700"]:hover,
 .light button[class*="border-zinc-800"]:hover {
-  background-color: hsl(var(--secondary)) !important;
-}
-
-/* --- BADGES Y PILLS DE ESTADO --- */
-.light .bg-zinc-800,
-.light .bg-zinc-900\/50,
-.light .bg-zinc-900\/30 {
-  background-color: hsl(220 15% 88%) !important;
-  color: hsl(var(--foreground)) !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
 }
 
 /* --- DROPDOWN MENUS (bg-[#18181b] etc.) --- */
 .light [class*="18181b"] {
-  background-color: #ffffff !important;
-  border-color: hsl(var(--border)) !important;
-  color: hsl(var(--foreground)) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.10) !important;
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  border-color: rgba(17, 17, 17, 0.10) !important;
+  color: #111111 !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12) !important;
 }
 
 /* --- CABECERAS DE SECCIÓN --- */
 .light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
-  color: hsl(var(--foreground)) !important;
+  color: #111111 !important;
 }
 
 /* --- SEPARADORES / DIVIDERS --- */
@@ -514,69 +763,67 @@ body {
 .light .border-l,
 .light .border-r,
 .light .border {
-  border-color: hsl(var(--border)) !important;
+  border-color: rgba(17, 17, 17, 0.09) !important;
 }
 
-/* --- SCROLLBAR EN MODO CLARO --- */
+/* --- SCROLLBAR --- */
 .light ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 .light ::-webkit-scrollbar-track {
-  background: hsl(220 15% 88%);
+  background: transparent;
 }
 .light ::-webkit-scrollbar-thumb {
-  background: hsl(220 10% 70%);
-  border-radius: 3px;
+  background: rgba(17, 17, 17, 0.18);
+  border-radius: 9999px;
 }
 .light ::-webkit-scrollbar-thumb:hover {
-  background: hsl(158 64% 45%);
-}
-
-/* --- STAT BADGES (Hoy, Mes, etc) en modo claro --- */
-.light span[class*="bg-zinc-800"][class*="rounded-full"],
-.light span[class*="bg-zinc-900"][class*="rounded-full"] {
-  background-color: hsl(220 20% 86%) !important;
-  color: hsl(var(--foreground)) !important;
+  background: #10b981;
 }
 
 /* --- CARDS CON COLORES SEMITRANSPARENTES EN MODO CLARO --- */
-/* Estos ya funcionan bien en light gracias a los overrides anteriores,
-   pero añadimos sombra extra para la jerarquía visual fintech */
 .light [class*="bg-emerald-500/5"],
 .light [class*="bg-emerald-500\/5"] {
-  background-color: hsl(158 64% 96%) !important;
-  border-color: hsl(158 64% 85%) !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 4px 16px rgba(5, 150, 105, 0.06) !important;
+  background-color: rgba(236, 253, 245, 0.76) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  border-color: rgba(16, 185, 129, 0.22) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 6px 24px rgba(16, 185, 129, 0.06) !important;
 }
 .light [class*="bg-blue-500/5"],
 .light [class*="bg-blue-500\/5"] {
-  background-color: hsl(221 83% 96%) !important;
-  border-color: hsl(221 83% 88%) !important;
+  background-color: rgba(239, 246, 255, 0.78) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  border-color: rgba(37, 99, 235, 0.18) !important;
 }
 .light [class*="bg-amber-500/5"],
 .light [class*="bg-amber-500\/5"] {
-  background-color: hsl(43 96% 96%) !important;
-  border-color: hsl(43 96% 88%) !important;
+  background-color: rgba(255, 251, 235, 0.78) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  border-color: rgba(217, 119, 6, 0.18) !important;
 }
 .light [class*="bg-purple-500/5"],
 .light [class*="bg-purple-500\/5"] {
-  background-color: hsl(262 83% 97%) !important;
-  border-color: hsl(262 83% 90%) !important;
+  background-color: rgba(245, 243, 255, 0.78) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  border-color: rgba(109, 40, 217, 0.18) !important;
 }
 
 /* ==========================================
-   NUEVO DISEÑO DE SIDEBAR - PILAS/CARDS INDIVIDUALES
+   SIDEBAR FROSTED GLASS - FITLEADER
    ========================================== */
 
-/* Dark Mode Sidebar (Por defecto) */
+/* Dark Mode Sidebar */
 .sidebar-shell {
-  background-color: #09090b;
-  border-right: 1px solid #1c1c24;
+  background: rgba(16, 18, 17, 0.50);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border-right: 1px solid rgba(255, 255, 255, 0.11);
 }
 
 .sidebar-logo-bg {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-brand {
@@ -585,94 +832,169 @@ body {
 
 .sidebar-divider {
   height: 1px;
-  background-color: #1c1c24;
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-divider-top {
-  border-top: 1px solid #1c1c24;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-item-active {
-  background-color: hsl(var(--accent));
+  background: rgba(255, 255, 255, 0.12);
   color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
 .sidebar-item-active svg {
-  color: #ffffff !important;
+  color: #10b981 !important;
 }
 
 .sidebar-item-inactive {
   color: #a1a1aa;
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: transparent;
 }
 
 .sidebar-item-inactive:hover {
   color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.06);
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+.sidebar-theme-toggle {
+  color: #d4d4d8;
+  background-color: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.sidebar-theme-toggle:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.09);
 }
 
 .sidebar-logout {
   color: #a1a1aa;
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: transparent;
 }
 
 .sidebar-logout:hover {
-  color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  background-color: rgba(239, 68, 68, 0.10);
 }
 
 /* Light Mode Sidebar Overrides */
 .light .sidebar-shell {
-  background-color: #ffffff !important;
-  border-right: 1px solid hsl(var(--border)) !important;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.03) !important;
+  background: rgba(255, 255, 255, 0.60) !important;
+  backdrop-filter: blur(24px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.72) !important;
+  box-shadow: 4px 0 28px rgba(15, 23, 42, 0.06) !important;
 }
 
 .light .sidebar-logo-bg {
-  background-color: hsl(var(--secondary)) !important;
+  background-color: rgba(17, 17, 17, 0.04) !important;
+  border: 1px solid rgba(17, 17, 17, 0.07);
 }
 
 .light .sidebar-brand {
-  color: hsl(var(--foreground)) !important;
+  color: #111111 !important;
 }
 
 .light .sidebar-divider {
-  background-color: hsl(var(--border)) !important;
+  background-color: rgba(17, 17, 17, 0.08) !important;
 }
 
 .light .sidebar-divider-top {
-  border-top: 1px solid hsl(var(--border)) !important;
+  border-top: 1px solid rgba(17, 17, 17, 0.08) !important;
 }
 
 .light .sidebar-item-active {
-  background-color: hsl(var(--accent)) !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #111111 !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08) !important;
 }
 
 .light .sidebar-item-active svg {
-  color: #ffffff !important;
+  color: #059669 !important;
+}
+
+.light .sidebar-item-active span {
+  color: #111111 !important;
 }
 
 .light .sidebar-item-inactive {
-  color: hsl(var(--muted-foreground)) !important;
-  background-color: hsl(var(--secondary)) !important;
+  color: #52525b !important;
+  background-color: transparent !important;
 }
 
 .light .sidebar-item-inactive:hover {
-  color: hsl(var(--foreground)) !important;
-  background-color: hsl(var(--border)) !important;
+  color: #111111 !important;
+  background-color: rgba(17, 17, 17, 0.055) !important;
+}
+
+.light .sidebar-theme-toggle {
+  color: #111111 !important;
+  background-color: rgba(17, 17, 17, 0.045) !important;
+  border: 1px solid rgba(17, 17, 17, 0.08) !important;
+}
+
+.light .sidebar-theme-toggle:hover {
+  background-color: rgba(17, 17, 17, 0.08) !important;
 }
 
 .light .sidebar-logout {
-  color: hsl(var(--muted-foreground)) !important;
-  background-color: hsl(var(--secondary)) !important;
+  color: #52525b !important;
+  background-color: transparent !important;
 }
 
 .light .sidebar-logout:hover {
   color: #dc2626 !important;
-  background-color: #fef2f2 !important;
+  background-color: rgba(220, 38, 38, 0.08) !important;
+}
+
+/* ==========================================
+   PROTECCIÓN ESTRICTA DE CONTRASTES EN MODO CLARO
+   (Debe ir DESPUÉS de las reglas generales .light .text-white)
+   ========================================== */
+.light .kpi-featured,
+.light .kpi-featured *,
+.light .kpi-featured .text-white,
+.light .kpi-featured .text-white\/80,
+.light .kpi-featured .text-white\/75,
+.light .kpi-featured h3,
+.light .kpi-featured p,
+.light .kpi-featured span {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.light .pill-active-dark,
+.light .pill-active-dark *,
+.light .agenda-time-badge,
+.light .agenda-time-badge * {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.light [class*="bg-emerald-600"].text-white,
+.light [class*="bg-emerald-600"].text-white *,
+.light [class*="bg-blue-600"].text-white,
+.light [class*="bg-blue-600"].text-white *,
+.light [class*="bg-purple-600"].text-white,
+.light [class*="bg-purple-600"].text-white *,
+.light [class*="bg-red-600"].text-white,
+.light [class*="bg-red-600"].text-white *,
+.light [class*="bg-red-500"].text-white,
+.light [class*="bg-red-500"].text-white *,
+.light [class*="bg-teal-600"].text-white,
+.light [class*="bg-teal-600"].text-white *,
+.light [class*="bg-emerald-500"].text-white,
+.light [class*="bg-emerald-500"].text-white * {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.light [class*="bg-emerald-500"].text-black,
+.light [class*="bg-emerald-500"] .text-black {
+  color: #06130f !important;
 }
 
 /* ==========================================
